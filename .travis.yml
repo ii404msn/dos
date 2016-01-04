@@ -2,9 +2,6 @@ language: cpp
 compiler: gcc
 env:
     - PROTOBUF_VERSION=2.6.0
-install:
-    - apt-get update
-    - apt-get install libreadline-dev
 script: 
     - sh build.sh
 
