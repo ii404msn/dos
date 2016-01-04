@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+import "proto/dos.proto"
+
+message SubmitJobRequest{
+    optional string uid = 1;
+    optional JobSpec job = 2;
+}
+
+message SubmitJobResponse {
+    optional Status status = 1; 
+}
+
+message Master {
+
+    // submit a job to master 
+    rpc SubmitJob(SubmitJobRequest) returns(SubmitJobResponse);
+}

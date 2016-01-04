@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package dos;
+
+enum Status {
+    kOK = 0;    
+}
+
+message User {
+    optional string uid = 1;
+    optional string name = 2;
+    optional uint64 create_time = 3;
+}
+
+message Cpu {
+    optional uint32 limit = 1;
+    optional uint32 share = 2;
+    optional uint32 used = 3;
+}
+
+message Memory {
+    optional uint64 limit = 1;
+    optional uint64 used = 2;
+}
+
+message Port {
+    repeated uint32 ports = 1;
+    // port_name will be assigned real port and inject it into enviroment 
+    // with same name
+    repeated string port_names = 2;
+}
+
+message Network {
+    optional uint32 in_bytes_ps = 1;
+    optional uint32 out_bytes_ps = 2;
+}
+
+message DiskIO {
+    optional uint32 read_bytes_ps = 1;
+    optional uint32 write_bytes_ps = 2;
+}
+
+// the resource for service run time
+message Resource {
+    optional Cpu cpu = 1;
+    optional Memory memory = 2;
+    optional Port port = 3;
+    optional Network network = 4;
+    optional DiskIO diskio = 5;
+}
+
+message Container {
+    optional Resource requirement = 1;
+    // opencontainer format or docker image
+    optional string image = 2;
+    optional string tag = 3;
+    optional string cmd = 4;
+}
+
+message PodSpec {
+    repeated Container containers = 1;
+}
+
+message JobSpec {
+    optional string name = 1;
+    optional uint32 replica = 2;
+    optional uint32 deploy_step_size = 3;
+    optional uint32 update_step_size = 4;
+}
