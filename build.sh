@@ -4,7 +4,7 @@ THIRD_SRC=$WORK_DIR/thirdsrc
 THIRD_PARTY=$WORK_DIR/thirdparty
 mkdir -p $THIRD_SRC
 mkdir -p $THIRD_PARTY
-
+cd $THIRD_SRC
 if [ -d "$THIRD_SRC/grpc" ];then
    echo "grpc exits"
 else
@@ -14,4 +14,5 @@ else
    echo "install grpc ....."
    make install prefix=$THIRD_PARTY > /dev/null 2>&1
    echo "install grpc done!"
+   cd -
 fi
