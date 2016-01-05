@@ -2,10 +2,6 @@ syntax = "proto3";
 
 package dos;
 
-enum Status {
-    kOK = 0;    
-}
-
 message User {
     optional string uid = 1;
     optional string name = 2;

@@ -14,5 +14,5 @@ message SubmitJobResponse {
 message Master {
 
     // submit a job to master 
-    rpc SubmitJob(SubmitJobRequest) returns(SubmitJobResponse);
+    rpc SubmitJob(SubmitJobRequest) returns(SubmitJobResponse) {}
 }
