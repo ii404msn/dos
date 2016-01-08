@@ -65,6 +65,7 @@ message NodeMeta {
   optional string hostname = 2;
   optional string endpoint = 3;
   optional Resource resource = 4;
+  optional NodeState state = 5;
 }
 
 message Container {

@@ -17,7 +17,6 @@ namespace dos {
 struct NodeIndex {
   std::string hostname_;
   std::string endpoint_;
-  NodeState state_;
   NodeMeta* meta_;
   Resource* used_;
 };
@@ -42,12 +41,14 @@ public:
   NodeManager();
   ~NodeManager();
   bool LoadNodeMeta();
-  bool Join(const std::string& hostname, 
-            const std::string& endpoint);
+  void KeepAlive(const std::string& hostname, 
+                 const std::string& endpoint);
+
 private:
   ::baidu::common::Mutex mutex_;
   NodeSet* nodes_;
   ::galaxy::ins::sdk::InsSDK* nexus_;
+  // hostname and NodeMeta pair
   boost::unordered_map<std::string, NodeMeta*>* node_metas_;
 };
 
