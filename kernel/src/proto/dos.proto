@@ -3,63 +3,84 @@ syntax = "proto3";
 package dos;
 
 message User {
-    optional string uid = 1;
-    optional string name = 2;
-    optional uint64 create_time = 3;
+  optional string uid = 1;
+  optional string name = 2;
+  optional uint64 create_time = 3;
 }
 
 message Cpu {
-    optional uint32 limit = 1;
-    optional uint32 share = 2;
-    optional uint32 used = 3;
+  optional uint32 limit = 1;
+  optional uint32 share = 2;
+  optional uint32 used = 3;
 }
 
 message Memory {
-    optional uint64 limit = 1;
-    optional uint64 used = 2;
+  optional uint64 limit = 1;
+  optional uint64 used = 2;
+}
+
+message Range {
+  optional uint32 start = 1;
+  optional uint32 end = 2;
 }
 
 message Port {
-    repeated uint32 ports = 1;
-    // port_name will be assigned real port and inject it into enviroment 
-    // with same name
-    repeated string port_names = 2;
+
+  repeated uint32 ports = 1;
+  // port_name will be assigned real port and inject it into enviroment 
+  // with same name
+  repeated string port_names = 2;
+
+  optional Range range = 3;
 }
 
 message Network {
-    optional uint32 in_bytes_ps = 1;
-    optional uint32 out_bytes_ps = 2;
+  optional uint32 in_bytes_ps = 1;
+  optional uint32 out_bytes_ps = 2;
 }
 
 message DiskIO {
-    optional uint32 read_bytes_ps = 1;
-    optional uint32 write_bytes_ps = 2;
+  optional uint32 read_bytes_ps = 1;
+  optional uint32 write_bytes_ps = 2;
+  optional string device = 3;
 }
 
 // the resource for service run time
 message Resource {
-    optional Cpu cpu = 1;
-    optional Memory memory = 2;
-    optional Port port = 3;
-    optional Network network = 4;
-    optional DiskIO diskio = 5;
+  optional Cpu cpu = 1;
+  optional Memory memory = 2;
+  optional Port port = 3;
+  optional Network network = 4;
+  optional DiskIO diskio = 5;
+}
+
+enum NodeState {
+  kNodeNormal = 0;
+  kNodeOffline = 1;
+  kNodeFrozen = 2;
+}
+
+message NodeMeta {
+  optional string ip = 1;
+  optional string hostname = 2;
+  optional string endpoint = 3;
+  optional Resource resource = 4;
 }
 
 message Container {
-    optional Resource requirement = 1;
-    // opencontainer format or docker image
-    optional string image = 2;
-    optional string tag = 3;
-    optional string cmd = 4;
+  optional Resource requirement = 1;
+  // opencontainer format or docker image
+  optional string image = 2;
+  optional string tag = 3;
 }
 
 message PodSpec {
-    repeated Container containers = 1;
+  repeated Container containers = 1;
 }
 
 message JobSpec {
-    optional string name = 1;
-    optional uint32 replica = 2;
-    optional uint32 deploy_step_size = 3;
-    optional uint32 update_step_size = 4;
+  optional string name = 1;
+  optional uint32 replica = 2;
+  optional uint32 deploy_step_size = 3;
+  optional uint32 update_step_size = 4;
 }
