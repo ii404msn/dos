@@ -79,9 +79,17 @@ message PodSpec {
   repeated Container containers = 1;
 }
 
+
 message JobSpec {
   optional string name = 1;
   optional uint32 replica = 2;
   optional uint32 deploy_step_size = 3;
   optional uint32 update_step_size = 4;
+}
+
+
+message NodeStatus {
+  optional string endpoint = 1;
+  optional string hostname = 2;
+  optional Resource used = 3;
 }

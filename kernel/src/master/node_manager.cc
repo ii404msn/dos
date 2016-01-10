@@ -3,6 +3,7 @@
 #include <map>
 #include <gflags/gflags.h>
 #include "logging.h"
+#include "timer.h"
 
 DECLARE_string(nexus_servers);
 DECLARE_string(master_root_path);
@@ -48,6 +49,25 @@ bool NodeManager::LoadNodeMeta() {
 }
 
 
-
+void NodeManager::KeepAlive(const std::string& hostname,
+                            const std::string& endpoint) {
+  MutexLock lock(&mutex_);
+  const NodeEndpointIndex& endpoint_idx = nodes_->get<endpoint_tag>();
+  NodeEndpointIndex::const_iterator endpoint_it = endpoint_idx.find(endpoint);
+  if (endpoint_it == endpoint_idx.end()) {
+    LOG(INFO, "new node %s heart beat with endpoint %s", hostname.c_str(), endpoint.c_str());
+    NodeIndex index;
+    index.meta_ = NULL;
+    index.hostname_ = hostname;
+    index.endpoint_ = endpoint;
+    index.used_ = NULL;
+    boost::unordered_map<std::string, NodeMeta*>::iterator node_it = node_metas_->find(hostname);
+    if (node_it == node_metas_->end()) {
+      LOG(WARNING, "node %s has no meta in master", hostname.c_str());
+    }else {
+      index.meta_ = node_it->second;
+    }
+  }
+}
 
 } // end of dos
