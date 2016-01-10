@@ -8,9 +8,11 @@
 DECLARE_string(nexus_servers);
 DECLARE_string(master_root_path);
 DECLARE_string(master_node_path_prefix);
+DECLARE_int32(agent_heart_beat_timeout);
 
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
+
 namespace dos {
 
 NodeManager::NodeManager(FixedBlockingQueue<NodeStatus*>* node_status_queue):mutex_(),
@@ -63,14 +65,29 @@ void NodeManager::KeepAlive(const std::string& hostname,
     index.meta_ = NULL;
     index.hostname_ = hostname;
     index.endpoint_ = endpoint;
-    index.used_ = NULL;
     boost::unordered_map<std::string, NodeMeta*>::iterator node_it = node_metas_->find(hostname);
     if (node_it == node_metas_->end()) {
       LOG(WARNING, "node %s has no meta in master", hostname.c_str());
     }else {
       index.meta_ = node_it->second;
     }
+    index.status_ = new NodeStatus();
+    int64_t task_id = thread_pool_->DelayTask(FLAGS_agent_heart_beat_timeout, boost::bind(&NodeManager::HandleNodeTimeout,
+                                              this, endpoint));
+    index.status_->set_task_id(task_id);
+    nodes_->insert(index);
+    return;
+  }else {
+    thread_pool_->CancelTask(endpoint_it->status_->task_id());
+    int64_t task_id = thread_pool_->DelayTask(FLAGS_agent_heart_beat_timeout,
+                                              boost::bind(&NodeManager::HandleNodeTimeout,
+                                              this, endpoint));
+    endpoint_it->status_->set_task_id(task_id);
   }
+}
+
+void NodeManager::HandleNodeTimeout(const std::string& endpoint) {
+  LOG(WARNING, "agent with endpoint %s timeout ", endpoint.c_str());
 }
 
 } // end of dos

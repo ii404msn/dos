@@ -20,8 +20,7 @@ struct NodeIndex {
   std::string hostname_;
   std::string endpoint_;
   NodeMeta* meta_;
-  Resource* used_;
-  int64_t timer_id_;
+  NodeStatus* status_;
 };
 
 typedef boost::multi_index_container<

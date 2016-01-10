@@ -88,8 +88,11 @@ message JobSpec {
 }
 
 
+
 message NodeStatus {
   optional string endpoint = 1;
   optional string hostname = 2;
   optional Resource used = 3;
+  optional NodeState state = 4;
+  optional int64 task_id = 5;
 }
