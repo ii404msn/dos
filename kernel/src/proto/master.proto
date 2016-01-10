@@ -1,6 +1,8 @@
-syntax = "proto3";
+import "dos.proto";
+package dos;
 
-import "proto/dos.proto"
+option cc_generic_services = true;
+option py_generic_services = true;
 
 message SubmitJobRequest{
     optional string uid = 1;
@@ -11,8 +13,8 @@ message SubmitJobResponse {
     optional Status status = 1; 
 }
 
-message Master {
+service Master {
 
     // submit a job to master 
-    rpc SubmitJob(SubmitJobRequest) returns(SubmitJobResponse) {}
+    rpc SubmitJob(SubmitJobRequest) returns(SubmitJobResponse);
 }

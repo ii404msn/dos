@@ -11,6 +11,8 @@ DEPS_SOURCE=`pwd`/thirdsrc
 DEPS_PREFIX=`pwd`/thirdparty
 DEPS_CONFIG="--prefix=${DEPS_PREFIX} --disable-shared --with-pic"
 
+echo "#define KERNEL_VERSION_MAJOR 1" > kernel/src/version.h
+echo "#define KERNEL_VERSION_MINOR 1" >> kernel/src/version.h
 export PATH=${DEPS_PREFIX}/bin:$PATH
 mkdir -p ${DEPS_SOURCE} ${DEPS_PREFIX}
 

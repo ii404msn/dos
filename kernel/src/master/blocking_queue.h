@@ -4,6 +4,7 @@
 #include <queue>
 #include "mutex.h"
 
+using ::baidu::common::MutexLock;
 namespace dos {
 template <typename T>
 class FixedBlockingQueue {
@@ -15,7 +16,7 @@ public:
   ~FixedBlockingQueue(){}
 
   T& Front() {
-    MutexLock(&mutex_);
+    MutexLock lock(&mutex_);
     if (queue_.size <= 0) {
       cond_.Wait("queue is empty");
     }
@@ -27,7 +28,7 @@ public:
     cond_.Signal();
   }
   void Push(const T& t) {
-    MutexLock(&mutex_);
+    MutexLock lock(&mutex_);
     if (queue_.size() >= capacity_) {
       cond_.Wait("queue is full");
     }

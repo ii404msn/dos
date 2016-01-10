@@ -1,2 +1,0 @@
-#define KERNEL_VERSION_MAJOR @kernel_version_major@
-#define KERNEL_VERSION_MINOR @kernel_version_minor@

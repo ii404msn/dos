@@ -9,12 +9,15 @@ DECLARE_string(nexus_servers);
 DECLARE_string(master_root_path);
 DECLARE_string(master_node_path_prefix);
 
+using ::baidu::common::INFO;
+using ::baidu::common::WARNING;
 namespace dos {
 
-NodeManager::NodeManager():mutex_(),
+NodeManager::NodeManager(FixedBlockingQueue<NodeStatus*>* node_status_queue):mutex_(),
   nodes_(NULL),
   nexus_(NULL),
-  node_metas_(NULL){
+  node_metas_(NULL),
+  node_status_queue_(node_status_queue){
   nodes_ = new NodeSet();
   nexus_ = new ::galaxy::ins::sdk::InsSDK(FLAGS_nexus_servers);
   node_metas_ = new boost::unordered_map<std::string, NodeMeta*>();
@@ -28,7 +31,7 @@ NodeManager::~NodeManager() {
 
 bool NodeManager::LoadNodeMeta() {
   MutexLock lock(&mutex_);
-  std::string start_key = FLAGS_master_root_path + FLAGS_node_path_prefix + "/";
+  std::string start_key = FLAGS_master_root_path + FLAGS_master_node_path_prefix + "/";
   std::string end_key = start_key + "~";
   ::galaxy::ins::sdk::ScanResult* result = nexus_->Scan(start_key, end_key);
   while (!result->Done()) {
@@ -36,7 +39,7 @@ bool NodeManager::LoadNodeMeta() {
     std::string key = result->Key();
     std::string node_raw_data = result->Value();
     NodeMeta* meta = new NodeMeta();
-    bool ok = mete->ParseFromString(node_raw_data);
+    bool ok = meta->ParseFromString(node_raw_data);
     if (!ok) {
       LOG(WARNING, "fail to load node with key %s", key.c_str());
       assert(0);

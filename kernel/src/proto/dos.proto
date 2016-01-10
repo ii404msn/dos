@@ -1,6 +1,6 @@
-syntax = "proto3";
-
 package dos;
+
+message Status {}
 
 message User {
   optional string uid = 1;

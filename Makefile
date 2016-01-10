@@ -47,7 +47,7 @@ master: $(KERNEL_MASTER_OBJ) $(KERNEL_OBJS)
 	$(CXX) $(CXXFLAGS) $(INCLUDE) -c $< -o $@
 
 %.pb.h %.pb.cc: %.proto
-	$(PROTOC) --proto_path=./src/proto/  --cpp_out=./src/proto/ $<
+	$(PROTOC) --proto_path=./kernel/src/proto/  --cpp_out=./kernel/src/proto/ $<
 
 clean:
 	rm -rf $(BIN)
