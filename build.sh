@@ -102,20 +102,6 @@ else
     cd ..
 fi
 
-if [ -f "zookeeper-3.4.7.tar.gz" ]
-then
-    echo "zookeeper-3.4.7.tar.gz exist"
-else
-    # zookeeper
-    wget http://www.us.apache.org/dist/zookeeper/stable/zookeeper-3.4.7.tar.gz
-    tar zxf zookeeper-3.4.7.tar.gz
-    cd zookeeper-3.4.7/src/c
-    ./configure ${DEPS_CONFIG} >/dev/null
-    make -j4 >/dev/null
-    make install
-    cd -
-fi
-
 if [ -f "CMake-3.2.1.tar.gz" ]
 then
     echo "CMake-3.2.1.tar.gz exist"
@@ -173,37 +159,6 @@ else
     make -j8 >/dev/null
     cp -a lib/.libs/* ${DEPS_PREFIX}/lib
     cp -a include/gtest ${DEPS_PREFIX}/include
-    cd -
-fi
-
-if [ -f "libunwind-0.99-beta.tar.gz" ]
-then
-    echo "libunwind-0.99-beta.tar.gz exist"
-else
-    # libunwind for gperftools
-    wget http://download.savannah.gnu.org/releases/libunwind/libunwind-0.99-beta.tar.gz
-    tar zxf libunwind-0.99-beta.tar.gz
-    cd libunwind-0.99-beta
-    ./configure ${DEPS_CONFIG} >/dev/null
-    make CFLAGS=-fPIC -j4 >/dev/null
-    make CFLAGS=-fPIC install
-    cd -
-fi
-
-if [ -d "gperftools" ]
-then
-    echo "gperftools exist"
-else
-
-    # gperftools (tcmalloc)
-    # wget --no-check-certificate https://googledrive.com/host/0B6NtGsLhIcf7MWxMMF9JdTN3UVk/gperftools-2.2.1.tar.gz
-    git clone --depth=1 https://github.com/00k/gperftools
-    mv gperftools/gperftools-2.2.1.tar.gz .
-    tar zxf gperftools-2.2.1.tar.gz
-    cd gperftools-2.2.1
-    ./configure ${DEPS_CONFIG} CPPFLAGS=-I${DEPS_PREFIX}/include LDFLAGS=-L${DEPS_PREFIX}/lib >/dev/null
-    make -j4 >/dev/null
-    make install
     cd -
 fi
 

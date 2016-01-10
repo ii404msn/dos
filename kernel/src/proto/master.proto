@@ -4,17 +4,25 @@ package dos;
 option cc_generic_services = true;
 option py_generic_services = true;
 
+message HeartBeatRequest {
+  optional string hostname = 1;
+  optional string endpoint = 2;
+}
+
+message HeartBeatResponse {}
+
 message SubmitJobRequest{
-    optional string uid = 1;
-    optional JobSpec job = 2;
+  optional string uid = 1;
+  optional JobSpec job = 2;
 }
 
 message SubmitJobResponse {
-    optional Status status = 1; 
+  optional Status status = 1; 
 }
 
 service Master {
 
-    // submit a job to master 
-    rpc SubmitJob(SubmitJobRequest) returns(SubmitJobResponse);
+  // submit a job to master 
+  rpc SubmitJob(SubmitJobRequest) returns(SubmitJobResponse);
+  rpc HeartBeat(HeartBeatRequest) returns(HeartBeatResponse);
 }
