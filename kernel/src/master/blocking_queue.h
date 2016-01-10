@@ -24,6 +24,7 @@ public:
   void Pop() {
     mutex_.AssertHeld();
     queue_.pop();
+    cond_.Signal();
   }
   void Push(const T& t) {
     MutexLock(&mutex_);
