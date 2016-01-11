@@ -6,6 +6,7 @@
 #include <sofa/pbrpc/pbrpc.h>
 #include <gflags/gflags.h>
 
+#include "version.h"
 #include "agent/agent_impl.h"
 #include "logging.h"
 
@@ -20,6 +21,12 @@ static void SignalIntHandler(int /*sig*/){
 }
 
 int main(int argc, char* args[]) {
+  if (strcmp(args[1], "-v") == 0 ||
+      strcmp(args[1], "--version") == 0) {
+    PrintVersion();
+    exit(1);
+  }
+
   ::google::ParseCommandLineFlags(&argc, &args, true);
   sofa::pbrpc::RpcServerOptions options;
   sofa::pbrpc::RpcServer rpc_server(options);
