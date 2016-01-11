@@ -1,5 +1,7 @@
 #include "agent/agent_impl.h"
-
+#include <boost/bind.hpp>
+#include <boost/scoped_ptr.hpp>
+#include <boost/function.hpp>
 #include <gflags/gflags.h>
 #include "util.h"
 
@@ -21,9 +23,17 @@ AgentImpl::AgentImpl():thread_pool_(4),
 
 AgentImpl::~AgentImpl(){}
 
+void AgentImpl::Query(RpcController* controller,
+                      const QueryAgentRequest* request,
+                      QueryAgentResponse* response,
+                      Closure* done) {
+  done->Run();
+}
+
 bool AgentImpl::Start() {
   ::baidu::common::MutexLock lock(&mutex_);
-  bool ok = rpc_client_->GetStub("127,0,0.1:" + FLAGS_master_port, master_);
+  std::string master_addr = "127.0.0.1:" + FLAGS_master_port;
+  bool ok = rpc_client_->GetStub(master_addr, &master_);
   if (!ok) {
     LOG(WARNING, "fail to build master stub");
     return false;
@@ -34,11 +44,11 @@ bool AgentImpl::Start() {
 void AgentImpl::HeartBeat() {
   ::baidu::common::MutexLock lock(&mutex_);
   HeartBeatRequest* request = new HeartBeatRequest();
-  request->hostname(::baidu::common::util::GetLocalHostName());
-  request->endpoint("127.0.0.1:111");
+  request->set_hostname(::baidu::common::util::GetLocalHostName());
+  request->set_endpoint("127.0.0.1:111");
   HeartBeatResponse* response = new HeartBeatResponse();
   boost::function<void (const HeartBeatRequest*, HeartBeatResponse*, bool, int)> callback;
-  callback = boost::bind(&AgentImpl::::HeartBeatCallback, this, _1, _2, _3, _4);
+  callback = boost::bind(&AgentImpl::HeartBeatCallback, this, _1, _2, _3, _4);
   rpc_client_->AsyncRequest(master_,
                             &Master_Stub::HeartBeat,
                             request,
@@ -49,14 +59,14 @@ void AgentImpl::HeartBeat() {
 
 void AgentImpl::HeartBeatCallback(const HeartBeatRequest* request,
                                   HeartBeatResponse* response,
-                                  bool failed, int errno) {
-  delete request;
-  delete response;
+                                  bool failed, int errno) { 
   if (failed) {
     LOG(WARNING, "fail to make heartbeat to master , errno %d", errno);
   }
   thread_pool_.DelayTask(FLAGS_agent_heart_beat_interval, 
       boost::bind(&AgentImpl::HeartBeat, this));
+  delete request;
+  delete response;
 }
 
 

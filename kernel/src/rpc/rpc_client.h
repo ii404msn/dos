@@ -9,6 +9,10 @@
 #include <thread_pool.h>
 #include <logging.h>
 
+using ::baidu::common::INFO;
+using ::baidu::common::DEBUG;
+using ::baidu::common::WARNING;
+
 namespace dos {
  
 class RpcClient {
@@ -24,7 +28,7 @@ public:
 
   template <class T>
   bool GetStub(const std::string server, T** stub) {
-    MutexLock lock(&_host_map_lock);
+    ::baidu::common::MutexLock lock(&_host_map_lock);
     sofa::pbrpc::RpcChannel* channel = NULL;
     HostMap::iterator it = _host_map.find(server);
     if (it != _host_map.end()) {
@@ -100,7 +104,7 @@ private:
   sofa::pbrpc::RpcClient* _rpc_client;
   typedef std::map<std::string, sofa::pbrpc::RpcChannel*> HostMap;
   HostMap _host_map;
-  Mutex _host_map_lock;
+  ::baidu::common::Mutex _host_map_lock;
 };
 
 } // namespace dos

@@ -29,19 +29,27 @@ KERNEL_MASTER_SRC = $(wildcard kernel/src/master/*.cc)
 KERNEL_MASTER_OBJ = $(patsubst %.cc, %.o, $(KERNEL_MASTER_SRC))
 KERNEL_MASTER_HEADER = $(wildcard kernel/src/master/*.h)
 
+KERNEL_AGENT_SRC = $(wildcard kernel/src/agent/*.cc)
+KERNEL_AGENT_OBJ = $(patsubst %.cc, %.o, $(KERNEL_AGENT_SRC))
+KERNEL_AGENT_HEADER = $(wildcard kernel/src/agent/*.h)
+
+
 KERNEL_FLAGS_OBJ = $(patsubst %.cc, %.o, $(wildcard kernel/src/*.cc))
 KERNEL_OBJS = $(KERNEL_FLAGS_OBJ) $(KERNEL_PROTO_OBJ)
 
-BIN = master 
+BIN = dos_master dos_let 
 
-all: $(BIN) $(LIBS)
+all: $(BIN) 
 
 # Depends
-$(KERNEL_MASTER_OBJ) : $(KERNEL_PROTO_HEADER)
+$(KERNEL_MASTER_OBJ) $(KERNEL_AGENT_OBJ): $(KERNEL_PROTO_HEADER)
 
 # Targets
-master: $(KERNEL_MASTER_OBJ) $(KERNEL_OBJS)
+dos_master: $(KERNEL_MASTER_OBJ) $(KERNEL_OBJS)
 	$(CXX) $(KERNEL_MASTER_OBJ)  $(KERNEL_OBJS) -o $@  $(LDFLAGS)
+
+dos_let: $(KERNEL_AGENT_OBJ)  $(KERNEL_OBJS)
+	$(CXX) $(KERNEL_AGENT_OBJ) $(KERNEL_OBJS) -o $@ $(LDFLAGS)
 
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) $(INCLUDE) -c $< -o $@
@@ -51,7 +59,7 @@ master: $(KERNEL_MASTER_OBJ) $(KERNEL_OBJS)
 
 clean:
 	rm -rf $(BIN)
-	rm -rf $(KERNEL_MASTER_OBJ) $(KERNEL_OBJS)
+	rm -rf $(KERNEL_MASTER_OBJ) $(KERNEL_AGENT_OBJ) $(KERNEL_OBJS)
 	rm -rf $(PROTO_SRC) $(PROTO_HEADER)
 
 install: $(BIN) $(LIBS)
