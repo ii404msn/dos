@@ -1,0 +1,15 @@
+import "dos.proto";
+package dos;
+
+option cc_generic_services = true;
+option py_generic_services = true;
+
+message QueryAgentRequest {}
+
+message QueryAgentResponse {
+  optional NodeStatus status = 1;  
+}
+
+service Agent {
+  rpc Query(QueryAgentRequest) returns (QueryAgentResponse); 
+}
