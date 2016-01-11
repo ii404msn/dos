@@ -38,6 +38,7 @@ bool AgentImpl::Start() {
     LOG(WARNING, "fail to build master stub");
     return false;
   }
+  thread_pool_.AddTask(boost::bind(&AgentImpl::HeartBeat, this));
   return true;
 }
 
@@ -59,9 +60,9 @@ void AgentImpl::HeartBeat() {
 
 void AgentImpl::HeartBeatCallback(const HeartBeatRequest* request,
                                   HeartBeatResponse* response,
-                                  bool failed, int errno) { 
+                                  bool failed, int) { 
   if (failed) {
-    LOG(WARNING, "fail to make heartbeat to master , errno %d", errno);
+    LOG(WARNING, "fail to make heartbeat to master");
   }
   thread_pool_.DelayTask(FLAGS_agent_heart_beat_interval, 
       boost::bind(&AgentImpl::HeartBeat, this));

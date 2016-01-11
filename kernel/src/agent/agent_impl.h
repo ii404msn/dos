@@ -26,7 +26,7 @@ private:
   void HeartBeat();
   void HeartBeatCallback(const HeartBeatRequest* request,
                          HeartBeatResponse* response,
-                         bool failed, int errno);
+                         bool failed, int);
 
 private:
   ::baidu::common::ThreadPool thread_pool_;
