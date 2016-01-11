@@ -19,10 +19,12 @@ NodeManager::NodeManager(FixedBlockingQueue<NodeStatus*>* node_status_queue):mut
   nodes_(NULL),
   nexus_(NULL),
   node_metas_(NULL),
+  thread_pool_(NULL),
   node_status_queue_(node_status_queue){
   nodes_ = new NodeSet();
   nexus_ = new ::galaxy::ins::sdk::InsSDK(FLAGS_nexus_servers);
   node_metas_ = new boost::unordered_map<std::string, NodeMeta*>();
+  thread_pool_ = new ::baidu::common::ThreadPool(4);
 }
 
 NodeManager::~NodeManager() {
