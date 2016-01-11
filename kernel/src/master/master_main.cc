@@ -23,7 +23,7 @@ int main(int argc, char* args[]) {
   if (strcmp(args[1], "-v") == 0 ||
       strcmp(args[1], "--version") == 0) {
     PrintVersion();
-    exit(1);
+    exit(0);
   }
   ::google::ParseCommandLineFlags(&argc, &args, true);
   sofa::pbrpc::RpcServerOptions options;
