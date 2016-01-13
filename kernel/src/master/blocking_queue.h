@@ -15,18 +15,17 @@ public:
                         capacity_(capacity){}
   ~FixedBlockingQueue(){}
 
-  T& Front() {
+  T& Pop() {
     MutexLock lock(&mutex_);
     if (queue_.size <= 0) {
       cond_.Wait("queue is empty");
     }
-    return queue_.Front();
-  }
-  void Pop() {
-    mutex_.AssertHeld();
+    T t = queue_.Front();
     queue_.pop();
     cond_.Signal();
+    return t;
   }
+
   void Push(const T& t) {
     MutexLock lock(&mutex_);
     if (queue_.size() >= capacity_) {
