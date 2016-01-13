@@ -15,7 +15,7 @@ public:
                         capacity_(capacity){}
   ~FixedBlockingQueue(){}
 
-  T& Pop() {
+  T Pop() {
     MutexLock lock(&mutex_);
     if (queue_.size() <= 0) {
       cond_.Wait("queue is empty");
