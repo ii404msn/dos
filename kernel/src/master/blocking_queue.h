@@ -17,10 +17,10 @@ public:
 
   T& Pop() {
     MutexLock lock(&mutex_);
-    if (queue_.size <= 0) {
+    if (queue_.size() <= 0) {
       cond_.Wait("queue is empty");
     }
-    T t = queue_.Front();
+    T t = queue_.front();
     queue_.pop();
     cond_.Signal();
     return t;
