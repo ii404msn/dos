@@ -18,19 +18,20 @@ DECLARE_string(ce_initd_port);
 DECLARE_string(ce_initd_conf_path);
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
+
+const std::string kDosCeUsage = "dos_ce help message.\n"
+                                 "Usage:\n"
+                                 "    dos_ce initd \n" 
+                                 "Options:\n"
+                                 "    -d     Start dos_ce deamon\n"
+                                 "    -v     Show dos_ce build information\n";
+
 static volatile bool s_quit = false;
 static void SignalIntHandler(int /*sig*/){
     s_quit = true;
 }
 
-int main(int argc, char * args[]) {
-  ::baidu::common::SetLogLevel(::baidu::common::DEBUG);
-	if (strcmp(args[1], "-v") == 0 ||
-      strcmp(args[1], "--version") == 0) {
-    PrintVersion();
-    exit(0);
-  }
-  ::google::ParseCommandLineFlags(&argc, &args, true);
+void StartInitd() {
   std::string oc_path = ".";
   dos::Oc oc(oc_path, FLAGS_ce_initd_conf_path);
   bool ok = oc.Init();
@@ -55,6 +56,26 @@ int main(int argc, char * args[]) {
   signal(SIGTERM, SignalIntHandler);
   while (!s_quit) {
     sleep(1);
+  }
+}
+
+int main(int argc, char * args[]) {
+  ::baidu::common::SetLogLevel(::baidu::common::DEBUG);
+  ::google::SetUsageMessage(kDosCeUsage);
+  if(argc < 2){
+    fprintf(stderr,"%s", kDosCeUsage.c_str());
+    return -1;
+  }
+	if (strcmp(args[1], "-v") == 0 ||
+      strcmp(args[1], "--version") == 0) {
+    PrintVersion();
+    exit(0);
+  } else if (strcmp(args[1], "init") == 0) {
+    ::google::ParseCommandLineFlags(&argc, &args, true);
+    StartInitd();
+  } else {
+    fprintf(stderr,"%s", kDosCeUsage.c_str());
+    return -1;
   }
   return 0;
 }
