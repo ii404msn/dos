@@ -34,10 +34,16 @@ KERNEL_AGENT_OBJ = $(patsubst %.cc, %.o, $(KERNEL_AGENT_SRC))
 KERNEL_AGENT_HEADER = $(wildcard kernel/src/agent/*.h)
 
 
+KERNEL_ENGINE_SRC = $(wildcard kernel/src/engine/*.cc)
+KERNEL_ENGINE_OBJ = $(patsubst %.cc, %.o, $(KERNEL_ENGINE_SRC))
+KERNEL_ENGINE_HEADER = $(wildcard kernel/src/engine/*.h)
+
+
+
 KERNEL_FLAGS_OBJ = $(patsubst %.cc, %.o, $(wildcard kernel/src/*.cc))
 KERNEL_OBJS = $(KERNEL_FLAGS_OBJ) $(KERNEL_PROTO_OBJ)
 
-BIN = dos_master dos_let 
+BIN = dos_master dos_let dos_ce 
 
 all: $(BIN) 
 
@@ -50,6 +56,10 @@ dos_master: $(KERNEL_MASTER_OBJ) $(KERNEL_OBJS)
 
 dos_let: $(KERNEL_AGENT_OBJ)  $(KERNEL_OBJS)
 	$(CXX) $(KERNEL_AGENT_OBJ) $(KERNEL_OBJS) -o $@ $(LDFLAGS)
+
+
+dos_ce: $(KERNEL_ENGINE_OBJ)  $(KERNEL_OBJS)
+	$(CXX) $(KERNEL_ENGINE_OBJ) $(KERNEL_OBJS) -o $@ $(LDFLAGS)
 
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) $(INCLUDE) -c $< -o $@

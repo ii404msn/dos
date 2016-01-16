@@ -1,0 +1,97 @@
+package dos;
+
+option cc_generic_services = true;
+option py_generic_services = true;
+
+enum InitdStatus {
+  kInitOk = 0;
+  kInitError = 1;
+}
+
+enum TaskState {
+  kTaskRunning = 1;
+  kTaskComplete = 2;
+  kTaskCore = 3;
+  kTaskKilled = 4;
+  kTaskUnknown = 5;
+}
+
+message TaskLog {
+  // the time that when record log
+  optional int64 timestamp = 1;
+  // the task id
+  optional string task_id = 2;
+  // the state of task that changed
+  optional TaskState state_from = 3;
+  optional TaskState state_to = 4;
+  optional string message = 5;
+}
+
+message Device {
+  optional string path = 1;
+  optional int32 type = 2;
+  optional int32 major = 3;
+  optional int32 minor = 4;
+  optional string permissions = 5;
+  optional int32 mode = 6;
+  optional int32 uid = 7;
+  optional int32 gid = 8;
+}
+
+message Mount {
+  optional string type = 1;
+  optional string source = 2;
+  optional string destination = 3;
+  repeated string options = 4;
+}
+
+message Task {
+  optional string user = 1;
+  optional string pty = 2;
+  optional string args = 3;
+  repeated string envs = 4;
+  optional string cwd = 5;
+  optional string name = 6;
+}
+
+message TaskStatus {
+  optional string id = 1;
+  optional TaskState state = 2;
+  optional int64 created = 3;
+  optional string user = 4;
+  optional string args = 5;
+}
+
+message ForkRequest {
+  optional Task task = 1;
+}
+
+message ForkResponse {
+  optional InitdStatus status = 1;
+  optional string id = 2;
+}
+
+message WaitRequest {
+  repeated string ids = 1;
+}
+
+message WaitResponse {
+  repeated TaskStatus task_status = 1;
+  optional InitdStatus status = 2;
+}
+
+message KillRequest {
+  repeated string ids = 1;
+  optional int32 signal = 2;
+}
+
+message KillResponse { 
+  optional InitdStatus status = 1;
+}
+
+service Initd {
+  rpc Fork(ForkRequest) returns (ForkResponse);
+  rpc Wait(WaitRequest) returns (WaitResponse);
+  rpc Kill(KillRequest) returns (KillResponse);
+}
+
