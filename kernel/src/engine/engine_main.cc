@@ -70,7 +70,7 @@ int main(int argc, char * args[]) {
       strcmp(args[1], "--version") == 0) {
     PrintVersion();
     exit(0);
-  } else if (strcmp(args[1], "init") == 0) {
+  } else if (strcmp(args[1], "initd") == 0) {
     ::google::ParseCommandLineFlags(&argc, &args, true);
     StartInitd();
   } else {
