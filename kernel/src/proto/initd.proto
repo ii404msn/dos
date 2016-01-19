@@ -89,9 +89,16 @@ message KillResponse {
   optional InitdStatus status = 1;
 }
 
+message StatusRequest {}
+
+message StatusResponse {
+  optional InitdStatus status = 1;
+}
+
 service Initd {
   rpc Fork(ForkRequest) returns (ForkResponse);
   rpc Wait(WaitRequest) returns (WaitResponse);
   rpc Kill(KillRequest) returns (KillResponse);
+  rpc Status(StatusRequest) returns (StatusResponse);
 }
 

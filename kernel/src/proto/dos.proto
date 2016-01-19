@@ -99,14 +99,21 @@ message NodeStatus {
 }
 
 enum ContainerState {
-  // pull image from image server
   kContainerPending = 0;
+  // pull image from image server
   kContainerPulling = 1;
-  kContainerRunning = 2;
-  kContainerCompleted = 3;
-  kContainerKilled = 4;
+  // start initd process
+  kContainerBooting = 2;
+  // run container task command
+  kContainerRunning = 3;
+  // task exit with 0
+  kContainerCompleted = 4;
+  // task was killed -9
+  kContainerKilled = 5;
   // when main process exit, the container can be remained
-  kContainerReserved = 5;
+  kContainerReserved = 6;
+  // the end state when some errors happened
+  kContainerError = 7;
 }
 
 message ContainerStatus {

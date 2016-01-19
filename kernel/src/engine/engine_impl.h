@@ -8,11 +8,17 @@
 #include "mutex.h"
 #include "thread_pool.h"
 #include "engine/process_mgr.h"
+#include "rpc/rpc_client.h"
 
 using ::google::protobuf::RpcController;
 using ::google::protobuf::Closure;
 
 namespace dos {
+
+struct InitdConfig {
+  std::string work_dir;
+  std::string port;
+};
 
 struct ContainerInfo {
   Container container;
@@ -26,7 +32,19 @@ struct ContainerInfo {
   std::string work_dir;
   std::string gc_dir;
   std::string initd_endpoint;
-  ProcessMgr init_proc; 
+  ProcessMgr initd_proc; 
+  InitdConfig* initd_config;
+  InitdStub* initd_stub;
+  int32_t initd_status_check_times;
+  ContainerInfo():container(), status(),
+  work_dir(), gc_dir(), initd_endpoint(),
+  initd_proc(), initd_config(NULL),
+  initd_stub(NULL),
+  initd_status_check_times(0){}
+  ~ContainerInfo() {
+    delete initd_config;
+    delete initd_stub; 
+  }
 };
 
 class EngineImpl : public Engine {
@@ -49,11 +67,15 @@ private:
   void HandlePullImage(const ContainerState& pre_state, 
                        const std::string& name);
 
+  void HandleBootInitd(const ContainerState& pre_state,
+                       const std::string& name);
   // run a image or pull container state from initd
   // pre_state is kContainerPulling, run a image
   // pre_state is kContainerRunning, pull container state from initd
   void HandleRunContainer(const ContainerState& pre_state,
                           const std::string& name);
+
+  static int LunachInitd(void* config);
 private:
   ::baidu::common::Mutex mutex_;
   typedef std::map<std::string, ContainerInfo*> Containers;
@@ -64,6 +86,7 @@ private:
   typedef boost::function<void (const ContainerState& pre_state, const std::string& name)> Handle;
   typedef std::map<ContainerState, Handle>  FSM;
   FSM* fsm_;
+  RpcClient* rpc_client_;
 };
 
 } // namespace dos

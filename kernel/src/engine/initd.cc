@@ -36,6 +36,14 @@ void InitdImpl::Fork(RpcController*,
   done->Run();
 }
 
+void InitdImpl::Status(RpcController*,
+                       const StatusRequest* request,
+                       StatusResponse* response,
+                       Closure* done) {
+  response->set_status(kInitOk);
+  done->Run();
+}
+
 bool InitdImpl::Launch(const Task& task, std::string* id) {
   mutex_.AssertHeld();
   Process p;

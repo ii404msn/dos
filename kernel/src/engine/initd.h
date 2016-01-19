@@ -38,6 +38,10 @@ public:
               const KillRequest* request,
               KillResponse* response,
               Closure* done);
+    void Status(RpcController* controller,
+               const StatusRequest* request,
+               StatusResponse* response,
+               Closure* done);
 private:
     bool Launch(const Task& task, std::string* id);
     void CheckStatus(const std::string& id);
