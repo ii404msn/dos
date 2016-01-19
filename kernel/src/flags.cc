@@ -13,6 +13,7 @@ DEFINE_int32(agent_heart_beat_interval, 2000, "the interval of agent heart beat"
 
 DEFINE_string(ce_initd_port, "9527", "initd listen port");
 DEFINE_string(ce_initd_conf_path, "runtime.json", "the default runtime path");
-
+DEFINE_bool(ce_enable_ns, true, "enable linux namespace");
+DEFINE_string(ce_bin_path,"./dos_ce","the path of dos ce");
 
 

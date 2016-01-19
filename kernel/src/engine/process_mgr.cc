@@ -24,6 +24,7 @@
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
 using ::baidu::common::DEBUG;
+static boost::uuids::random_generator gen;
 namespace dos {
 
 ProcessMgr::ProcessMgr(){
@@ -129,8 +130,7 @@ bool ProcessMgr::Exec(const Process& process,
 }
 
 std::string ProcessMgr::GetUUID(){
-  boost::uuids::uuid uuid = boost::uuids::random_generator()();
-  return boost::lexical_cast<std::string>(uuid); 
+  return boost::lexical_cast<std::string>(gen()); 
 }
 
 Process* ProcessMgr::New(){

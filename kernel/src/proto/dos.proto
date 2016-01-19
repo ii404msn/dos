@@ -1,6 +1,10 @@
 package dos;
 
-message Status {}
+message Status {
+  kDosOk = 0;
+  kDosPrepareRootfsFailed = 1;
+  kDosNameExist = 2;
+}
 
 message User {
   optional string uid = 1;
@@ -79,7 +83,6 @@ message PodSpec {
   repeated Container containers = 1;
 }
 
-
 message JobSpec {
   optional string name = 1;
   optional uint32 replica = 2;
@@ -87,12 +90,28 @@ message JobSpec {
   optional uint32 update_step_size = 4;
 }
 
-
-
 message NodeStatus {
   optional string endpoint = 1;
   optional string hostname = 2;
   optional Resource used = 3;
   optional NodeState state = 4;
   optional int64 task_id = 5;
+}
+
+enum ContainerState {
+  // pull image from image server
+  kContainerPending = 0;
+  kContainerPulling = 1;
+  kContainerRunning = 2;
+  kContainerCompleted = 3;
+  kContainerKilled = 4;
+  // when main process exit, the container can be remained
+  kContainerReserved = 5;
+}
+
+message ContainerStatus {
+  optional string name  = 1;
+  optional int64 start_time = 2;
+  optional Resource used = 3;
+  optional ContainerState state = 4;
 }

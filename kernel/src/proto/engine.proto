@@ -1,0 +1,16 @@
+package dos;
+
+import "dos.proto";
+
+message RunContainerRequest {
+  optional string name = 1;
+  optional Container container = 2;
+}
+
+message RunContainerResponse {
+  optional Status status = 1;
+}
+
+service Engine {
+  rpc RunContainer(RunContainerRequest) returns(RunContainerResponse);
+}

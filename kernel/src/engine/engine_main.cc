@@ -16,6 +16,7 @@
 
 DECLARE_string(ce_initd_port);
 DECLARE_string(ce_initd_conf_path);
+DECLARE_bool(ce_enable_ns);
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
 
@@ -32,12 +33,16 @@ static void SignalIntHandler(int /*sig*/){
 }
 
 void StartInitd() {
-  std::string oc_path = ".";
-  dos::Oc oc(oc_path, FLAGS_ce_initd_conf_path);
-  bool ok = oc.Init();
-  if (!ok) {
-    LOG(WARNING, "fail to init rootfs");
-    exit(0);
+  if (FLAGS_ce_enable_ns) {
+    std::string oc_path = ".";
+    dos::Oc oc(oc_path, FLAGS_ce_initd_conf_path);
+    bool ok = oc.Init();
+    if (!ok) {
+      LOG(WARNING, "fail to init rootfs");
+      exit(0);
+    }
+  } else {
+    LOG(INFO, "disable linux namespace");
   }
   sofa::pbrpc::RpcServerOptions options;
   sofa::pbrpc::RpcServer rpc_server(options);
