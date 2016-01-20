@@ -177,6 +177,8 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
   if (pre_state == kContainerBooting) {
     LOG(INFO, "start container %s in work dir %s", name.c_str(),
         info->work_dir.c_str());
+    std::string config = info->work_dir + "/config.json";
+    fopen(info->work_dir
     ForkRequest request;
     request.set_user("galaxy");
     ForkResponse response;
