@@ -175,6 +175,16 @@ else
     cd -
 fi
 
+if [ -d "googletest" ]
+then 
+   echo "google test exist"
+else
+   git clone https://github.com/google/googletest.git
+   cd googletest
+   cmake -DCMAKE_INSTALL_PREFIX=${DEPS_PREFIX}  >/dev/null
+   make -j8 >/dev/null && make install
+   cd -
+fi
 
 if [ -d "ins" ]
 then
@@ -199,7 +209,6 @@ else
     mkdir -p output/bin && cp ins output/bin
     cd -
 fi
-
 
 
 if [ -d "common" ]

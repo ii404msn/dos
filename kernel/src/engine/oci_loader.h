@@ -56,13 +56,14 @@ struct Mount {
 
 struct Config {
   std::string version;
+  std::string hostname;
   Platform platform;
   Process process;
   Root root;
-  std::string hostname;
+  std::vector<Mount> mounts;
 };
 
-static bool LoadConfig(const std::string& path, Config* config);
+struct Runtime {};
 
 } // namespace oci
 } // namespace dos

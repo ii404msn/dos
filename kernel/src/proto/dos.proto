@@ -1,6 +1,6 @@
 package dos;
 
-message Status {
+enum Status {
   kDosOk = 0;
   kDosPrepareRootfsFailed = 1;
   kDosNameExist = 2;

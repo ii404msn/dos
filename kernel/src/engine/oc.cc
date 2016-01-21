@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include "engine/utils.h"
+#include "engine/oci_loader.h"
 #include "rapidjson/document.h"
 #include "rapidjson/filereadstream.h"
 #include "logging.h"
@@ -112,42 +113,18 @@ bool Oc::Init() {
     LOG(WARNING, "fail to chdir to %s", oc_path_.c_str());
     return false;
   }
-  FILE* fd = fopen("config.json", "r");
-  if (fd == NULL) {
-    LOG(WARNING, "fail to open config.json");
-    return false;
+  ::dos::oci::Config config;
+  bool load_ok = ::dos::oci::LoadConfig("config.json" ,&config);
+  if (!load_ok) {
+    LOG(WARNING, "fail to load config.json");
   }
-  char buffer[5120];
-  rapidjson::FileReadStream frs(fd, buffer, sizeof(buffer));
-  rapidjson::Document document;
-  if (document.ParseStream<0>(frs).HasParseError()) {
-    LOG(WARNING, "fail to parse rootfs config.json in %s", oc_path_.c_str());
-    fclose(fd);
-    return false;
-  }
-  fclose(fd);
-  if (!document.HasMember("root")) {
-    LOG(WARNING, "fail to root in config.json");
-    return false;
-  }
-  const rapidjson::Value& root = document["root"];
-  if (!root.HasMember("path")) {
-    LOG(WARNING, "path is requred is root");
-    return false;
-  }
-  std::string rootfs_path = root["path"].GetString();
-  if (!document.HasMember("mounts")) {
-    LOG(WARNING, "mounts is requred");
-    return false;
-  }
-  const rapidjson::Value& mounts = document["mounts"];
-  for (rapidjson::SizeType i = 0; i < mounts.Size(); i++) {
-      const rapidjson::Value& mount = mounts[i]; 
-      bool ok = DoMount(rootfs_path + mount["path"].GetString(),
-                        mount["name"].GetString());
-      if (!ok) {
-        return false;
-      }
+  std::string rootfs_path = config.root.path;
+  std::vector<::dos::oci::Mount>::iterator m_it = config.mounts.begin();
+  for (; m_it != config.mounts.end(); +m_it) {
+    bool ok = DoMount(rootfs_path + m_it->path, m_it->name);
+    if (!ok) {
+      return false;
+    }
   }
   LOG(INFO, "init custom mounts successully");
   bool device_ok = DoMknod(rootfs_path);
@@ -161,7 +138,6 @@ bool Oc::Init() {
   }
   return device_ok;
 }
-
 
 bool Oc::DoMount(const std::string& destination,
                  const std::string& type) {
