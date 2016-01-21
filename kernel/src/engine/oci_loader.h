@@ -51,8 +51,8 @@ struct Mount {
   std::string name;
   std::string path;
   Mount():name(),path(){}
-  Mount(){}
-}
+  ~Mount(){}
+};
 
 struct Config {
   std::string version;
@@ -64,6 +64,8 @@ struct Config {
 };
 
 struct Runtime {};
+
+bool LoadConfig(const std::string& path, Config* config);
 
 } // namespace oci
 } // namespace dos

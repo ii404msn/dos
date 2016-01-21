@@ -5,6 +5,9 @@
 
 #include "logging.h"
 
+using ::baidu::common::INFO;
+using ::baidu::common::WARNING;
+
 namespace dos {
 namespace oci {
 
@@ -21,7 +24,7 @@ bool LoadConfig(const std::string& path, Config* config) {
   rapidjson::FileReadStream frs(fd, buffer, sizeof(buffer));
   rapidjson::Document document;
   if (document.ParseStream<0>(frs).HasParseError()) {
-    LOG(WARNING, "fail to parse rootfs config.json in %s", oc_path_.c_str());
+    LOG(WARNING, "fail to parse rootfs config.json in %s", path.c_str());
     fclose(fd);
     return false;
   }
@@ -61,7 +64,7 @@ bool LoadConfig(const std::string& path, Config* config) {
       Mount mount;
       mount.name = mount_json["name"].GetString();
       mount.path = mount_json["path"].GetString();
-      config->mounts.append(mount);
+      config->mounts.push_back(mount);
   }
   if (!document.HasMember("platform")) {
     LOG(WARNING, "platform is requred");
@@ -81,20 +84,20 @@ bool LoadConfig(const std::string& path, Config* config) {
     return false;
   }
   const rapidjson::Value& user_json = process_json["user"];
-  config->process.user.uid = user_json["uid"].GetInt32();
-  config->process.user.gid = user_json["gid"].GetInt32();
+  config->process.user.uid = user_json["uid"].GetInt();
+  config->process.user.gid = user_json["gid"].GetInt();
   if (!process_json.HasMember("args")) {
     LOG(WARNING, "args is required");
     return false;
   }
   const rapidjson::Value& args_json = process_json["args"];
   for (rapidjson::SizeType i = 0; i < args_json.Size(); i++) {
-    config->process.args.append(args_json[i].GetString());
+    config->process.args.push_back(args_json[i].GetString());
   }
 
   const rapidjson::Value& envs_json = process_json["env"];
   for (rapidjson::SizeType i = 0; i < envs_json.Size(); i++) {
-    config->process.envs.append(envs_json[i].GetString());
+    config->process.envs.push_back(envs_json[i].GetString());
   }
   return true;
 }

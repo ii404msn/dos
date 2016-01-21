@@ -114,13 +114,13 @@ bool Oc::Init() {
     return false;
   }
   ::dos::oci::Config config;
-  bool load_ok = ::dos::oci::LoadConfig("config.json" ,&config);
+  bool load_ok = ::dos::oci::LoadConfig("config.json", &config);
   if (!load_ok) {
     LOG(WARNING, "fail to load config.json");
   }
   std::string rootfs_path = config.root.path;
-  std::vector<::dos::oci::Mount>::iterator m_it = config.mounts.begin();
-  for (; m_it != config.mounts.end(); +m_it) {
+  std::vector< ::dos::oci::Mount>::iterator m_it = config.mounts.begin();
+  for (; m_it != config.mounts.end(); ++m_it) {
     bool ok = DoMount(rootfs_path + m_it->path, m_it->name);
     if (!ok) {
       return false;

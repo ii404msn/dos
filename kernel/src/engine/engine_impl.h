@@ -9,6 +9,7 @@
 #include "thread_pool.h"
 #include "engine/process_mgr.h"
 #include "rpc/rpc_client.h"
+#include "proto/initd.pb.h"
 
 using ::google::protobuf::RpcController;
 using ::google::protobuf::Closure;
@@ -34,7 +35,7 @@ struct ContainerInfo {
   std::string initd_endpoint;
   ProcessMgr initd_proc; 
   InitdConfig* initd_config;
-  InitdStub* initd_stub;
+  Initd_Stub* initd_stub;
   int32_t initd_status_check_times;
   ContainerInfo():container(), status(),
   work_dir(), gc_dir(), initd_endpoint(),
@@ -47,7 +48,10 @@ struct ContainerInfo {
   }
 };
 
-class EngineImpl : public Engine {
+typedef boost::function<void (const ContainerState& pre_state, const std::string& name)> Handle;
+typedef std::map<ContainerState, Handle>  FSM;
+
+class EngineImpl : public Engine{
 
 public:
   EngineImpl(const std::string& work_dir,
@@ -83,8 +87,6 @@ private:
   ::baidu::common::ThreadPool* thread_pool_;
   std::string work_dir_;
   std::string gc_dir_;
-  typedef boost::function<void (const ContainerState& pre_state, const std::string& name)> Handle;
-  typedef std::map<ContainerState, Handle>  FSM;
   FSM* fsm_;
   RpcClient* rpc_client_;
 };

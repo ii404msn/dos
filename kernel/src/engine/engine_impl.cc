@@ -2,6 +2,7 @@
 #include "engine/engine_impl.h"
 
 #include <sched.h>
+#include <sys/wait.h>
 #include <gflags/gflags.h>
 
 #ifndef CLONE_NEWPID
@@ -34,10 +35,10 @@ EngineImpl::EngineImpl(const std::string& work_dir,
   fsm_(NULL),
   rpc_client_(NULL){
   containers_ = new Containers();
-  thread_pool_ = new ThreadPool(20);
+  thread_pool_ = new ::baidu::common::ThreadPool(20);
   fsm_ = new FSM();
-  fsm_->insert(kContainerPulling, boost::bind(&EngineImpl::HandlePullImage, this, _1, _2));
-  fsm_->insert(kContainerRunning, boost::bind(&EngineImpl::HandleRunContainer, this, _1, _2));
+  fsm_->insert(std::make_pair(kContainerPulling, boost::bind(&EngineImpl::HandlePullImage, this, _1, _2)));
+  fsm_->insert(std::make_pair(kContainerRunning, boost::bind(&EngineImpl::HandleRunContainer, this, _1, _2)));
   rpc_client_ = new RpcClient();
 }
 
@@ -60,8 +61,8 @@ void EngineImpl::RunContainer(RpcController* controller,
   ContainerInfo* info = new ContainerInfo();
   info->container = request->container();
   info->status.set_name(request->name());
-  info->status.start_time(0);
-  info->status.state = kContainerPending;
+  info->status.set_start_time(0);
+  info->status.set_state(kContainerPending);
   containers_->insert(std::make_pair(request->name(), info));
   response->set_status(kDosOk);
   done->Run();
@@ -81,10 +82,10 @@ void EngineImpl::StartContainerFSM(const std::string& name) {
     ContainerInfo* info = it->second;
     state = info->status.state();
   }
-  FMS::iterator fsm_it = fsm_->find(state);
-  if (fsm_it == fsm_.end()) {
+  FSM::iterator fsm_it = fsm_->find(state);
+  if (fsm_it == fsm_->end()) {
     LOG(WARNING, "container %s has no fsm config with state %s",
-        name.c_str(), ContainerState_Name(state));
+        name.c_str(), ContainerState_Name(state).c_str());
     return;
   }
   fsm_it->second(state, name);
@@ -123,13 +124,13 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
                     info->initd_config);
     if (ok != 0) {
       LOG(WARNING, "fail to clone initd from container %s for %s",
-          name.c_str(), strerrno(errno));
+          name.c_str(), strerror(errno));
       info->status.set_state(kContainerError);
     } else {
       info->status.set_state(kContainerBooting);
       thread_pool_->DelayTask(FLAGS_ce_initd_boot_check_interval,
                               boost::bind(&EngineImpl::HandleBootInitd,
-                              this, kContainerBooting, name))
+                              this, kContainerBooting, name));
     }
 
   } else if (pre_state == kContainerBooting) {
@@ -149,13 +150,13 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
       }else {
         thread_pool_->DelayTask(FLAGS_ce_initd_boot_check_interval,
                               boost::bind(&EngineImpl::HandleBootInitd,
-                              this, kContainerBooting, name))
+                              this, kContainerBooting, name));
       }
     } else {
-      FMS::iterator fsm_it = fsm_->find(kContainerRunning);
-      if (fsm_it == fsm_.end()) {
+      FSM::iterator fsm_it = fsm_->find(kContainerRunning);
+      if (fsm_it == fsm_->end()) {
         LOG(WARNING, "container %s has no fsm config with state %s",
-          name.c_str(), ContainerState_Name(kContainerRunning));
+          name.c_str(), ContainerState_Name(kContainerRunning).c_str());
         return;
       }
       fsm_it->second(kContainerBooting, name);
@@ -177,12 +178,15 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
   if (pre_state == kContainerBooting) {
     LOG(INFO, "start container %s in work dir %s", name.c_str(),
         info->work_dir.c_str());
-    std::string config = info->work_dir + "/config.json";
-    fopen(info->work_dir
+    /*std::string config = info->work_dir + "/config.json";
     ForkRequest request;
     request.set_user("galaxy");
-    ForkResponse response;
+    ForkResponse response;*/
   }
+}
+
+int EngineImpl::LunachInitd(void* config) {
+   return 0;
 }
 
 } // namespace dos
