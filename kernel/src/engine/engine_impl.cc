@@ -1,9 +1,11 @@
 
 #include "engine/engine_impl.h"
 
+#include <boost/algorithm/string/join.hpp>
 #include <sched.h>
 #include <sys/wait.h>
 #include <gflags/gflags.h>
+#include "engine/oci_loader.h"
 
 #ifndef CLONE_NEWPID
 #define CLONE_NEWPID 0x02000000
@@ -173,15 +175,29 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
     return;
   }
   ContainerInfo* info = it->second;
-  // start a new container 
-  // clone  initd 
+  // run command in container 
   if (pre_state == kContainerBooting) {
     LOG(INFO, "start container %s in work dir %s", name.c_str(),
         info->work_dir.c_str());
-    /*std::string config = info->work_dir + "/config.json";
+    std::string config_path = info->work_dir + "/config.json";
+    dos::oci::Config config;
+    bool ok = dos::oci::LoadConfig(config_path, &config);
     ForkRequest request;
-    request.set_user("galaxy");
-    ForkResponse response;*/
+    request.mutable_task()->set_user("galaxy");
+    request.mutable_task()->set_name(name);
+    request.mutable_task()->set_cwd(config.process.cwd);
+    for (size_t i = 0; i < config.process.envs.size(); i++) {
+        request.mutable_task()->add_envs(config.process.envs[i]);
+    }
+    request.mutable_task()->set_args(boost::algorithm::join(config.process.args, " "));
+    ForkResponse response;
+    if (info->initd_stub == NULL) {
+      rpc_client_->GetStub(info->initd_endpoint, &info->initd_stub);
+    }
+    ok = rpc_client_->SendRequest(info->initd_stub, 
+                             &Initd_Stub::Fork,
+                             &request, &response, 5, 1);
+    if (!ok) {}
   }
 }
 
