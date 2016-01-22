@@ -113,15 +113,15 @@ bool Oc::Init() {
     LOG(WARNING, "fail to chdir to %s", oc_path_.c_str());
     return false;
   }
-  ::dos::oci::Config config;
-  bool load_ok = ::dos::oci::LoadConfig("config.json", &config);
+  ::dos::Config config;
+  bool load_ok = ::dos::LoadConfig("config.json", &config);
   if (!load_ok) {
     LOG(WARNING, "fail to load config.json");
   }
-  std::string rootfs_path = config.root.path;
-  std::vector< ::dos::oci::Mount>::iterator m_it = config.mounts.begin();
+  std::string rootfs_path = config.root.path();
+  std::vector< ::dos::Mount>::iterator m_it = config.mounts.begin();
   for (; m_it != config.mounts.end(); ++m_it) {
-    bool ok = DoMount(rootfs_path + m_it->path, m_it->name);
+    bool ok = DoMount(rootfs_path + m_it->path(), m_it->name());
     if (!ok) {
       return false;
     }

@@ -24,52 +24,43 @@
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
 using ::baidu::common::DEBUG;
-static boost::uuids::random_generator gen;
+
 namespace dos {
 
-ProcessMgr::ProcessMgr(){
+ProcessMgr::ProcessMgr():processes_(NULL){
+  processes_ = new std::map<std::string, Process>();
   mypid_ = ::getpid();
 }
 
 ProcessMgr::~ProcessMgr(){}
 
-bool ProcessMgr::Exec(const Process& process,
-                      std::string* id) {
-  if (id == NULL) {
-    return false;
-  }
-  uid_t uid;
-  gid_t gid;
-  bool ok = GetUser(process.user_, &uid, &gid);
+bool ProcessMgr::Exec(const Process& process) {
+  int32_t uid;
+  int32_t gid;
+  bool ok = GetUser(process.user().name(), &uid, &gid);
   if (!ok) {
-    LOG(WARNING, "user %s does not exists", process.user_.c_str());
+    LOG(WARNING, "user %s does not exists", process.user().name().c_str());
     return false;
   }
-  Process* p = New();
-  p->cmd_ = process.cmd_;
-  p->user_ = process.user_;
-  p->envs_ = process.envs_;
-  p->pty_ = process.pty_;
-  p->ctime_ = ::baidu::common::timer::get_micros();
-  p->dtime_ = 0;
+  Process local;
+  local.CopyFrom(process);
+  local.set_rtime(::baidu::common::timer::get_micros());
   std::set<int> openfds;
   ok = GetOpenedFds(openfds);
   if (!ok) {
-    LOG(WARNING, "fail to pid %d get opened fds", mypid_);
+    LOG(WARNING, "fail to get opened fds of pid %d ", mypid_);
     return false;
   }
-  p->id_ = GetUUID();
   pid_t pid = fork();
   if (pid == -1) {
-    LOG(WARNING, "fail to fork process for cmd %s", p->cmd_.c_str());
-    delete p;
+    LOG(WARNING, "fail to fork process %s", local.name().c_str());
     return false;
   }else if (pid == 0) {
     std::set<int>::iterator fd_it = openfds.begin();
     for (; fd_it !=  openfds.end(); ++fd_it) {
       close(*fd_it);
     }
-    ok = ResetIo(process);
+    ok = ResetIo(local);
     if(!ok) {
       assert(0);
     }
@@ -79,20 +70,13 @@ bool ProcessMgr::Exec(const Process& process,
       fprintf(stderr, "fail to set pgid %d", self_pid);
       assert(0);
     }
-    if (!process.cwd_.empty()) {
-      ret = chdir(process.cwd_.c_str());
+    if (!local.cwd().empty()) {
+      ret = chdir(local.cwd().c_str());
       if (ret != 0) {
-        fprintf(stderr, "fail to chdir to %s", process.cwd_.c_str());
+        fprintf(stderr, "fail to chdir to %s", local.cwd().c_str());
         assert(0);
       }
-    }
-    if (!process.rootfs_.empty()) {
-      ret = chroot(process.rootfs_.c_str());
-      if (ret != 0) {
-        fprintf(stderr, "fail to chroot to %s", process.rootfs_.c_str());
-        assert(0);
-      }
-    }
+    } 
     ret = setuid(uid);
     if (ret != 0) {
       fprintf(stderr, "fail to set uid %d", uid);
@@ -103,52 +87,40 @@ bool ProcessMgr::Exec(const Process& process,
       fprintf(stderr, "fail to set gid %d", gid);
       assert(0);
     }
+    std::string cmd;
+    for (int32_t index = 0; index < local.args_size(); ++index) {
+      if (index > 0) {
+        cmd += " ";
+      }
+      cmd += local.args(index);
+    }
     char* argv[] = {
             const_cast<char*>("sh"),
             const_cast<char*>("-c"),
-            const_cast<char*>(process.cmd_.c_str()),
+            const_cast<char*>(cmd.c_str()),
             NULL};
-    char* env[process.envs_.size() + 1];
-    std::set<std::string>::iterator it = process.envs_.begin();
-    int32_t index = 0;
-    for(; it != process.envs_.end(); ++it) {
-      env[index] =const_cast<char*>(it->c_str());
-      ++index;
+    char* env[local.envs_size() + 1];
+    int32_t env_index = 0;
+    for (; env_index < local.envs_size(); env_index ++) { 
+      env[env_index] =const_cast<char*>(local.envs(env_index).c_str());
     }
-    env[index] = NULL;
+    env[env_index+1] = NULL;
     ::execve("/bin/sh", argv, env);
     assert(0);
   }else {
-    *id = p->id_;
-    p->pid_ = pid;
-    p->gpid_ = pid;
-    p->running_ = true;
-    processes_.insert(std::make_pair(p->id_, p));
-    LOG(INFO, "create process %s successfully with pid %d", p->id_.c_str(), p->pid_);
+    local.set_pid(pid);
+    local.set_gpid(pid);
+    local.set_running(true);
+    processes_->insert(std::make_pair(local.name(), local));
+    LOG(INFO, "create process %s successfully with pid %d", local.name().c_str(), local.pid());
     return true;
   }
 }
 
-std::string ProcessMgr::GetUUID(){
-  return boost::lexical_cast<std::string>(gen()); 
-}
-
-Process* ProcessMgr::New(){
-  Process* p = new Process();
-  p->ctime_ = ::baidu::common::timer::get_micros();
-  p->dtime_ = 0;
-  p->running_ = false;
-  p->pid_ = -1;
-  p->ecode_ = -1;
-  p->gpid_ = -1;
-  p->coredump_ = false;
-  return p;
-}
-
 
 bool ProcessMgr::GetUser(const std::string& user,
-                         uid_t* uid,
-                         gid_t* gid) {
+                         int32_t* uid,
+                         int32_t* gid) {
   if (user.empty() || uid == NULL || gid == NULL) {
     return false;
   }
@@ -186,11 +158,11 @@ bool ProcessMgr::ResetIo(const Process& process) {
   int stdout_fd = -1;
   int stderr_fd = -1;
   int stdin_fd = -1;
-  if (process.pty_.empty()) {
+  if (process.pty().empty()) {
     stdout_fd = open("./stdout", O_WRONLY);
     stderr_fd = open("./stderr", O_WRONLY);
   }else {
-    int pty_fd = open(process.pty_.c_str(), O_RDWR);
+    int pty_fd = open(process.pty().c_str(), O_RDWR);
     stdout_fd = pty_fd;
     stderr_fd = pty_fd;
     stdin_fd = pty_fd;
@@ -226,60 +198,61 @@ bool ProcessMgr::ResetIo(const Process& process) {
   return ret;
 }
 
-bool ProcessMgr::Wait(const std::string& id, Process* process) {
-  std::map<std::string, Process*>::iterator it = processes_.find(id);
-  if (it == processes_.end()) {
-    LOG(WARNING, "fail to find process with id %s", id.c_str());
+bool ProcessMgr::Wait(const std::string& name, Process* process) {
+  std::map<std::string, Process>::iterator it = processes_->find(name);
+  if (it == processes_->end()) {
+    LOG(WARNING, "fail to find process with name %s", name.c_str());
     return false;
   }
-  if (!it->second->running_) {
+  if (!it->second.running()) {
     process->CopyFrom(it->second);
     return true;
   }
   int status = -1;
-  pid_t ret_pid = ::waitpid(it->second->pid_, &status, WNOHANG);
+  pid_t ret_pid = ::waitpid(it->second.pid(), &status, WNOHANG);
   // process exit
-  if (ret_pid == it->second->pid_) {
-    LOG(DEBUG, "process %s with pid %d exists", id.c_str(), it->second->pid_);
-    it->second->running_ = false;
-    it->second->dtime_ = ::baidu::common::timer::get_micros();
-    it->second->coredump_ = false;
+  if (ret_pid == it->second.pid()) {
+    LOG(DEBUG, "process %s with pid %d exists", name.c_str(), it->second.pid());
+    it->second.set_running(false);
+    it->second.set_coredump(false);
     // normal exit
     if (WIFEXITED(status)) {
-      it->second->ecode_ = WEXITSTATUS(status);
+      it->second.set_exit_code(WEXITSTATUS(status));
     }else if(WCOREDUMP(status)) {
-      it->second->coredump_ = true;
-      it->second->ecode_ = -1;
+      it->second.set_coredump(true);
+      it->second.set_exit_code(9);
     }
     process->CopyFrom(it->second);
   } else if (ret_pid == 0) {
-    it->second->running_ = true;
+    it->second.set_running(true);
     process->CopyFrom(it->second);
-    LOG(DEBUG, "process %s with pid %d is running", id.c_str(), it->second->pid_);
+    LOG(DEBUG, "process %s with pid %d is running", name.c_str(), it->second.pid());
   } else {
-    LOG(WARNING, "check process %s with pid %d with error %s ", id.c_str(), it->second->pid_, strerror(errno));
+    LOG(WARNING, "check process %s with pid %d with error %s ", name.c_str(), it->second.pid(), strerror(errno));
     return false;
   }
   return true;
 }
 
-bool ProcessMgr::Kill(const std::string& id, int signal) {
-  std::map<std::string, Process*>::iterator it = processes_.find(id);
-  if (it == processes_.end()) {
-    LOG(WARNING, "process with id %s does not exist", id.c_str());
+bool ProcessMgr::Kill(const std::string& name, int signal) {
+  std::map<std::string, Process>::iterator it = processes_->find(name);
+  if (it == processes_->end()) {
+    LOG(WARNING, "process with name %s does not exist", name.c_str());
     return false;
   }
-  if (it->second->gpid_ <= 0) {
-    LOG(WARNING, "process with id %s has invalide gpid %d", id.c_str(), it->second->gpid_);
+  if (it->second.gpid() <= 0) {
+    LOG(WARNING, "process with name %s has invalide gpid %d", 
+        name.c_str(), 
+        it->second.gpid());
     return false;
   }
-  int ok = ::killpg(it->second->gpid_, signal);
-  processes_.erase(id);
+  int ok = ::killpg(it->second.gpid(), signal);
+  processes_->erase(name);
   if (ok != 0) {
-    LOG(WARNING, "fail to kill process group %d with err %s", it->second->gpid_, strerror(errno));
+    LOG(WARNING, "fail to kill process group %d with err %s", it->second.gpid(), strerror(errno));
     return false;
   }
-  LOG(INFO, "kill process with gid %d and signal %d successfully", it->second->gpid_, signal);
+  LOG(INFO, "kill process with gid %d and signal %d successfully", it->second.gpid(), signal);
   return true;
 }
 

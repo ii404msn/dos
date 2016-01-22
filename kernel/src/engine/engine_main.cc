@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "engine/initd.h"
 
 #include <signal.h>
 #include <unistd.h>
@@ -11,21 +10,27 @@
 #include <sofa/pbrpc/pbrpc.h>
 #include <logging.h>
 #include <gflags/gflags.h>
-#include <engine/oc.h>
+#include "engine/oc.h"
+#include "engine/initd.h"
+#include "engine/engine_impl.h"
 #include "version.h"
 
 DECLARE_string(ce_initd_port);
+DECLARE_string(ce_port);
 DECLARE_string(ce_initd_conf_path);
 DECLARE_bool(ce_enable_ns);
+DECLARE_string(ce_work_dir);
+DECLARE_string(ce_gc_dir);
+
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
 
 const std::string kDosCeUsage = "dos_ce help message.\n"
-                                 "Usage:\n"
-                                 "    dos_ce initd \n" 
-                                 "Options:\n"
-                                 "    -d     Start dos_ce deamon\n"
-                                 "    -v     Show dos_ce build information\n";
+                                "Usage:\n"
+                                "    dos_ce initd \n" 
+                                "    dos_ce deamon \n" 
+                                "Options:\n"
+                                "    -v     Show dos_ce build information\n";
 
 static volatile bool s_quit = false;
 static void SignalIntHandler(int /*sig*/){
@@ -64,6 +69,27 @@ void StartInitd() {
   }
 }
 
+void StartDeamon() { 
+  sofa::pbrpc::RpcServerOptions options;
+  sofa::pbrpc::RpcServer rpc_server(options);
+  dos::Engine* engine = new dos::EngineImpl(FLAGS_ce_gc_dir, FLAGS_ce_work_dir);
+  if (!rpc_server.RegisterService(engine)) {
+    LOG(WARNING, "failed to register engine service");
+    exit(1);
+  }
+  std::string server_addr = "0.0.0.0:" + FLAGS_ce_port;
+  if (!rpc_server.Start(server_addr)) {
+    LOG(WARNING, "failed to start engine on %s", server_addr.c_str());
+    exit(1);
+  }
+  LOG(INFO, "start engine on port %s", FLAGS_ce_port.c_str());
+  signal(SIGINT, SignalIntHandler);
+  signal(SIGTERM, SignalIntHandler);
+  while (!s_quit) {
+    sleep(1);
+  }
+}
+
 int main(int argc, char * args[]) {
   ::baidu::common::SetLogLevel(::baidu::common::DEBUG);
   ::google::SetUsageMessage(kDosCeUsage);
@@ -78,6 +104,9 @@ int main(int argc, char * args[]) {
   } else if (strcmp(args[1], "initd") == 0) {
     ::google::ParseCommandLineFlags(&argc, &args, true);
     StartInitd();
+  } else if (strcmp(args[1], "deamon") == 0) {
+    ::google::ParseCommandLineFlags(&argc, &args, true);
+    StartDeamon();
   } else {
     fprintf(stderr,"%s", kDosCeUsage.c_str());
     return -1;

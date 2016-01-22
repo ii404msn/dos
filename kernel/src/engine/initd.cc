@@ -46,7 +46,7 @@ void InitdImpl::Status(RpcController*,
 
 bool InitdImpl::Launch(const Task& task, std::string* id) {
   mutex_.AssertHeld();
-  Process p;
+  dos::Process p;
   p.cmd_ = task.args();
   p.user_ = task.user();
   p.pty_ = task.pty();
@@ -77,7 +77,7 @@ void InitdImpl::CheckStatus(const std::string& id) {
     LOG(WARNING, "fail to find task with id %s", id.c_str());
     return;
   }
-  Process p;
+  dos::Process p;
   bool ok = proc_mgr_.Wait(id, &p);
   if (!ok) {
     LOG(WARNING, "fail to wait task %s", id.c_str());

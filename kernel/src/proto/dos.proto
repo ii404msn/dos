@@ -1,17 +1,24 @@
 package dos;
 
-enum Status {
-  kDosOk = 0;
-  kDosPrepareRootfsFailed = 1;
-  kDosNameExist = 2;
+// the global rpc status
+enum RpcStatus {
+  // make rpc successfully
+  kRpcOk = 0;
+  // fail to prepare rootfs
+  kRpcPrepareRootfsFailed = 1;
+  // container name or job name exists
+  kRpcNameExist = 2;
 }
 
 message User {
-  optional string uid = 1;
+  optional int32 uid = 1;
   optional string name = 2;
-  optional uint64 create_time = 3;
+  optional int32 gid = 3;
+  optional uint64 ctime = 4;
 }
 
+
+// resource related descriptor
 message Cpu {
   optional uint32 limit = 1;
   optional uint32 share = 2;
@@ -56,6 +63,53 @@ message Resource {
   optional Port port = 3;
   optional Network network = 4;
   optional DiskIO diskio = 5;
+}
+
+message Process {
+  repeated string args = 1;
+  optional User user = 2;
+  repeated string envs = 3;
+  optional string cwd = 4;
+  optional string pty = 5;
+  optional bool running = 6;
+  optional int32 pid = 7;
+  optional int32 gpid = 8;
+  // the process start to run time point
+  optional int64 rtime = 9;
+  optional bool coredump = 10;
+  optional int32 exit_code = 11;
+  optional string name = 12;
+  optional bool terminal = 13;
+}
+
+message Platform {
+  optional string os = 1;
+  optional string arch = 2;
+}
+
+message Root {
+  optional string path = 1;
+  optional bool readonly = 2;
+}
+
+message Mount {
+  optional string name = 1;
+  optional string path = 2;
+  optional string type = 3;
+  optional string source = 5;
+  optional string destination = 6;
+  repeated string options = 7;
+}
+
+message Device {
+  optional string path = 1;
+  optional int32 type = 2;
+  optional int32 major = 3;
+  optional int32 minor = 4;
+  optional string permissions = 5;
+  optional int32 mode = 6;
+  optional int32 uid = 7;
+  optional int32 gid = 8;
 }
 
 enum NodeState {

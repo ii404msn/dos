@@ -1,6 +1,6 @@
 package dos;
-
 import "dos.proto";
+
 
 option cc_generic_services = true;
 option py_generic_services = true;
@@ -12,7 +12,7 @@ message RunContainerRequest {
 }
 
 message RunContainerResponse {
-  optional Status status = 1;
+  optional RpcStatus status = 1;
 }
 
 service Engine {

@@ -41,6 +41,32 @@ else
     cp -rf rapidjson ${DEPS_PREFIX}
     echo "install rapidjson done"
 fi
+if [ -f "Python-2.7.11.tgz" ]
+then
+    echo "python exist"
+else
+    echo "start download python"
+    wget https://www.python.org/ftp/python/2.7.11/Python-2.7.11.tgz > /dev/null
+    tar zxf Python-2.7.11.tgz >/dev/null
+    cd Python-2.7.11
+    ./configure --prefix=${DEPS_PREFIX}  --disable-shared >/dev/null
+    make -j4 && make install>/dev/null
+    echo "install python done"
+    cd -
+fi
+
+if [ -f "setuptools-19.2.tar.gz" ]
+then
+    echo "setuptools exist"
+else
+    echo "start download setuptools"
+    wget https://pypi.python.org/packages/source/s/setuptools/setuptools-19.2.tar.gz
+    tar -zxvf setuptools-19.2.tar.gz >/dev/null
+    cd setuptools-19.2
+    python setup.py install >/dev/null
+    echo "install setuptools done"
+    cd -
+fi
 
 if [ -d "protobuf" ]
 then
@@ -56,6 +82,9 @@ else
     ./configure ${DEPS_CONFIG} >/dev/null
     make -j4 >/dev/null
     make install
+    cd -
+    cd protobuf-2.6.1/python
+    python setup.py build && python setup.py install
     cd -
     echo "install protobuf done"
 fi
@@ -143,23 +172,6 @@ else
     cd -
 fi
 
-if [ -d "gtest_archive" ]
-then
-    echo "gtest_archive exist"
-else
-
-    # gtest
-    # wget --no-check-certificate https://googletest.googlecode.com/files/gtest-1.7.0.zip
-    git clone --depth=1 https://github.com/xupeilin/gtest_archive
-    mv gtest_archive/gtest-1.7.0.zip .
-    unzip gtest-1.7.0.zip
-    cd gtest-1.7.0
-    ./configure ${DEPS_CONFIG} >/dev/null
-    make -j8 >/dev/null
-    cp -a lib/.libs/* ${DEPS_PREFIX}/lib
-    cp -a include/gtest ${DEPS_PREFIX}/include
-    cd -
-fi
 
 if [ -d "leveldb" ]
 then
@@ -205,7 +217,7 @@ else
     export PATH=${DEPS_PREFIX}/bin:$PATH
     export BOOST_PATH=${DEPS_PREFIX}/boost_1_57_0
     export PBRPC_PATH=${DEPS_PREFIX}/
-    make -j4 ins >/dev/null && make -j4 install_sdk
+    make -j4 ins >/dev/null && make -j4 install_sdk >/dev/null  && make python >/dev/null
     mkdir -p output/bin && cp ins output/bin
     cd -
 fi

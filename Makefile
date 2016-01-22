@@ -14,7 +14,7 @@ SHARED_LDFLAGS = -shared -Wl,-soname -Wl,
 INCPATH += -I./kernel/src $(DEPS_INCPATH) 
 CFLAGS += -std=c99 $(OPT) $(SHARED_CFLAGS) $(INCPATH)
 CXXFLAGS += $(OPT) $(SHARED_CFLAGS) $(INCPATH)
-LDFLAGS += -rdynamic $(DEPS_LDPATH) $(DEPS_LDFLAGS) -lpthread -lrt -lz -ldl
+LDFLAGS += -rdynamic $(DEPS_LDPATH) $(DEPS_LDFLAGS) -lpthread -lrt -lz 
 
 
 PREFIX=./output

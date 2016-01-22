@@ -24,6 +24,7 @@
 DECLARE_string(ce_bin_path);
 DECLARE_int32(ce_initd_boot_check_max_times);
 DECLARE_int32(ce_initd_boot_check_interval);
+DECLARE_int32(ce_process_status_check_interval);
 
 static char CONTAINER_STACK[STACK_SIZE];
 namespace dos {
@@ -95,7 +96,22 @@ void EngineImpl::StartContainerFSM(const std::string& name) {
 
 void EngineImpl::HandlePullImage(const ContainerState& pre_state,
                                  const std::string& name) {
-
+  ::baidu::common::MutexLock lock(&mutex_);
+  Containers::iterator it = containers_->find(name);
+  if (it == containers_->end()) {
+    LOG(INFO, "container with name %s has been deleted", name.c_str());
+    return;
+  }
+  ContainerInfo* info = it->second;
+  info->status.set_state(kContainerPulling);
+  info->work_dir="./";
+  FSM::iterator fsm_it = fsm_->find(kContainerBooting);
+  if (fsm_it == fsm_->end()) {
+    LOG(WARNING, "container %s has no fsm config with state %s",
+          name.c_str(), ContainerState_Name(kContainerPulling).c_str());
+    return;
+  }
+  fsm_it->second(kContainerPulling, name);
 }
 
 void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
@@ -197,7 +213,21 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
     ok = rpc_client_->SendRequest(info->initd_stub, 
                              &Initd_Stub::Fork,
                              &request, &response, 5, 1);
-    if (!ok) {}
+    if (!ok || response.status() != kInitOk) {
+      LOG(WARNING, "fail to fork process for container %s", name.c_str());
+      info->status.set_state(kContainerError);
+    } else {
+      LOG(INFO, "fork process for container %s successfully", name.c_str());
+      info->status.set_state(kContainerRunning);
+      FSM::iterator fsm_it = fsm_->find(kContainerRunning);
+      if (fsm_it == fsm_->end()) {
+        LOG(WARNING, "container %s has no fsm config with state %s",
+          name.c_str(), ContainerState_Name(kContainerRunning).c_str());
+        return;
+      }
+      thread_pool_->DelayTask(FLAGS_ce_process_status_check_interval,
+                              boost::bind(fsm_it->second, kContainerRunning, name));
+    }
   }
 }
 

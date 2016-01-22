@@ -9,7 +9,6 @@ using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
 
 namespace dos {
-namespace oci {
 
 bool LoadConfig(const std::string& path, Config* config) {
   if (config == NULL) {
@@ -48,11 +47,11 @@ bool LoadConfig(const std::string& path, Config* config) {
     LOG(WARNING, "path is requred is root");
     return false;
   }
-  config->root.path = root["path"].GetString();
+  config->root.set_path(root["path"].GetString());
   if (!root.HasMember("readonly")) {
-    config->root.readonly = true;
+    config->root.set_readonly(true);
   } else {
-    config->root.readonly = root["readonly"].GetBool();
+    config->root.set_readonly(root["readonly"].GetBool());
   }
   if (!document.HasMember("mounts")) {
     LOG(WARNING, "mounts is requred");
@@ -62,45 +61,44 @@ bool LoadConfig(const std::string& path, Config* config) {
   for (rapidjson::SizeType i = 0; i < mounts.Size(); i++) {
       const rapidjson::Value& mount_json = mounts[i];
       Mount mount;
-      mount.name = mount_json["name"].GetString();
-      mount.path = mount_json["path"].GetString();
+      mount.set_name(mount_json["name"].GetString());
+      mount.set_path(mount_json["path"].GetString());
       config->mounts.push_back(mount);
   }
   if (!document.HasMember("platform")) {
     LOG(WARNING, "platform is requred");
     return false;
   }
-  config->platform.os = document["platform"]["os"].GetString();
-  config->platform.arch = document["platform"]["arch"].GetString();
+  config->platform.set_os(document["platform"]["os"].GetString());
+  config->platform.set_arch(document["platform"]["arch"].GetString());
   if (!document.HasMember("process")) {
     LOG(WARNING, "process is requred");
     return false;
   }
   const rapidjson::Value& process_json = document["process"];
-  config->process.terminal = process_json["terminal"].GetBool();
-  config->process.cwd = process_json["cwd"].GetString();
+  config->process.set_terminal(process_json["terminal"].GetBool());
+  config->process.set_cwd(process_json["cwd"].GetString());
   if (!process_json.HasMember("user")) {
     LOG(WARNING, "user is required in process");
     return false;
   }
   const rapidjson::Value& user_json = process_json["user"];
-  config->process.user.uid = user_json["uid"].GetInt();
-  config->process.user.gid = user_json["gid"].GetInt();
+  config->process.mutable_user()->set_uid(user_json["uid"].GetInt());
+  config->process.mutable_user()->set_gid(user_json["gid"].GetInt());
   if (!process_json.HasMember("args")) {
     LOG(WARNING, "args is required");
     return false;
   }
   const rapidjson::Value& args_json = process_json["args"];
   for (rapidjson::SizeType i = 0; i < args_json.Size(); i++) {
-    config->process.args.push_back(args_json[i].GetString());
+    config->process.add_args(args_json[i].GetString());
   }
 
   const rapidjson::Value& envs_json = process_json["env"];
   for (rapidjson::SizeType i = 0; i < envs_json.Size(); i++) {
-    config->process.envs.push_back(envs_json[i].GetString());
+    config->process.add_envs(envs_json[i].GetString());
   }
   return true;
 }
 
-}
 }

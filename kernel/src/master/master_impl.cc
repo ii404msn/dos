@@ -15,7 +15,7 @@ MasterImpl::~MasterImpl() {
 
 void MasterImpl::HeartBeat(RpcController* /*controller*/,
                            const HeartBeatRequest* request,
-                           HeartBeatResponse* /*response*/,
+                           HeartBeatResponse* response,
                            Closure* done) {
   node_manager_->KeepAlive(request->hostname(), request->endpoint());
   done->Run();

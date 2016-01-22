@@ -17,7 +17,7 @@ message SubmitJobRequest{
 }
 
 message SubmitJobResponse {
-  optional Status status = 1; 
+  optional RpcStatus status = 1; 
 }
 
 service Master {
