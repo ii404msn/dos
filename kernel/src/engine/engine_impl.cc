@@ -55,7 +55,7 @@ void EngineImpl::RunContainer(RpcController* controller,
   LOG(INFO, "run container %s", request->name().c_str());
   if (containers_->find(request->name()) != containers_->end()) {
     LOG(WARNING, "container with name %s does exist", request->name().c_str());
-    response->set_status(kDosNameExist);
+    response->set_status(kRpcNameExist);
     done->Run();
     return;
   }
@@ -67,7 +67,7 @@ void EngineImpl::RunContainer(RpcController* controller,
   info->status.set_start_time(0);
   info->status.set_state(kContainerPending);
   containers_->insert(std::make_pair(request->name(), info));
-  response->set_status(kDosOk);
+  response->set_status(kRpcOk);
   done->Run();
   thread_pool_->AddTask(boost::bind(&EngineImpl::StartContainerFSM, this, request->name()));
 }
@@ -196,16 +196,10 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
     LOG(INFO, "start container %s in work dir %s", name.c_str(),
         info->work_dir.c_str());
     std::string config_path = info->work_dir + "/config.json";
-    dos::oci::Config config;
-    bool ok = dos::oci::LoadConfig(config_path, &config);
+    dos::Config config;
+    bool ok = dos::LoadConfig(config_path, &config);
     ForkRequest request;
-    request.mutable_task()->set_user("galaxy");
-    request.mutable_task()->set_name(name);
-    request.mutable_task()->set_cwd(config.process.cwd);
-    for (size_t i = 0; i < config.process.envs.size(); i++) {
-        request.mutable_task()->add_envs(config.process.envs[i]);
-    }
-    request.mutable_task()->set_args(boost::algorithm::join(config.process.args, " "));
+    request.mutable_process()->CopyFrom(config.process);
     ForkResponse response;
     if (info->initd_stub == NULL) {
       rpc_client_->GetStub(info->initd_endpoint, &info->initd_stub);
@@ -213,7 +207,7 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
     ok = rpc_client_->SendRequest(info->initd_stub, 
                              &Initd_Stub::Fork,
                              &request, &response, 5, 1);
-    if (!ok || response.status() != kInitOk) {
+    if (!ok || response.status() != kRpcOk) {
       LOG(WARNING, "fail to fork process for container %s", name.c_str());
       info->status.set_state(kContainerError);
     } else {

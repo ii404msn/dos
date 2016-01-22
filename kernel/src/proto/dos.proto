@@ -8,6 +8,7 @@ enum RpcStatus {
   kRpcPrepareRootfsFailed = 1;
   // container name or job name exists
   kRpcNameExist = 2;
+  kRpcError = 3;
 }
 
 message User {

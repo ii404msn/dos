@@ -14,12 +14,8 @@
 
 using ::google::protobuf::RpcController;
 using ::google::protobuf::Closure;
-namespace dos{
 
-struct TaskInfo {
-    Task task_;
-    TaskStatus status_;
-};
+namespace dos{
 
 class InitdImpl : public Initd {
 
@@ -43,13 +39,13 @@ public:
                StatusResponse* response,
                Closure* done);
 private:
-    bool Launch(const Task& task, std::string* id);
-    void CheckStatus(const std::string& id);
+    bool Launch(const Process& Process);
+    void CheckStatus(const std::string& name);
 private:
-    std::map<std::string, TaskInfo*> tasks_;
+    std::map<std::string, Process>* tasks_;
     ::baidu::common::Mutex mutex_;
-    ::baidu::common::ThreadPool workers_; 
-    ProcessMgr proc_mgr_;
+    ::baidu::common::ThreadPool* workers_; 
+    ProcessMgr* proc_mgr_;
 };
 
 } // namespace dos

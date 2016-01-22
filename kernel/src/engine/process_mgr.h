@@ -1,7 +1,8 @@
 // Copyright (c) 2015, Baidu.com, Inc. All Rights Reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-
+#ifndef KERNEL_ENGINE_PROCESS_MGR_H
+#define KERNEL_ENGINE_PROCESS_MGR_H
 #include <set>
 #include <map>
 #include <unistd.h>
@@ -32,3 +33,4 @@ private:
 };
 
 }
+#endif

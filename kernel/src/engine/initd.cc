@@ -16,22 +16,35 @@ using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
 namespace dos {
 
-InitdImpl::InitdImpl():tasks_(), mutex_(), workers_(4), proc_mgr_(){}
+InitdImpl::InitdImpl():tasks_(NULL), mutex_(), workers_(NULL),
+  proc_mgr_(NULL){
+  tasks_ = new std::map<std::string, Process>();
+  workers_ = new ::baidu::common::ThreadPool(4);
+  proc_mgr_ = new ProcessMgr();
+}
 
-InitdImpl::~InitdImpl(){}
+InitdImpl::~InitdImpl(){
+  delete workers_;
+  delete tasks_;
+}
 
 void InitdImpl::Fork(RpcController*,
                      const ForkRequest* request,
                      ForkResponse* response,
                      Closure* done) {
   ::baidu::common::MutexLock lock(&mutex_);
-  std::string id;
-  bool ok = Launch(request->task(), &id);
+  std::map<std::string, Process>::iterator it = tasks_->find(request->process().name());
+  if (it != tasks_->end()) {
+    response->set_status(kRpcNameExist);
+    done->Run();
+    return;
+  }
+
+  bool ok = Launch(request->process());
   if (!ok) {
-      response->set_status(kInitError);
+      response->set_status(kRpcError);
   }else { 
-      response->set_status(kInitOk);
-      response->set_id(id);
+      response->set_status(kRpcOk);
   }
   done->Run();
 }
@@ -40,64 +53,45 @@ void InitdImpl::Status(RpcController*,
                        const StatusRequest* request,
                        StatusResponse* response,
                        Closure* done) {
-  response->set_status(kInitOk);
+  response->set_status(kRpcOk);
   done->Run();
 }
 
-bool InitdImpl::Launch(const Task& task, std::string* id) {
-  mutex_.AssertHeld();
-  dos::Process p;
-  p.cmd_ = task.args();
-  p.user_ = task.user();
-  p.pty_ = task.pty();
-  p.cwd_ = task.cwd();
-  bool ok = proc_mgr_.Exec(p, id);
+bool InitdImpl::Launch(const Process& process) {
+  mutex_.AssertHeld(); 
+  bool ok = proc_mgr_->Exec(process);
   if (!ok) {
-    LOG(WARNING, "fail to create task for args %s", task.args().c_str());
+    LOG(WARNING, "fail to fork process name %s", process.name().c_str());
     return false;
   }else {
-    LOG(INFO, "launch task %s with args %s successfully", id->c_str(), task.args().c_str());
+    LOG(INFO, "fork process %s  successfully", process.name().c_str());
   }
-  TaskInfo* task_info = new TaskInfo();
-  task_info->task_ = task;
-  task_info->status_.set_id(*id);
-  task_info->status_.set_state(kTaskRunning);
-  task_info->status_.set_created(::baidu::common::timer::get_micros());
-  task_info->status_.set_user(task.user());
-  task_info->status_.set_args(task.args());
-  tasks_.insert(std::make_pair<std::string, TaskInfo*>(*id, task_info));
-  workers_.DelayTask(2000, boost::bind(&InitdImpl::CheckStatus, this, *id));
+  tasks_->insert(std::make_pair(process.name(), process));
+  workers_->DelayTask(1000, boost::bind(&InitdImpl::CheckStatus, this,process.name()));
   return true;
 }
 
-void InitdImpl::CheckStatus(const std::string& id) {
+void InitdImpl::CheckStatus(const std::string& name) {
   ::baidu::common::MutexLock lock(&mutex_);
-  std::map<std::string, TaskInfo*>::iterator it = tasks_.find(id);
-  if (it == tasks_.end()) {
-    LOG(WARNING, "fail to find task with id %s", id.c_str());
+  std::map<std::string, Process>::iterator it = tasks_->find(name);
+  if (it == tasks_->end()) {
+    LOG(WARNING, "fail to find task with name %s", name.c_str());
     return;
   }
   dos::Process p;
-  bool ok = proc_mgr_.Wait(id, &p);
+  bool ok = proc_mgr_->Wait(name, &p);
   if (!ok) {
-    LOG(WARNING, "fail to wait task %s", id.c_str());
+    LOG(WARNING, "fail to wait task %s", name.c_str());
     // clean task in proc_mgr;
-    proc_mgr_.Kill(id, 9);
+    proc_mgr_->Kill(name, 9);
     return;
   }
-  if (p.running_) {
-    it->second->status_.set_state(kTaskRunning);
-    workers_.DelayTask(2000, boost::bind(&InitdImpl::CheckStatus, this, id));
-    LOG(INFO, "task witd id %s is running", id.c_str());
-  }else {
-    if (p.coredump_) {
-      it->second->status_.set_state(kTaskCore);
-    }else if(p.ecode_ == 0) {
-      it->second->status_.set_state(kTaskComplete);
-    }else {
-      it->second->status_.set_state(kTaskUnknown);
-    }
-    LOG(INFO, "task witd id %s is dead", id.c_str());
+  it->second.CopyFrom(p);
+  if (p.running()) {
+    workers_->DelayTask(1000, boost::bind(&InitdImpl::CheckStatus, this, name));
+    LOG(INFO, "task witd name %s is running", name.c_str());
+  }else { 
+    LOG(INFO, "task witd name %s is dead", name.c_str());
   }
 }
 
@@ -106,16 +100,16 @@ void InitdImpl::Wait(RpcController* controller,
                      WaitResponse* response,
                      Closure* done) {
   ::baidu::common::MutexLock lock(&mutex_);
-  for (int i = 0; i < request->ids_size(); i++) {
-    std::map<std::string, TaskInfo*>::iterator it = tasks_.find(request->ids(i));
-    if (it == tasks_.end()) {
-      LOG(WARNING, "task with id %s does not exist in initd", request->ids(i).c_str());
+  for (int i = 0; i < request->names_size(); i++) {
+    std::map<std::string, Process>::iterator it = tasks_->find(request->names(i));
+    if (it == tasks_->end()) {
+      LOG(WARNING, "task with name %s does not exist in initd", request->names(i).c_str());
       continue;
     }
-    TaskStatus* status = response->add_task_status();
-    status->CopyFrom(it->second->status_);
+    Process* p = response->add_processes();
+    p->CopyFrom(it->second);
   }
-  response->set_status(kInitOk);
+  response->set_status(kRpcOk);
   done->Run();
 }
 
@@ -125,28 +119,26 @@ void InitdImpl::Kill(RpcController* controller,
                      Closure* done) {
   ::baidu::common::MutexLock lock(&mutex_);
   std::set<std::string> will_be_removed;
-  for (int i = 0; i < request->ids_size(); i++) {
-    std::string id = request->ids(i);
-    std::map<std::string, TaskInfo*>::iterator it = tasks_.find(id);
-    if (it == tasks_.end()) {
-      LOG(WARNING, "task with id %s does not exist in initd", id.c_str());
+  for (int i = 0; i < request->names_size(); i++) {
+    std::string name = request->names(i);
+    std::map<std::string, Process>::iterator it = tasks_->find(name);
+    if (it == tasks_->end()) {
+      LOG(WARNING, "task with name %s does not exist in initd", name.c_str());
       continue;
     }
-    bool ok = proc_mgr_.Kill(id, request->signal());
+    bool ok = proc_mgr_->Kill(name, request->signal());
     if (ok) {
-      LOG(INFO, "kill task with id %s successfully", id.c_str());
-      will_be_removed.insert(id);
+      LOG(INFO, "kill task with name %s successfully", name.c_str());
+      will_be_removed.insert(name);
       continue;
     }
-    LOG(WARNING, "killing task with id %s fails", id.c_str());
+    LOG(WARNING, "killing task with name %s fails", name.c_str());
   }
-  response->set_status(kInitOk);
+  response->set_status(kRpcOk);
   done->Run();
   std::set<std::string>::iterator it = will_be_removed.begin();
   for (; it != will_be_removed.end(); ++it) {
-    TaskInfo* task_info = tasks_[*it];
-    delete task_info;
-    tasks_.erase(*it);
+    tasks_->erase(*it);
   }
 }
 

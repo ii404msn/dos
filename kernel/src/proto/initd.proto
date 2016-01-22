@@ -2,48 +2,11 @@ import "dos.proto";
 
 package dos;
 
-
 option cc_generic_services = true;
 option py_generic_services = true;
 
-enum TaskState {
-  kTaskRunning = 1;
-  kTaskComplete = 2;
-  kTaskCore = 3;
-  kTaskKilled = 4;
-  kTaskUnknown = 5;
-}
-
-message TaskLog {
-  // the time that when record log
-  optional int64 timestamp = 1;
-  // the task id
-  optional string task_id = 2;
-  // the state of task that changed
-  optional TaskState state_from = 3;
-  optional TaskState state_to = 4;
-  optional string message = 5;
-}
-
-message Task {
-  optional string user = 1;
-  optional string pty = 2;
-  optional string args = 3;
-  repeated string envs = 4;
-  optional string cwd = 5;
-  optional string name = 6;
-}
-
-message TaskStatus {
-  optional string name = 1;
-  optional TaskState state = 2;
-  optional int64 created = 3;
-  optional string user = 4;
-  repeated string args = 5;
-}
-
 message ForkRequest {
-  optional Task task = 1;
+  optional Process process = 1;
 }
 
 message ForkResponse {
@@ -51,16 +14,16 @@ message ForkResponse {
 }
 
 message WaitRequest {
-  repeated string ids = 1;
+  repeated string names = 1;
 }
 
 message WaitResponse {
-  repeated TaskStatus task_status = 1;
+  repeated Process processes = 1;
   optional RpcStatus status = 2;
 }
 
 message KillRequest {
-  repeated string ids = 1;
+  repeated string names = 1;
   optional int32 signal = 2;
 }
 
@@ -71,7 +34,7 @@ message KillResponse {
 message StatusRequest {}
 
 message StatusResponse {
-  optional RpcStatus status = 1;
+  optional RpcStatus status = 1;  
 }
 
 service Initd {
