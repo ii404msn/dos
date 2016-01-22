@@ -2,6 +2,10 @@ package dos;
 
 import "dos.proto";
 
+option cc_generic_services = true;
+option py_generic_services = true;
+
+
 message RunContainerRequest {
   optional string name = 1;
   optional Container container = 2;

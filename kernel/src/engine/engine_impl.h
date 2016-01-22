@@ -51,7 +51,7 @@ struct ContainerInfo {
 typedef boost::function<void (const ContainerState& pre_state, const std::string& name)> Handle;
 typedef std::map<ContainerState, Handle>  FSM;
 
-class EngineImpl : public Engine{
+class EngineImpl : public Engine {
 
 public:
   EngineImpl(const std::string& work_dir,
