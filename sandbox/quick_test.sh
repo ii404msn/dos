@@ -18,5 +18,5 @@ mkdir -p dfs/rootfs
 tar -zxvf rootfs.tar.gz -C dfs/rootfs
 cp runtime.json dfs/
 cp config.json dfs/
-cd dfs && ../../dos_ce daemon --ce_bin_path=/vagrant/dos/dos_ce 
+cd dfs && nohup ../../dos_ce daemon --ce_bin_path=/vagrant/dos/dos_ce >log 2>&1 & 
 

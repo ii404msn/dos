@@ -5,7 +5,7 @@
 		"arch": "amd64"
 	},
 	"process": {
-		"terminal": true,
+		"terminal": false,
 		"user": {
 			"uid": 0,
 			"gid": 0,
@@ -16,8 +16,7 @@
 		        "100000"
 		],
 		"env": [
-			"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-			"TERM=xterm"
+			"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 		],
 		"cwd": ""
 	},

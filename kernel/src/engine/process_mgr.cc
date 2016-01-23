@@ -45,7 +45,7 @@ int ProcessMgr::LaunchProcess(void* args) {
         || fd == STDERR_FILENO) {
       continue;
     }
-    close(*fd_it);
+    close(fd);
   }
   pid_t self_pid = getpid();
   int ret = setpgid(self_pid, self_pid);
@@ -89,16 +89,23 @@ ProcessMgr::~ProcessMgr(){}
 bool ProcessMgr::Exec(const Process& process) {
   int32_t uid = 0;
   int32_t gid = 0;
-  /*bool ok = ProcessMgr::GetUser(process.user().name(), &uid, &gid);
+  bool ok = ProcessMgr::GetUser(process.user().name(), &uid, &gid);
   if (!ok) {
-    LOG(WARNING, "user %s does not exists", process.user().name().c_str());
-    return false;
-  }*/
+    LOG(WARNING, "user %s does not exists, use root", process.user().name().c_str());
+  }
   Process local;
   local.CopyFrom(process);
   local.set_rtime(::baidu::common::timer::get_micros());
+  int stdout_fd = -1;
+  int stderr_fd = -1;
+  int stdin_fd = -1;
+  ok = ResetIo(local, &stdout_fd, &stderr_fd, &stdin_fd);
+  if (!ok) {
+    LOG(WARNING, "fail to create stdout stderr descriptor for process %s", local.name().c_str());
+    return false;
+  }
   std::set<int> openfds;
-  bool ok = GetOpenedFds(openfds);
+  ok = GetOpenedFds(openfds);
   if (!ok) {
     LOG(WARNING, "fail to get opened fds  ");
     return false;
@@ -109,13 +116,16 @@ bool ProcessMgr::Exec(const Process& process) {
     return false;
   }else if (pid == 0) {
     std::set<int>::iterator fd_it = openfds.begin();
+    Dup2(stdout_fd, stderr_fd, stdin_fd);
     for (; fd_it !=  openfds.end(); ++fd_it) {
-      close(*fd_it);
-    }
-  /*  ok = ResetIo(local);
-    if(!ok) {
-      assert(0);
-    }*/
+      int fd = *fd_it;
+      if (fd == STDOUT_FILENO
+          || fd == STDIN_FILENO
+          || fd == STDERR_FILENO) {
+        continue;
+      }
+      close(fd);
+    } 
     pid_t self_pid = getpid();
     int ret = setpgid(self_pid, self_pid);
     if (ret != 0) {
@@ -160,6 +170,15 @@ bool ProcessMgr::Exec(const Process& process) {
     ::execve("/bin/sh", argv, env);
     assert(0);
   }else {
+    if (stdout_fd != -1) {
+      ::close(stdout_fd);
+    }
+    if (stderr_fd != -1) {
+      ::close(stderr_fd);
+    }
+    if (stdin_fd != -1) {
+      ::close(stdin_fd);
+    }
     local.set_pid(pid);
     local.set_gpid(pid);
     local.set_running(true);
