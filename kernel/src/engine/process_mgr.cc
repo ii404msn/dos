@@ -21,34 +21,86 @@
 #include "logging.h"
 #include "timer.h"
 
+#define STACK_SIZE (1024 * 1024)
+static char CLONE_STACK[STACK_SIZE];
+const static int STD_FILE_OPEN_FLAG = O_CREAT | O_APPEND | O_WRONLY;
+const static int STD_FILE_OPEN_MODE = S_IRWXU | S_IRWXG | S_IROTH;
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
 using ::baidu::common::DEBUG;
 
 namespace dos {
 
+int ProcessMgr::LaunchProcess(void* args) {
+  CloneContext* context = reinterpret_cast<CloneContext*>(args);
+  Dup2(context->stdout_fd, 
+       context->stderr_fd,
+       context->stdin_fd);
+  fprintf(stdout, "start process %s", context->process.name().c_str());
+  std::set<int>::iterator fd_it = context->fds.begin();
+  for (; fd_it != context->fds.end(); ++fd_it) {
+    int fd = *fd_it;
+    if (fd == STDOUT_FILENO
+        || fd == STDIN_FILENO
+        || fd == STDERR_FILENO) {
+      continue;
+    }
+    close(*fd_it);
+  }
+  pid_t self_pid = getpid();
+  int ret = setpgid(self_pid, self_pid);
+  if (ret != 0) {
+    fprintf(stderr, "fail to set pgid %d", self_pid);
+    exit(1);
+  }
+  if (!context->process.cwd().empty()) {
+    ret = chdir(context->process.cwd().c_str());
+    if (ret != 0) {
+      fprintf(stderr, "fail to chdir to %s", context->process.cwd().c_str());
+      exit(1);
+    }
+  }
+  ret = setuid(context->uid);
+  if (ret != 0) {
+    fprintf(stderr, "fail to set uid %d", context->uid);
+    exit(1);
+  }
+  ret = setgid(context->gid);
+  if (ret != 0) {
+    fprintf(stderr, "fail to set gid %d", context->gid);
+    exit(1);
+  }
+  char* argv[context->process.args_size() + 1];
+  int32_t argv_index = 0;
+  for (;argv_index < context->process.args_size(); ++argv_index) {
+    argv[argv_index] = const_cast<char*>(context->process.args(argv_index).c_str());
+  }
+  argv[argv_index + 1] = NULL;
+  ::execv(argv[0], argv);
+  assert(0);
+}
+
 ProcessMgr::ProcessMgr():processes_(NULL){
   processes_ = new std::map<std::string, Process>();
-  mypid_ = ::getpid();
 }
 
 ProcessMgr::~ProcessMgr(){}
 
 bool ProcessMgr::Exec(const Process& process) {
-  int32_t uid;
-  int32_t gid;
-  bool ok = GetUser(process.user().name(), &uid, &gid);
+  int32_t uid = 0;
+  int32_t gid = 0;
+  /*bool ok = ProcessMgr::GetUser(process.user().name(), &uid, &gid);
   if (!ok) {
     LOG(WARNING, "user %s does not exists", process.user().name().c_str());
     return false;
-  }
+  }*/
   Process local;
   local.CopyFrom(process);
   local.set_rtime(::baidu::common::timer::get_micros());
   std::set<int> openfds;
-  ok = GetOpenedFds(openfds);
+  bool ok = GetOpenedFds(openfds);
   if (!ok) {
-    LOG(WARNING, "fail to get opened fds of pid %d ", mypid_);
+    LOG(WARNING, "fail to get opened fds  ");
     return false;
   }
   pid_t pid = fork();
@@ -60,10 +112,10 @@ bool ProcessMgr::Exec(const Process& process) {
     for (; fd_it !=  openfds.end(); ++fd_it) {
       close(*fd_it);
     }
-    ok = ResetIo(local);
+  /*  ok = ResetIo(local);
     if(!ok) {
       assert(0);
-    }
+    }*/
     pid_t self_pid = getpid();
     int ret = setpgid(self_pid, self_pid);
     if (ret != 0) {
@@ -117,6 +169,54 @@ bool ProcessMgr::Exec(const Process& process) {
   }
 }
 
+bool ProcessMgr::Clone(const Process& process, int flag) {
+  int32_t uid;
+  int32_t gid;
+  bool ok = GetUser(process.user().name(), &uid, &gid);
+  if (!ok) {
+    LOG(WARNING, "user %s does not exists", process.user().name().c_str());
+    return false;
+  } 
+  CloneContext* context = new CloneContext();
+  context->process = process;
+  context->uid = uid;
+  context->gid = gid;
+  context->stdout_fd = -1;
+  context->stderr_fd = -1;
+  context->stdin_fd = -1;
+  ok = ResetIo(process, 
+              &context->stdout_fd,
+              &context->stderr_fd, 
+              &context->stdin_fd);
+  if (!ok) {
+    LOG(WARNING, "fail to reset io for process %s", process.name().c_str());
+    return false;
+  }
+  ok = GetOpenedFds(context->fds);
+  if (!ok) {
+    LOG(WARNING, "fail to get open fds for process %s", process.name().c_str());
+    return false;
+  }
+  int clone_ok = ::clone(&ProcessMgr::LaunchProcess,
+                    CLONE_STACK + STACK_SIZE,
+                    flag,
+                    context);
+  if (context->stdout_fd != -1) {
+    close(context->stdout_fd);
+  }
+  if (context->stderr_fd != -1) {
+    close(context->stderr_fd);
+  }
+  if (context->stdin_fd != -1) {
+    close(context->stdin_fd);
+  }
+  delete context;
+  if (clone_ok == -1) {
+    LOG(WARNING, "fail to clone process for process %s", process.name().c_str());
+    return false;
+  }
+  return true;
+}
 
 bool ProcessMgr::GetUser(const std::string& user,
                          int32_t* uid,
@@ -154,48 +254,37 @@ bool ProcessMgr::GetUser(const std::string& user,
   return ok;
 }
 
-bool ProcessMgr::ResetIo(const Process& process) {
-  int stdout_fd = -1;
-  int stderr_fd = -1;
-  int stdin_fd = -1;
+bool ProcessMgr::ResetIo(const Process& process,
+                         int* stdout_fd,
+                         int* stderr_fd,
+                         int* stdin_fd) {
+  if (stderr_fd == NULL || stdout_fd == NULL || stdin_fd == NULL) {
+    return false;
+  }
   if (process.pty().empty()) {
-    stdout_fd = open("./stdout", O_WRONLY);
-    stderr_fd = open("./stderr", O_WRONLY);
+    std::string stdout_path = process.cwd() + "./stdout";
+    std::string stderr_path = process.cwd() + "./stderr";
+    *stdout_fd = open(stdout_path.c_str(), STD_FILE_OPEN_FLAG, STD_FILE_OPEN_MODE);
+    *stderr_fd = open(stderr_path.c_str(), STD_FILE_OPEN_FLAG, STD_FILE_OPEN_MODE);
   }else {
     int pty_fd = open(process.pty().c_str(), O_RDWR);
-    stdout_fd = pty_fd;
-    stderr_fd = pty_fd;
-    stdin_fd = pty_fd;
-  }
-  bool ret = true;
-  do {
-    int ok = 0;
-    if (stdout_fd != -1) {
-      ok = dup2(stdout_fd, STDOUT_FILENO);
-      if (ok == -1) {
-        ret = false;
-        break;
-      }
-    }
-    if (stdin_fd != -1) {
-      ok = dup2(stdin_fd, STDIN_FILENO);
-      if (ok == -1) {
-        ret = false;
-        break;
-      }
-    }
-    if (stderr_fd != -1) {
-      ok = dup2(stderr_fd, STDERR_FILENO);
-      if (ok == -1) {
-        ret = false;
-        break;
-      }
-    }
-  } while(0);
-  close(stdout_fd);
-  close(stdin_fd);
-  close(stderr_fd);
-  return ret;
+    *stdout_fd = pty_fd;
+    *stderr_fd = pty_fd;
+    *stdin_fd = pty_fd;
+  } 
+  return true;
+}
+
+void ProcessMgr::Dup2(int stdout_fd, int stderr_fd, int stdin_fd) {
+  while (stdout_fd != -1 
+         && ::dup2(stdout_fd, STDOUT_FILENO) == -1
+         && errno == EINTR) {}
+  while (stderr_fd != -1 
+         && ::dup2(stderr_fd, STDERR_FILENO) == -1
+         && errno == EINTR) {} 
+  while (stdin_fd != -1
+         &&::dup2(stdin_fd, STDIN_FILENO) == -1
+         && errno == EINTR) {}
 }
 
 bool ProcessMgr::Wait(const std::string& name, Process* process) {
@@ -257,8 +346,9 @@ bool ProcessMgr::Kill(const std::string& name, int signal) {
 }
 
 bool ProcessMgr::GetOpenedFds(std::set<int>& fds) {
+  pid_t mypid = getpid();
   std::stringstream ss;
-  ss << "/proc/" << mypid_ << "/fd/";
+  ss << "/proc/" << mypid << "/fd/";
   std::string proc_path = ss.str();
   struct stat path_stat;
   int ret = ::stat(proc_path.c_str(), &path_stat);

@@ -68,6 +68,26 @@ else
     cd -
 fi
 
+if [ -f "pytz-2015.7.tar.gz" ] 
+then
+   echo "pytz-2015.7.tar.gz exist"
+else
+   wget https://pypi.python.org/packages/source/p/pytz/pytz-2015.7.tar.gz >/dev/null
+   tar zxf pytz-2015.7.tar.gz
+   cd pytz-2015.7
+   python setup.py install
+   cd -
+fi
+if [ -d "google-apputils" ]
+then
+   echo "google-apputils exist"
+else
+   git clone https://github.com/google/google-apputils.git
+   cd google-apputils
+   python setup.py install >/dev/null
+   echo "install google appuitls done"
+   cd -
+fi
 if [ -d "protobuf" ]
 then
     echo "protobuf exist"

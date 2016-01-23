@@ -88,10 +88,9 @@ void InitdImpl::CheckStatus(const std::string& name) {
   }
   it->second.CopyFrom(p);
   if (p.running()) {
-    workers_->DelayTask(1000, boost::bind(&InitdImpl::CheckStatus, this, name));
-    LOG(INFO, "task witd name %s is running", name.c_str());
+    workers_->DelayTask(2000, boost::bind(&InitdImpl::CheckStatus, this, name));
   }else { 
-    LOG(INFO, "task witd name %s is dead", name.c_str());
+    LOG(INFO, "task with name %s is dead", name.c_str());
   }
 }
 

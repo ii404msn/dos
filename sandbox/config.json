@@ -12,7 +12,8 @@
 			"additionalGids": null
 		},
 		"args": [
-			"sh"
+			"sleep" ,
+		        "100000"
 		],
 		"env": [
 			"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",

@@ -28,7 +28,7 @@ using ::baidu::common::WARNING;
 const std::string kDosCeUsage = "dos_ce help message.\n"
                                 "Usage:\n"
                                 "    dos_ce initd \n" 
-                                "    dos_ce deamon \n" 
+                                "    dos_ce daemon \n" 
                                 "Options:\n"
                                 "    -v     Show dos_ce build information\n";
 
@@ -91,7 +91,6 @@ void StartDeamon() {
 }
 
 int main(int argc, char * args[]) {
-  ::baidu::common::SetLogLevel(::baidu::common::DEBUG);
   ::google::SetUsageMessage(kDosCeUsage);
   if(argc < 2){
     fprintf(stderr,"%s", kDosCeUsage.c_str());
@@ -104,7 +103,7 @@ int main(int argc, char * args[]) {
   } else if (strcmp(args[1], "initd") == 0) {
     ::google::ParseCommandLineFlags(&argc, &args, true);
     StartInitd();
-  } else if (strcmp(args[1], "deamon") == 0) {
+  } else if (strcmp(args[1], "daemon") == 0) {
     ::google::ParseCommandLineFlags(&argc, &args, true);
     StartDeamon();
   } else {

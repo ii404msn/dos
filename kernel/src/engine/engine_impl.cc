@@ -19,14 +19,12 @@
 #define CLONE_NEWNS 0x00020000
 #endif
 
-#define STACK_SIZE (1024 * 1024)
 
 DECLARE_string(ce_bin_path);
 DECLARE_int32(ce_initd_boot_check_max_times);
 DECLARE_int32(ce_initd_boot_check_interval);
 DECLARE_int32(ce_process_status_check_interval);
 
-static char CONTAINER_STACK[STACK_SIZE];
 namespace dos {
 
 EngineImpl::EngineImpl(const std::string& work_dir,
@@ -41,6 +39,7 @@ EngineImpl::EngineImpl(const std::string& work_dir,
   thread_pool_ = new ::baidu::common::ThreadPool(20);
   fsm_ = new FSM();
   fsm_->insert(std::make_pair(kContainerPulling, boost::bind(&EngineImpl::HandlePullImage, this, _1, _2)));
+  fsm_->insert(std::make_pair(kContainerBooting, boost::bind(&EngineImpl::HandleBootInitd, this, _1, _2)));
   fsm_->insert(std::make_pair(kContainerRunning, boost::bind(&EngineImpl::HandleRunContainer, this, _1, _2)));
   rpc_client_ = new RpcClient();
 }
@@ -68,8 +67,8 @@ void EngineImpl::RunContainer(RpcController* controller,
   info->status.set_state(kContainerPending);
   containers_->insert(std::make_pair(request->name(), info));
   response->set_status(kRpcOk);
+  thread_pool_->AddTask(boost::bind(&EngineImpl::StartContainerFSM, this, request->name())); 
   done->Run();
-  thread_pool_->AddTask(boost::bind(&EngineImpl::StartContainerFSM, this, request->name()));
 }
 
 void EngineImpl::StartContainerFSM(const std::string& name) {
@@ -85,7 +84,7 @@ void EngineImpl::StartContainerFSM(const std::string& name) {
     ContainerInfo* info = it->second;
     state = info->status.state();
   }
-  FSM::iterator fsm_it = fsm_->find(state);
+  FSM::iterator fsm_it = fsm_->find(kContainerPulling);
   if (fsm_it == fsm_->end()) {
     LOG(WARNING, "container %s has no fsm config with state %s",
         name.c_str(), ContainerState_Name(state).c_str());
@@ -96,15 +95,18 @@ void EngineImpl::StartContainerFSM(const std::string& name) {
 
 void EngineImpl::HandlePullImage(const ContainerState& pre_state,
                                  const std::string& name) {
-  ::baidu::common::MutexLock lock(&mutex_);
-  Containers::iterator it = containers_->find(name);
-  if (it == containers_->end()) {
-    LOG(INFO, "container with name %s has been deleted", name.c_str());
-    return;
-  }
-  ContainerInfo* info = it->second;
-  info->status.set_state(kContainerPulling);
-  info->work_dir="./";
+  {
+    ::baidu::common::MutexLock lock(&mutex_);
+    Containers::iterator it = containers_->find(name);
+    if (it == containers_->end()) {
+      LOG(INFO, "container with name %s has been deleted", name.c_str());
+      return;
+    }
+    LOG(INFO, "start to pull image for container %s", name.c_str());
+    ContainerInfo* info = it->second;
+    info->status.set_state(kContainerPulling);
+    info->work_dir="/vagrant/dos/sandbox/dfs";
+  } 
   FSM::iterator fsm_it = fsm_->find(kContainerBooting);
   if (fsm_it == fsm_->end()) {
     LOG(WARNING, "container %s has no fsm config with state %s",
@@ -128,19 +130,19 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
   if (pre_state == kContainerPulling) {
     LOG(INFO, "boot container %s initd in work dir %s", name.c_str(),
         info->work_dir.c_str());
-    if (info->initd_config == NULL) {
-      info->initd_config = new InitdConfig();
-      info->initd_config->work_dir = info->work_dir;
-      info->initd_config->port = "9527";
-    }
+    info->initd_endpoint = "127.0.0.1:9527";
+    Process initd;
+    initd.set_cwd(info->work_dir);
+    initd.add_args(FLAGS_ce_bin_path);
+    initd.add_args("initd");
+    initd.add_args("--ce_initd_conf_path=./runtime.json");
+    initd.add_args("--ce_initd_port=9527");
+    initd.mutable_user()->set_name("root");
+    initd.set_terminal(false);
     //TODO read from runtime.json
-    int flag = CLONE_NEWNS | CLONE_NEWPID | CLONE_NEWUTS;
-    // clone initd 
-    int ok = ::clone(&EngineImpl::LunachInitd,
-                    CONTAINER_STACK + STACK_SIZE,
-                    flag | SIGCHLD,
-                    info->initd_config);
-    if (ok != 0) {
+    int flag = CLONE_NEWNS | CLONE_NEWPID | CLONE_NEWUTS | SIGCHLD;
+    bool ok = info->initd_proc.Clone(initd, flag);
+    if (!ok) {
       LOG(WARNING, "fail to clone initd from container %s for %s",
           name.c_str(), strerror(errno));
       info->status.set_state(kContainerError);
@@ -153,6 +155,7 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
 
   } else if (pre_state == kContainerBooting) {
     // check initd is ok
+    LOG(INFO, "checkout initd with endpoint %s", info->initd_endpoint.c_str());
     if (info->initd_stub == NULL) {
       rpc_client_->GetStub(info->initd_endpoint, &info->initd_stub);
     }
@@ -177,8 +180,10 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
           name.c_str(), ContainerState_Name(kContainerRunning).c_str());
         return;
       }
-      fsm_it->second(kContainerBooting, name);
+      thread_pool_->AddTask(boost::bind(fsm_it->second, kContainerBooting, name)); 
     }
+  } else {
+    LOG(WARNING, "invalidate pre state");
   }
 }
 
@@ -199,6 +204,8 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
     dos::Config config;
     bool ok = dos::LoadConfig(config_path, &config);
     ForkRequest request;
+    config.process.set_name(name);
+    config.process.mutable_user()->set_name("root");
     request.mutable_process()->CopyFrom(config.process);
     ForkResponse response;
     if (info->initd_stub == NULL) {

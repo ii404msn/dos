@@ -8,28 +8,44 @@
 #include <unistd.h>
 #include <string>
 #include <stdint.h>
+#include <set>
 #include "proto/dos.pb.h"
 
 namespace dos {
 
-//NOTE not thread safe
+struct CloneContext {
+  std::set<int> fds;
+  Process process;
+  int32_t uid;
+  int32_t gid;
+  int stdout_fd;
+  int stdin_fd;
+  int stderr_fd;
+};
+
 class ProcessMgr {
 
 public:
   ProcessMgr();
   ~ProcessMgr();
   bool Exec(const Process& process);
+  
+  bool Clone(const Process& process, int flag);
   bool Wait(const std::string& name, Process* process);
   bool Kill(const std::string& name, int signal);
 private:
-  bool GetOpenedFds(std::set<int>& fds);
-  bool ResetIo(const Process& process);
-  bool GetUser(const std::string& user, 
+  static bool GetOpenedFds(std::set<int>& fds);
+  static bool ResetIo(const Process& process,
+                      int* stdout_fd,
+                      int* stderr_fd,
+                      int* stdin_fd);
+  static void Dup2(int stdout_fd, int stderr_fd, int stdin_fd);
+  static bool GetUser(const std::string& user, 
                int32_t* uid,
                int32_t* gid);
+  static int LaunchProcess(void* args);
 private:
   std::map<std::string, Process>* processes_;
-  pid_t mypid_;
 };
 
 }

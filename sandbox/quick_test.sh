@@ -1,5 +1,6 @@
 #!/usr/bin/env sh
 SANDBOX_DIR=`pwd`
+killall dos_ce
 if [ -d "dfs" ]
 then
   cd dfs
@@ -14,13 +15,8 @@ then
 fi
 
 mkdir -p dfs/rootfs
-
 tar -zxvf rootfs.tar.gz -C dfs/rootfs
 cp runtime.json dfs/
 cp config.json dfs/
-#../../initd -v
-#cd testfolder && nohup ../../initd --runtime_conf_path=$SANDBOX_DIR/testfolder/runtime.json >log 2>&1 &
-#sleep 2
-#cd $SANDBOX_DIR/testfolder && cat log
-
+cd dfs && ../../dos_ce daemon --ce_bin_path=/vagrant/dos/dos_ce 
 

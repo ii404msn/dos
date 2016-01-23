@@ -24,5 +24,5 @@ DEFINE_string(ce_work_dir,"./work_dir","the work path of dos ce");
 // it's state from kContainerBooting to kContainerError
 DEFINE_int32(ce_initd_boot_check_max_times, 5, "the max times that try to connect initd ");
 // the interval to check initd whether it has been booted successfully
-DEFINE_int32(ce_initd_boot_check_interval, 2000, "the interval of check initd boot");
+DEFINE_int32(ce_initd_boot_check_interval, 4000, "the interval of check initd boot");
 DEFINE_int32(ce_process_status_check_interval, 2000, "the interval of check process status");
