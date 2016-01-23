@@ -57,7 +57,7 @@ public:
   EngineImpl(const std::string& work_dir,
              const std::string& gc_dir);
   ~EngineImpl();
-
+  bool Init();
   void RunContainer(RpcController* controller,
                const RunContainerRequest* request,
                RunContainerResponse* response,
@@ -79,7 +79,6 @@ private:
   void HandleRunContainer(const ContainerState& pre_state,
                           const std::string& name);
 
-  static int LunachInitd(void* config);
 private:
   ::baidu::common::Mutex mutex_;
   typedef std::map<std::string, ContainerInfo*> Containers;
@@ -89,6 +88,7 @@ private:
   std::string gc_dir_;
   FSM* fsm_;
   RpcClient* rpc_client_;
+  std::queue<int32_t>* ports_;
 };
 
 } // namespace dos
