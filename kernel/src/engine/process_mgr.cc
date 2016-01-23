@@ -20,6 +20,7 @@
 #include <errno.h>
 #include "logging.h"
 #include "timer.h"
+#include "engine/utils.h"
 
 #define STACK_SIZE (1024 * 1024)
 static char CLONE_STACK[STACK_SIZE];
@@ -33,10 +34,7 @@ namespace dos {
 
 int ProcessMgr::LaunchProcess(void* args) {
   CloneContext* context = reinterpret_cast<CloneContext*>(args);
-  Dup2(context->stdout_fd, 
-       context->stderr_fd,
-       context->stdin_fd);
-  fprintf(stdout, "start process %s", context->process.name().c_str());
+  Dup2(context->stdout_fd, context->stderr_fd,context->stdin_fd);
   std::set<int>::iterator fd_it = context->fds.begin();
   for (; fd_it != context->fds.end(); ++fd_it) {
     int fd = *fd_it;
@@ -45,6 +43,7 @@ int ProcessMgr::LaunchProcess(void* args) {
         || fd == STDERR_FILENO) {
       continue;
     }
+    LOG(INFO, "close fd %d", fd);
     close(fd);
   }
   pid_t self_pid = getpid();
@@ -96,10 +95,18 @@ bool ProcessMgr::Exec(const Process& process) {
   Process local;
   local.CopyFrom(process);
   local.set_rtime(::baidu::common::timer::get_micros());
+  if (local.cwd().empty()) {
+    local.set_cwd("/home/" + process.user().name());
+  }
+  ok = MkdirRecur(local.cwd());
+  if (!ok) {
+    LOG(WARNING, "fail create workdir %s", local.cwd().c_str());
+    return false;
+  }
   int stdout_fd = -1;
   int stderr_fd = -1;
   int stdin_fd = -1;
-  ok = ResetIo(local, &stdout_fd, &stderr_fd, &stdin_fd);
+  ok = ResetIo(local, stdout_fd, stderr_fd, stdin_fd);
   if (!ok) {
     LOG(WARNING, "fail to create stdout stderr descriptor for process %s", local.name().c_str());
     return false;
@@ -132,7 +139,7 @@ bool ProcessMgr::Exec(const Process& process) {
       fprintf(stderr, "fail to set pgid %d", self_pid);
       assert(0);
     }
-    if (!local.cwd().empty()) {
+    if (!local.cwd().empty()) { 
       ret = chdir(local.cwd().c_str());
       if (ret != 0) {
         fprintf(stderr, "fail to chdir to %s", local.cwd().c_str());
@@ -191,6 +198,7 @@ bool ProcessMgr::Exec(const Process& process) {
 bool ProcessMgr::Clone(const Process& process, int flag) {
   int32_t uid;
   int32_t gid;
+  //TODO add create user function
   bool ok = GetUser(process.user().name(), &uid, &gid);
   if (!ok) {
     LOG(WARNING, "user %s does not exists", process.user().name().c_str());
@@ -204,9 +212,9 @@ bool ProcessMgr::Clone(const Process& process, int flag) {
   context->stderr_fd = -1;
   context->stdin_fd = -1;
   ok = ResetIo(process, 
-              &context->stdout_fd,
-              &context->stderr_fd, 
-              &context->stdin_fd);
+              context->stdout_fd,
+              context->stderr_fd, 
+              context->stdin_fd);
   if (!ok) {
     LOG(WARNING, "fail to reset io for process %s", process.name().c_str());
     return false;
@@ -274,27 +282,31 @@ bool ProcessMgr::GetUser(const std::string& user,
 }
 
 bool ProcessMgr::ResetIo(const Process& process,
-                         int* stdout_fd,
-                         int* stderr_fd,
-                         int* stdin_fd) {
-  if (stderr_fd == NULL || stdout_fd == NULL || stdin_fd == NULL) {
-    return false;
-  }
+                         int& stdout_fd,
+                         int& stderr_fd,
+                         int& stdin_fd) { 
   if (process.pty().empty()) {
     std::string stdout_path = process.cwd() + "./stdout";
     std::string stderr_path = process.cwd() + "./stderr";
-    *stdout_fd = open(stdout_path.c_str(), STD_FILE_OPEN_FLAG, STD_FILE_OPEN_MODE);
-    *stderr_fd = open(stderr_path.c_str(), STD_FILE_OPEN_FLAG, STD_FILE_OPEN_MODE);
+    stdout_fd = open(stdout_path.c_str(), STD_FILE_OPEN_FLAG, STD_FILE_OPEN_MODE);
+    stderr_fd = open(stderr_path.c_str(), STD_FILE_OPEN_FLAG, STD_FILE_OPEN_MODE);
+    LOG(INFO,"create std file in %s  with stdout %d stderr %d", 
+        process.cwd().c_str(),
+        stdout_fd,
+        stderr_fd);
   }else {
     int pty_fd = open(process.pty().c_str(), O_RDWR);
-    *stdout_fd = pty_fd;
-    *stderr_fd = pty_fd;
-    *stdin_fd = pty_fd;
+    stdout_fd = pty_fd;
+    stderr_fd = pty_fd;
+    stdin_fd = pty_fd;
   } 
   return true;
 }
 
-void ProcessMgr::Dup2(int stdout_fd, int stderr_fd, int stdin_fd) {
+void ProcessMgr::Dup2(const int stdout_fd,
+                      const int stderr_fd,
+                      const int stdin_fd) {
+  LOG(INFO, "dup stdout %d stderr %d stdin %d", stdout_fd, stderr_fd, stdin_fd);
   while (stdout_fd != -1 
          && ::dup2(stdout_fd, STDOUT_FILENO) == -1
          && errno == EINTR) {}

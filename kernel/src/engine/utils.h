@@ -3,5 +3,6 @@
 #include <string>
 namespace dos {
 bool Mkdir(const std::string& path);
+bool MkdirRecur(const std::string& path);
 }
 #endif

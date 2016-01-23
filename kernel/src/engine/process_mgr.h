@@ -28,17 +28,16 @@ class ProcessMgr {
 public:
   ProcessMgr();
   ~ProcessMgr();
-  bool Exec(const Process& process);
-  
+  bool Exec(const Process& process); 
   bool Clone(const Process& process, int flag);
   bool Wait(const std::string& name, Process* process);
   bool Kill(const std::string& name, int signal);
 private:
   static bool GetOpenedFds(std::set<int>& fds);
   static bool ResetIo(const Process& process,
-                      int* stdout_fd,
-                      int* stderr_fd,
-                      int* stdin_fd);
+                      int& stdout_fd,
+                      int& stderr_fd,
+                      int& stdin_fd);
   static void Dup2(int stdout_fd, int stderr_fd, int stdin_fd);
   static bool GetUser(const std::string& user, 
                int32_t* uid,
