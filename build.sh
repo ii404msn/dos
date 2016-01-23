@@ -139,7 +139,7 @@ else
     echo "PREFIX=${DEPS_PREFIX}" >> depends.mk
     cd - 
     cd sofa-pbrpc/src
-    PROTOBUF_DIR=${DEPS_PREFIX} sh compile_proto.sh
+    PROTOBUF_DIR=${DEPS_PREFIX} sh compile_proto.sh ${DEPS_PREFIX}/include
     cd - 
     cd sofa-pbrpc 
     make -j4 >/dev/null
