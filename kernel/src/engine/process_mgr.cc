@@ -286,10 +286,17 @@ bool ProcessMgr::ResetIo(const Process& process,
                          int& stderr_fd,
                          int& stdin_fd) { 
   if (process.pty().empty()) {
-    std::string stdout_path = process.cwd() + "./stdout";
-    std::string stderr_path = process.cwd() + "./stderr";
+    std::string stdout_path = process.cwd() + "/stdout";
+    std::string stderr_path = process.cwd() + "/stderr";
     stdout_fd = open(stdout_path.c_str(), STD_FILE_OPEN_FLAG, STD_FILE_OPEN_MODE);
+    if (stdout_fd == -1) {
+        LOG(WARNING, "fail to create %s for err %s", stdout_path.c_str(), strerror(errno));
+        return false;
+    }
     stderr_fd = open(stderr_path.c_str(), STD_FILE_OPEN_FLAG, STD_FILE_OPEN_MODE);
+    if (stderr_fd == -1) {
+        LOG(WARNING, "fail to create %s for err %s", stderr_path.c_str(), strerror(errno));
+    }
     LOG(INFO,"create std file in %s  with stdout %d stderr %d", 
         process.cwd().c_str(),
         stdout_fd,

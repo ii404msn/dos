@@ -105,7 +105,7 @@ void EngineImpl::HandlePullImage(const ContainerState& pre_state,
     LOG(INFO, "start to pull image for container %s", name.c_str());
     ContainerInfo* info = it->second;
     info->status.set_state(kContainerPulling);
-    info->work_dir="/vagrant/dos/sandbox/dfs";
+    info->work_dir="/home/galaxy/dos/sandbox/dfs";
   } 
   FSM::iterator fsm_it = fsm_->find(kContainerBooting);
   if (fsm_it == fsm_->end()) {
