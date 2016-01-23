@@ -127,11 +127,26 @@ message NodeMeta {
   optional NodeState state = 5;
 }
 
+enum ContainerType {
+  // use system rootfs
+  kSystem = 0;
+  // use docker image
+  kDocker = 1;
+  // use oci rootfs
+  kOci = 2;
+}
+
 message Container {
   optional Resource requirement = 1;
   // opencontainer format or docker image
   optional string image = 2;
   optional string tag = 3;
+  // the image download url
+  optional string uri = 4;
+  optional ContainerType type = 5;
+  optional bool enable_ns = 6;
+  // no process related with it
+  optional bool reserved = 7;
 }
 
 message PodSpec {

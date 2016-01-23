@@ -72,7 +72,12 @@ void StartInitd() {
 void StartDeamon() { 
   sofa::pbrpc::RpcServerOptions options;
   sofa::pbrpc::RpcServer rpc_server(options);
-  dos::Engine* engine = new dos::EngineImpl(FLAGS_ce_gc_dir, FLAGS_ce_work_dir);
+  dos::EngineImpl* engine = new dos::EngineImpl(FLAGS_ce_work_dir, FLAGS_ce_gc_dir);
+  bool init_ok = engine->Init();
+  if (!init_ok) {
+    LOG(WARNING, "fail to init engine");
+    exit(1);
+  }
   if (!rpc_server.RegisterService(engine)) {
     LOG(WARNING, "failed to register engine service");
     exit(1);
