@@ -14,6 +14,9 @@ message RunContainerResponse {
   optional RpcStatus status = 1;
 }
 
+message ShowContainerRequest {}
+message ShowContainerResponse {}
+
 service Engine {
   rpc RunContainer(RunContainerRequest) returns(RunContainerResponse);
 }
