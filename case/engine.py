@@ -4,8 +4,10 @@ import client
 
 def start_container(addr):
   container = dos_pb2.Container()
+  container.type = 1
+  container.reserved = False
   req = engine_pb2.RunContainerRequest(container = container)
-  req.name = "test"
+  req.name = "dfs"
   channel = client.Channel(addr)
   engine = engine_pb2.Engine_Stub(channel)
   controller = client.Controller()

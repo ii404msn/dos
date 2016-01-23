@@ -186,7 +186,11 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
     initd.mutable_user()->set_name("root");
     initd.set_terminal(false);
     //TODO read from runtime.json
+    
     int flag = CLONE_NEWNS | CLONE_NEWPID | CLONE_NEWUTS | SIGCHLD;
+    if (info->container.type() == kSystem) {
+      flag = SIGCHLD;
+    }
     bool ok = info->initd_proc.Clone(initd, flag);
     if (!ok) {
       LOG(WARNING, "fail to clone initd from container %s for %s",
