@@ -41,6 +41,7 @@ else
     cp -rf rapidjson ${DEPS_PREFIX}
     echo "install rapidjson done"
 fi
+
 if [ -f "Python-2.7.11.tgz" ]
 then
     echo "python exist"
@@ -68,26 +69,21 @@ else
     cd -
 fi
 
-if [ -f "pytz-2015.7.tar.gz" ] 
+if [ -f "pip-8.0.2.tar.gz" ]
 then
-   echo "pytz-2015.7.tar.gz exist"
+   echo "pip exists"
 else
-   wget https://pypi.python.org/packages/source/p/pytz/pytz-2015.7.tar.gz >/dev/null
-   tar zxf pytz-2015.7.tar.gz
-   cd pytz-2015.7
-   python setup.py install
-   cd -
-fi
-if [ -d "google-apputils" ]
-then
-   echo "google-apputils exist"
-else
-   git clone https://github.com/google/google-apputils.git
-   cd google-apputils
+   echo "install pip"
+   wget https://pypi.python.org/packages/source/p/pip/pip-8.0.2.tar.gz
+   tar -zxvf pip-8.0.2.tar.gz
+   cd pip-8.0.2
    python setup.py install >/dev/null
-   echo "install google appuitls done"
+   echo "install pip done"
    cd -
 fi
+
+pip install google-apputils
+
 if [ -d "protobuf" ]
 then
     echo "protobuf exist"
@@ -127,14 +123,13 @@ else
     echo "install snappy done"
 fi
 
-if [ -f "sofa-pbrpc-1.0.0.tar.gz" ]
+if [ -d "sofa-pbrpc" ]
 then
     echo "sofa exist"
 else
     # sofa-pbrpc
-    wget --no-check-certificate -O sofa-pbrpc-1.0.0.tar.gz https://github.com/BaiduPS/sofa-pbrpc/archive/v1.0.0.tar.gz
-    tar zxf sofa-pbrpc-1.0.0.tar.gz
-    cd sofa-pbrpc-1.0.0
+    git clone https://github.com/baidu/sofa-pbrpc.git
+    cd sofa-pbrpc
     sed -i '/BOOST_HEADER_DIR=/ d' depends.mk
     sed -i '/PROTOBUF_DIR=/ d' depends.mk
     sed -i '/SNAPPY_DIR=/ d' depends.mk
@@ -142,12 +137,17 @@ else
     echo "PROTOBUF_DIR=${DEPS_PREFIX}" >> depends.mk
     echo "SNAPPY_DIR=${DEPS_PREFIX}" >> depends.mk
     echo "PREFIX=${DEPS_PREFIX}" >> depends.mk
-    cd src
+    cd - 
+    cd sofa-pbrpc/src
     PROTOBUF_DIR=${DEPS_PREFIX} sh compile_proto.sh
-    cd ..
+    cd - 
+    cd sofa-pbrpc 
     make -j4 >/dev/null
     make install
-    cd ..
+    cd -
+    cd sofa-pbrpc/python
+    python setup.py install
+    cd -
 fi
 
 if [ -f "CMake-3.2.1.tar.gz" ]
