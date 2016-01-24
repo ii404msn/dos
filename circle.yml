@@ -4,5 +4,5 @@ machine:
     - sudo apt-get install libreadline-dev
 test:
   pre:
-    - sh build.sh
+    - sh build.sh && cd sandbox && sh start_all.sh
 

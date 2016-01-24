@@ -3,5 +3,5 @@ compiler: gcc
 env:
     - PROTOBUF_VERSION=2.6.0
 script: 
-    - sh build.sh && cd sandbox && sh quick_test.sh
+    - sh build.sh && cd sandbox && sh start_all.sh
 
