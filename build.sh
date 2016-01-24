@@ -223,7 +223,7 @@ then
     echo "ins exist"
 else
     # ins
-    git clone https://github.com/fxsjy/ins
+    git clone https://github.com/imotai/ins.git
     cd ins
     sed -i 's/^SNAPPY_PATH=.*/SNAPPY_PATH=..\/..\/thirdparty/' Makefile
     sed -i 's/^PROTOBUF_PATH=.*/PROTOBUF_PATH=..\/..\/thirdparty/' Makefile
