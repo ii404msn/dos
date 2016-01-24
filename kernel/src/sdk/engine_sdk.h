@@ -25,8 +25,16 @@ struct CInfo {
   int64_t rtime;
   std::string state;
   std::string type;
+  int64_t btime;
 };
 
+struct CLog {
+  std::string name;
+  int64_t time;
+  std::string cfrom;
+  std::string cto;
+  std::string msg;
+};
 
 class EngineSdk {
 
@@ -36,6 +44,8 @@ public:
   virtual SdkStatus Run(const std::string& name, 
                         const CDescriptor& desc) = 0;
   virtual SdkStatus ShowAll(std::vector<CInfo>& containers) = 0;
+  virtual SdkStatus ShowCLog(const std::string& name,
+                             std::vector<CLog>& logs) = 0;
 };
 
 }

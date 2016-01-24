@@ -24,6 +24,8 @@ public:
                 const CDescriptor& desc);
 
   SdkStatus ShowAll(std::vector<CInfo>& containers);
+  SdkStatus ShowCLog(const std::string& name,
+                     std::vector<CLog>& logs);
 private:
   RpcClient* rpc_client_;
   Engine_Stub* engine_;
@@ -77,8 +79,32 @@ SdkStatus EngineSdkImpl::ShowAll(std::vector<CInfo>& containers) {
     info.name = response.containers(i).name();
     info.state = ContainerState_Name(response.containers(i).state());
     info.rtime = response.containers(i).rtime();
+    info.btime = response.containers(i).boot_time();
     info.type = ContainerType_Name(response.containers(i).type());
     containers.push_back(info);
+  }
+  return kSdkOk;
+}
+
+SdkStatus EngineSdkImpl::ShowCLog(const std::string& name,
+                                  std::vector<CLog>& logs){
+  ShowCLogRequest request;
+  request.set_name(name);
+  ShowCLogResponse response;
+  bool rpc_ok = rpc_client_->SendRequest(engine_, 
+                                        &Engine_Stub::ShowCLog,
+                                        &request, &response, 5, 1);
+  if (!rpc_ok || response.status() != kRpcOk) {
+    return kSdkError;
+  }
+  for (int32_t i = 0; i < response.logs_size(); ++i) {
+    CLog log;
+    log.name = response.logs(i).name();
+    log.time = response.logs(i).time();
+    log.cfrom = ContainerState_Name(response.logs(i).cfrom());
+    log.cto = ContainerState_Name(response.logs(i).cto());
+    log.msg = response.logs(i).msg();
+    logs.push_back(log);
   }
   return kSdkOk;
 }

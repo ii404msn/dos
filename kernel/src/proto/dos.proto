@@ -9,6 +9,7 @@ enum RpcStatus {
   // container name or job name exists
   kRpcNameExist = 2;
   kRpcError = 3;
+  kRpcNotFound = 4;
 }
 
 message User {
@@ -17,7 +18,6 @@ message User {
   optional int32 gid = 3;
   optional uint64 ctime = 4;
 }
-
 
 // resource related descriptor
 message Cpu {
@@ -124,7 +124,6 @@ message NodeMeta {
   optional string hostname = 2;
   optional string endpoint = 3;
   optional Resource resource = 4;
-  optional NodeState state = 5;
 }
 
 enum ContainerType {
@@ -151,6 +150,8 @@ message Container {
 
 message PodSpec {
   repeated Container containers = 1;
+  // the max log count that stored on agent
+  optional int32 log_size = 2;
 }
 
 message JobSpec {
@@ -158,13 +159,68 @@ message JobSpec {
   optional uint32 replica = 2;
   optional uint32 deploy_step_size = 3;
   optional uint32 update_step_size = 4;
+  optional PodSpec pod = 5;
+}
+
+enum PodSchedStage {
+  // in master pending queue
+  kPodSchedStagePending = 0;
+  // scheduler has scheduled it
+  kPodSchedStageRunning = 1;
+  // agent report it death, only agent can change
+  // podschedstage to death
+  kPodSchedStageDeath = 2;
+  // mark pod removed when scale down or 
+  // delete job
+  kPodSchedStageRemoved = 3;
+}
+
+// the real running state in agent
+// eg pending, deploying, running , death
+enum PodState {
+  // pending is agent deploy queue
+  kPodPending = 0;
+  // deploy all containers in pod
+  // any of containers being in kContainerPulling
+  // will make pod being kPodDeploying
+  kPodDeploying = 1;
+  // all containers in pods are running
+  kPodRunning = 2;
+  // core , oom or exit
+  kPodDeath = 3;
+  // mark pod removed only master can do that
+  kPodRemoved = 4;
+}
+
+message PodLog {
+  optional string name = 1;
+  optional PodState state_from = 2;
+  optional PodState state_to = 3;
+  optional int64 time = 4;
+  optional string msg = 5;
+}
+
+message PodStatus {
+  optional string name = 1;
+  repeated ContainerStatus cstatus = 2;
+  optional PodSpec desc = 3;
+  optional PodSchedStage stage = 4;
+  optional PodState state = 5;
+  // latest sched time, only master update it when scheduler schedules a pod
+  optional int64 sched_time = 6;
+  // the time that is consumed on scheduling
+  optional int64 pending_to_sched = 7;
+  // the time that is consumed on download package
+  // and launch initd, only agent updates it
+  optional int64 boot_time = 8;
 }
 
 message NodeStatus {
-  optional string endpoint = 1;
-  optional string hostname = 2;
-  optional Resource used = 3;
-  optional NodeState state = 4;
+  optional Resource used = 1;
+  repeated PodStatus pstatus = 2;
+  optional NodeState state = 3;
+  optional NodeMeta meta = 4;
+  // check node hearbeat timeout task id
   optional int64 task_id = 5;
 }
 
@@ -186,9 +242,19 @@ enum ContainerState {
   kContainerError = 7;
 }
 
+message ContainerLog {
+  optional string name = 1;
+  optional ContainerState cfrom = 2;
+  optional ContainerState cto = 3;
+  optional int64 time = 4;
+  optional string msg = 5;
+}
+
 message ContainerStatus {
   optional string name  = 1;
   optional int64 start_time = 2;
   optional Resource used = 3;
   optional ContainerState state = 4;
+  optional ContainerType type = 5;
+  optional int64 boot_time = 6;
 }

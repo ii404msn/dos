@@ -27,9 +27,9 @@ DECLARE_string(ce_work_dir);
 DECLARE_string(ce_gc_dir);
 
 DEFINE_string(n, "", "specify container name");
-DEFINE_string(v, "", "show version");
+DEFINE_bool(v, true, "show version");
 DEFINE_string(u, "", "specify uri for rootfs");
-DEFINE_string(ce_endpoint, "127.0.0.1:9527", "specify container engine endpoint");
+DEFINE_string(ce_endpoint, "127.0.0.1:7676", "specify container engine endpoint");
 
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
@@ -39,9 +39,10 @@ const std::string kDosCeUsage = "dos_ce help message.\n"
                                 "    dos_ce initd \n" 
                                 "    dos_ce daemon \n" 
                                 "    dos_ce run -u <uri>  -n <name>\n" 
-                                "    dos_ce ps \n" 
+                                "    dos_ce ps \n"
+                                "    dos_ce log -n <name> \n"
+                                "    dos_ce version"
                                 "Options:\n"
-                                "    -v     Show dos_ce build information\n"
                                 "    -u     Specify uri for download rootfs\n"
                                 "    -n     Specify name for container\n";
 
@@ -50,8 +51,21 @@ static void SignalIntHandler(int /*sig*/){
     s_quit = true;
 }
 
-std::string PrettyTime(const int64_t start_time) {
-  int64_t last = ( baidu::common::timer::get_micros() - start_time) / 1000000;
+std::string FormatDate(int64_t datetime) {
+  if (datetime < 100) {
+    return "-";
+  }
+  char buffer[100];
+  time_t time = datetime / 1000000;
+  struct tm *tmp;
+  tmp = localtime(&time);
+  strftime(buffer, 100, "%F %X", tmp);
+  std::string ret(buffer);
+  return ret;
+}
+
+std::string PrettyTime(const int64_t time) {
+  int64_t last = time / 1000000;
   char label[3] = {'s', 'm', 'h'};
   double num = last;
   int count = 0;
@@ -60,7 +74,7 @@ std::string PrettyTime(const int64_t start_time) {
     num /= 60;
   }
   return ::baidu::common::NumToString(num) + label[count];
- }
+}
 
 void StartInitd() {
   if (FLAGS_ce_enable_ns) {
@@ -120,7 +134,35 @@ void StartDeamon() {
   }
 }
 
-void Run () {
+void ShowLog() {
+  if (FLAGS_n.empty()) {
+    fprintf(stderr, "-n is required \n");
+    exit(1);
+  }
+  
+  dos::EngineSdk* engine = dos::EngineSdk::Connect(FLAGS_ce_endpoint);
+  if (engine == NULL) {
+    fprintf(stderr, "fail to connect %s \n", FLAGS_ce_endpoint.c_str());
+    exit(1);
+  }
+
+  std::vector<dos::CLog> logs;
+  dos::SdkStatus status = engine->ShowCLog(FLAGS_n, logs);
+  if (status == dos::kSdkOk) {
+    std::vector<dos::CLog>::reverse_iterator it = logs.rbegin();
+    for (; it != logs.rend(); ++it) {
+      fprintf(stdout, "%s %s change state from %s to %s with msg %s \n", 
+          FormatDate(it->time).c_str(), it->name.c_str(), 
+          it->cfrom.c_str(), it->cto.c_str(), it->msg.c_str());
+    }
+  }else  {
+    fprintf(stderr, "show log %s fails\n", FLAGS_n.c_str());
+    exit(1);
+  }
+
+}
+
+void Run() {
   if (FLAGS_n.empty()) {
     fprintf(stderr, "-n is required \n");
     exit(1);
@@ -159,8 +201,8 @@ void Show() {
     fprintf(stderr, "fail to show containers \n");
     exit(1);
   }
-  ::baidu::common::TPrinter tp(5);
-  tp.AddRow(5, "", "name", "type","state", "rtime");
+  ::baidu::common::TPrinter tp(6);
+  tp.AddRow(6, "", "name", "type","state", "rtime", "btime");
   for (size_t i = 0; i < containers.size(); i++) {
     std::vector<std::string> vs;
     vs.push_back(baidu::common::NumToString((int32_t)i + 1));
@@ -170,7 +212,12 @@ void Show() {
     if (containers[i].rtime <= 1000) {
       vs.push_back("-");
     } else {
-      vs.push_back(PrettyTime(containers[i].rtime));
+      vs.push_back(PrettyTime(::baidu::common::timer::get_micros() - containers[i].rtime));
+    }
+    if (containers[i].btime > 0) {
+      vs.push_back(PrettyTime(containers[i].btime));
+    } else {
+      vs.push_back("-");
     }
     tp.AddRow(vs);
   }
@@ -185,8 +232,7 @@ int main(int argc, char * args[]) {
     return -1;
   }
   ::google::ParseCommandLineFlags(&argc, &args, true);
-	if (strcmp(args[1], "-v") == 0 ||
-      strcmp(args[1], "--version") == 0) {
+	if (strcmp(args[1], "version") == 0 ) {
     PrintVersion();
     exit(0);
   } else if (strcmp(args[1], "initd") == 0) {
@@ -197,6 +243,8 @@ int main(int argc, char * args[]) {
     Run();
   } else if (strcmp(args[1], "ps") == 0) {
     Show();
+  } else if (strcmp(args[1], "log") == 0) {
+    ShowLog();
   } else {
     fprintf(stderr,"%s", kDosCeUsage.c_str());
     return -1;
