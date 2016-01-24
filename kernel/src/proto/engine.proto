@@ -14,9 +14,20 @@ message RunContainerResponse {
   optional RpcStatus status = 1;
 }
 
+message ContainerOverview {
+  optional string name = 1;
+  optional int64 rtime = 2;
+  optional ContainerState state =3;
+  optional ContainerType type = 4;
+}
+
 message ShowContainerRequest {}
-message ShowContainerResponse {}
+message ShowContainerResponse {
+  optional RpcStatus status = 1;
+  repeated ContainerOverview containers = 2;
+}
 
 service Engine {
   rpc RunContainer(RunContainerRequest) returns(RunContainerResponse);
+  rpc ShowContainer(ShowContainerRequest) returns(ShowContainerResponse);
 }
