@@ -14,6 +14,7 @@
 #include "engine/initd.h"
 #include "tprinter.h"
 #include "string_util.h"
+#include "timer.h"
 #include "engine/engine_impl.h"
 #include "sdk/engine_sdk.h"
 #include "version.h"
@@ -48,6 +49,18 @@ static volatile bool s_quit = false;
 static void SignalIntHandler(int /*sig*/){
     s_quit = true;
 }
+
+std::string PrettyTime(const int64_t start_time) {
+  int64_t last = ( baidu::common::timer::get_micros() - start_time) / 1000000;
+  char label[3] = {'s', 'm', 'h'};
+  double num = last;
+  int count = 0;
+  while (num > 60 && count < 3 ) {
+    count ++;
+    num /= 60;
+  }
+  return ::baidu::common::NumToString(num) + label[count];
+ }
 
 void StartInitd() {
   if (FLAGS_ce_enable_ns) {
@@ -154,8 +167,11 @@ void Show() {
     vs.push_back(containers[i].name);
     vs.push_back(containers[i].type);
     vs.push_back(containers[i].state);
-    //TODO 
-    vs.push_back(baidu::common::NumToString(100));
+    if (containers[i].rtime <= 1000) {
+      vs.push_back("-");
+    } else {
+      vs.push_back(PrettyTime(containers[i].rtime));
+    }
     tp.AddRow(vs);
   }
   printf("%s\n", tp.ToString().c_str());
