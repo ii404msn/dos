@@ -2,6 +2,7 @@
 #define KERNEL_ENGINE_IMPL_H
 
 #include <map>
+#include <deque>
 #include "proto/engine.pb.h"
 #include <boost/bind.hpp>
 #include <boost/function.hpp>
@@ -38,12 +39,16 @@ struct ContainerInfo {
   Initd_Stub* initd_stub;
   int32_t initd_status_check_times;
   std::string fetcher_name;
+  std::deque<ContainerLog> logs;
+  int64_t start_pull_time;
   ContainerInfo():container(), status(),
   work_dir(), gc_dir(), initd_endpoint(),
   initd_proc(), initd_config(NULL),
   initd_stub(NULL),
   initd_status_check_times(0),
-  fetcher_name(){}
+  fetcher_name(),
+  logs(),
+  start_pull_time(0){}
   ~ContainerInfo() {
     delete initd_config;
     delete initd_stub; 
@@ -68,7 +73,10 @@ public:
                const ShowContainerRequest* request,
                ShowContainerResponse* response,
                Closure* done);
-
+  void ShowCLog(RpcController* controller,
+               const ShowCLogRequest* request,
+               ShowCLogResponse* response,
+               Closure* done);
 private:
   void StartContainerFSM(const std::string& name);
   // pull a image and produce a state,
@@ -86,6 +94,10 @@ private:
   void HandleRunContainer(const ContainerState& pre_state,
                           const std::string& name);
 
+  void AppendLog(const ContainerState& cfrom, 
+                 const ContainerState& cto,
+                 const std::string& msg,
+                 ContainerInfo* info);
 private:
   ::baidu::common::Mutex mutex_;
   typedef std::map<std::string, ContainerInfo*> Containers;

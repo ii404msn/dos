@@ -19,6 +19,7 @@ message ContainerOverview {
   optional int64 rtime = 2;
   optional ContainerState state =3;
   optional ContainerType type = 4;
+  optional int64 boot_time = 5;
 }
 
 message ShowContainerRequest {}
@@ -27,7 +28,17 @@ message ShowContainerResponse {
   repeated ContainerOverview containers = 2;
 }
 
+message ShowCLogRequest {
+  optional string name = 1;
+}
+
+message ShowCLogResponse {
+  repeated ContainerLog logs = 1;
+  optional RpcStatus status = 2;
+}
+
 service Engine {
   rpc RunContainer(RunContainerRequest) returns(RunContainerResponse);
   rpc ShowContainer(ShowContainerRequest) returns(ShowContainerResponse);
+  rpc ShowCLog(ShowCLogRequest) returns(ShowCLogResponse);
 }

@@ -23,10 +23,17 @@ AgentImpl::AgentImpl():thread_pool_(4),
 
 AgentImpl::~AgentImpl(){}
 
-void AgentImpl::Query(RpcController* controller,
-                      const QueryAgentRequest* request,
-                      QueryAgentResponse* response,
-                      Closure* done) {
+void AgentImpl::Poll(RpcController* controller,
+                     const PollAgentRequest* request,
+                     PollAgentResponse* response,
+                     Closure* done) {
+  done->Run();
+}
+
+void AgentImpl::Run(RpcController* controller,
+                    const RunPodRequest* request,
+                    RunPodResponse* response,
+                    Closure* done) {
   done->Run();
 }
 
@@ -69,6 +76,5 @@ void AgentImpl::HeartBeatCallback(const HeartBeatRequest* request,
   delete request;
   delete response;
 }
-
 
 } //end of dos

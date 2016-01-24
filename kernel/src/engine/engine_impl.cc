@@ -29,6 +29,7 @@ DECLARE_int32(ce_image_fetch_status_check_interval);
 DECLARE_int32(ce_initd_boot_check_max_times);
 DECLARE_int32(ce_initd_boot_check_interval);
 DECLARE_int32(ce_process_status_check_interval);
+DECLARE_int32(ce_container_log_max_size);
 
 namespace dos {
 
@@ -122,6 +123,29 @@ void EngineImpl::ShowContainer(RpcController* controller,
     container->set_rtime(it->second->status.start_time());
     container->set_state(it->second->status.state());
     container->set_type(it->second->container.type());
+    container->set_boot_time(it->second->status.boot_time());
+  }
+  response->set_status(kRpcOk);
+  done->Run();
+}
+
+void EngineImpl::ShowCLog(RpcController* controller,
+               const ShowCLogRequest* request,
+               ShowCLogResponse* response,
+               Closure* done) {
+
+  ::baidu::common::MutexLock lock(&mutex_);
+  Containers::iterator it = containers_->find(request->name());
+  if (it == containers_->end()) {
+    response->set_status(kRpcNotFound);
+    done->Run();
+    LOG(WARNING, "fail to find log with container %s", request->name().c_str());
+    return;
+  }
+  std::deque<ContainerLog>::iterator clog_it = it->second->logs.begin();
+  for (; clog_it != it->second->logs.end(); ++clog_it) {
+    ContainerLog* log = response->add_logs();
+    log->CopyFrom(*clog_it);
   }
   response->set_status(kRpcOk);
   done->Run();
@@ -139,6 +163,8 @@ void EngineImpl::StartContainerFSM(const std::string& name) {
     LOG(INFO, "start fsm for container %s", name.c_str());
     ContainerInfo* info = it->second;
     state = info->status.state();
+    info->start_pull_time = ::baidu::common::timer::get_micros();
+    info->status.set_boot_time(0);
   }
   FSM::iterator fsm_it = fsm_->find(kContainerPulling);
   if (fsm_it == fsm_->end()) {
@@ -147,6 +173,23 @@ void EngineImpl::StartContainerFSM(const std::string& name) {
     return;
   }
   fsm_it->second(state, name);
+}
+
+void EngineImpl::AppendLog(const ContainerState& cfrom,
+                           const ContainerState& cto,
+                           const std::string& msg,
+                           ContainerInfo* info) {
+  mutex_.AssertHeld();
+  if (info->logs.size() >= (size_t)FLAGS_ce_container_log_max_size) {
+    info->logs.pop_front();
+  }
+  ContainerLog log;
+  log.set_name(info->status.name());
+  log.set_cfrom(cfrom);
+  log.set_cto(cto);
+  log.set_time(::baidu::common::timer::get_micros());
+  log.set_msg(msg);
+  info->logs.push_back(log);
 }
 
 void EngineImpl::HandlePullImage(const ContainerState& pre_state,
@@ -173,6 +216,8 @@ void EngineImpl::HandlePullImage(const ContainerState& pre_state,
       // no need pull image when type is kSystem
       // eg image fetcher helper, monitor
       target_state = kContainerBooting;
+      AppendLog(kContainerPulling, kContainerBooting, "pull image ok",
+               info);
     } else if (info->container.type() == kOci) {
       // fetch oci rootfs by wget
       it = containers_->find(FLAGS_ce_image_fetcher_name);
@@ -252,6 +297,7 @@ void EngineImpl::HandlePullImage(const ContainerState& pre_state,
         }else if (status.exit_code() == 0) {
           LOG(INFO, "fetch container %s rootfs successfully", name.c_str());
           target_state = kContainerBooting;
+          AppendLog(kContainerPulling, kContainerBooting, "pull image ok", info);
         } else {
           LOG(WARNING, "fail to fetch container %s rootfs", name.c_str());
           //TODO handle fetch fails
@@ -349,6 +395,8 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
           name.c_str(), ContainerState_Name(kContainerRunning).c_str());
         return;
       }
+      info->status.set_boot_time(::baidu::common::timer::get_micros() - info->start_pull_time);
+      AppendLog(kContainerBooting, kContainerRunning, "start initd ok", info);
       thread_pool_->AddTask(boost::bind(fsm_it->second, kContainerBooting, name)); 
     }
   } else {
@@ -415,11 +463,12 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
           name.c_str(), ContainerState_Name(kContainerRunning).c_str());
         return;
       }
+      AppendLog(kContainerRunning, kContainerRunning, "start user process ok", info);
       thread_pool_->DelayTask(FLAGS_ce_process_status_check_interval,
                               boost::bind(fsm_it->second, kContainerRunning, name));
     }
   } else {
-    //TODO loop check process state
+  
   }
 }
 
