@@ -20,6 +20,8 @@ DEFINE_bool(ce_enable_ns, true, "enable linux namespace");
 DEFINE_string(ce_bin_path,"./dos_ce","the path of dos ce");
 DEFINE_string(ce_gc_dir,"./gc_dir","the gc path of dos ce");
 DEFINE_string(ce_work_dir,"./work_dir","the work path of dos ce");
+DEFINE_string(ce_image_fetcher_name, "image_fetcher", "the name of image fetcher");
+DEFINE_int32(ce_image_fetch_status_check_interval, 2000, "the interval of checking download image");
 // the max times that try to connect to initd, when reaching the times, container will change
 // it's state from kContainerBooting to kContainerError
 DEFINE_int32(ce_initd_boot_check_max_times, 5, "the max times that try to connect initd ");

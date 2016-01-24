@@ -4,8 +4,9 @@ import client
 
 def start_container(addr):
   container = dos_pb2.Container()
-  container.type = 1
+  container.type = 2
   container.reserved = False
+  container.uri = "http://127.0.0.1:8989/dfs.tar.gz"  
   req = engine_pb2.RunContainerRequest(container = container)
   req.name = "dfs"
   channel = client.Channel(addr)

@@ -1,0 +1,1 @@
+killall dos_ce

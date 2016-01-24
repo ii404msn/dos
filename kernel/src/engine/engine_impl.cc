@@ -8,6 +8,7 @@
 #include <gflags/gflags.h>
 #include "engine/oci_loader.h"
 #include "engine/utils.h"
+#include "timer.h"
 
 #ifndef CLONE_NEWPID
 #define CLONE_NEWPID 0x02000000
@@ -23,6 +24,8 @@
 
 
 DECLARE_string(ce_bin_path);
+DECLARE_string(ce_image_fetcher_name);
+DECLARE_int32(ce_image_fetch_status_check_interval);
 DECLARE_int32(ce_initd_boot_check_max_times);
 DECLARE_int32(ce_initd_boot_check_interval);
 DECLARE_int32(ce_process_status_check_interval);
@@ -54,7 +57,7 @@ EngineImpl::EngineImpl(const std::string& work_dir,
 EngineImpl::~EngineImpl() {}
 
 bool EngineImpl::Init() {
-  std::string name = "image_extractor";
+  std::string name = FLAGS_ce_image_fetcher_name;
   {
     ::baidu::common::MutexLock lock(&mutex_);
     LOG(INFO, "start system container %s", name.c_str());
@@ -107,6 +110,23 @@ void EngineImpl::RunContainer(RpcController* controller,
   done->Run();
 }
 
+void EngineImpl::ShowContainer(RpcController* controller,
+                               const ShowContainerRequest* request,
+                               ShowContainerResponse* response,
+                               Closure* done) {
+  ::baidu::common::MutexLock lock(&mutex_);
+  Containers::iterator it = containers_->begin();
+  for (; it != containers_->end(); ++it) {
+    ContainerOverview* container = response->add_containers();
+    container->set_name(it->second->status.name());
+    container->set_rtime(it->second->status.start_time());
+    container->set_state(it->second->status.state());
+    container->set_type(it->second->container.type());
+  }
+  response->set_status(kRpcOk);
+  done->Run();
+}
+
 void EngineImpl::StartContainerFSM(const std::string& name) {
   ContainerState state;
   {
@@ -131,7 +151,9 @@ void EngineImpl::StartContainerFSM(const std::string& name) {
 
 void EngineImpl::HandlePullImage(const ContainerState& pre_state,
                                  const std::string& name) {
-  {
+  ContainerState target_state = kContainerPending;
+  ContainerState current_state = kContainerPulling;
+  if (pre_state == kContainerPending) {
     ::baidu::common::MutexLock lock(&mutex_);
     Containers::iterator it = containers_->find(name);
     if (it == containers_->end()) {
@@ -147,15 +169,112 @@ void EngineImpl::HandlePullImage(const ContainerState& pre_state,
       //TODO go to err state;
       return;
     }
-  } 
-  FSM::iterator fsm_it = fsm_->find(kContainerBooting);
+    if (info->container.type() == kSystem) {
+      // no need pull image when type is kSystem
+      // eg image fetcher helper, monitor
+      target_state = kContainerBooting;
+    } else if (info->container.type() == kOci) {
+      // fetch oci rootfs by wget
+      it = containers_->find(FLAGS_ce_image_fetcher_name);
+      ContainerInfo* fetcher = it->second;
+      if (fetcher->status.state() != kContainerRunning) {
+        LOG(WARNING, "fetcher is in invalidate state %s", 
+            ContainerState(fetcher->status.state()));
+        // TODO handle fetcher err
+        return;
+      }
+      if (fetcher->initd_stub == NULL) {
+        rpc_client_->GetStub(fetcher->initd_endpoint, &fetcher->initd_stub);
+      }
+      info->fetcher_name = "fetcher_for_" + name;
+      //TODO optimalize fetch cmd builder
+      std::string cmd = "cd " + info->work_dir;
+      cmd += " && wget -O rootfs.tar.gz " + info->container.uri();
+      cmd += " && tar -zxvf rootfs.tar.gz";
+      ForkRequest request;
+      ForkResponse response;
+      Process fetch_process;
+      request.mutable_process()->mutable_user()->set_name("root");
+      request.mutable_process()->add_args(cmd);
+      request.mutable_process()->set_name(info->fetcher_name);
+      request.mutable_process()->set_terminal(false);
+      bool rpc_ok = rpc_client_->SendRequest(fetcher->initd_stub, 
+                                             &Initd_Stub::Fork,
+                                             &request, &response, 5, 1);
+      if (!rpc_ok || response.status() != kRpcOk) {
+        LOG(WARNING, "fail to send fetch cmd %s for container %s",
+            cmd.c_str(), name.c_str());
+        //TODO handle rpc error
+        return;
+      } else {
+        LOG(INFO, "send fetch cmd %s for container %s successfully",
+            cmd.c_str(), name.c_str());
+        target_state = kContainerPulling;
+      }
+    }
+  } else if (pre_state == kContainerPulling) {
+    ::baidu::common::MutexLock lock(&mutex_);
+    Containers::iterator it = containers_->find(name);
+    if (it == containers_->end()) {
+      LOG(INFO, "container with name %s has been deleted", name.c_str());
+      return;
+    }
+    LOG(INFO, "start to pull image for container %s", name.c_str());
+    ContainerInfo* info = it->second;
+    info->status.set_state(kContainerPulling);
+    if (info->container.type() == kOci) {
+      it = containers_->find(FLAGS_ce_image_fetcher_name);
+      ContainerInfo* fetcher = it->second;
+      if (fetcher->status.state() != kContainerRunning) {
+        LOG(WARNING, "fetcher is in invalidate state %s", 
+            ContainerState(fetcher->status.state()));
+        // TODO handle fetcher err
+        return;
+      }
+      if (fetcher->initd_stub == NULL) {
+        rpc_client_->GetStub(fetcher->initd_endpoint, &fetcher->initd_stub);
+      }
+      WaitRequest request;
+      request.add_names(info->fetcher_name);
+      WaitResponse response;
+      bool rpc_ok = rpc_client_->SendRequest(fetcher->initd_stub, 
+                                             &Initd_Stub::Wait,
+                                             &request, &response, 5, 1);
+      if (!rpc_ok || response.status() != kRpcOk) {
+        LOG(WARNING, "fail to wait fetch status for container %s", name.c_str());
+        //TODO handle rpc error
+        return;
+      } else {
+        const Process& status = response.processes(0);
+        if (status.running()) {
+          target_state = kContainerPulling;
+          LOG(DEBUG, "container %s is under fetching rootfs", name.c_str());
+        }else if (status.exit_code() == 0) {
+          LOG(INFO, "fetch container %s rootfs successfully", name.c_str());
+          target_state = kContainerBooting;
+        } else {
+          LOG(WARNING, "fail to fetch container %s rootfs", name.c_str());
+          //TODO handle fetch fails
+          return;
+        }
+      }
+
+    }
+  }
+  FSM::iterator fsm_it = fsm_->find(target_state);
   if (fsm_it == fsm_->end()) {
     LOG(WARNING, "container %s has no fsm config with state %s",
           name.c_str(), ContainerState_Name(kContainerPulling).c_str());
     return;
   }
-  fsm_it->second(kContainerPulling, name);
+  if (target_state == kContainerPulling) {
+    thread_pool_->DelayTask(FLAGS_ce_image_fetch_status_check_interval,
+        boost::bind(fsm_it->second, current_state, name));
+  } else {
+    fsm_it->second(current_state, name);
+  }
 }
+
 
 void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
                                  const std::string& name) {
@@ -287,6 +406,7 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
       LOG(WARNING, "fail to fork process for container %s", name.c_str());
       info->status.set_state(kContainerError);
     } else {
+      info->status.set_start_time(::baidu::common::timer::get_micros());
       LOG(INFO, "fork process for container %s successfully", name.c_str());
       info->status.set_state(kContainerRunning);
       FSM::iterator fsm_it = fsm_->find(kContainerRunning);

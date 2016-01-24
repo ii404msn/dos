@@ -38,6 +38,11 @@ KERNEL_ENGINE_SRC = $(wildcard kernel/src/engine/*.cc)
 KERNEL_ENGINE_OBJ = $(patsubst %.cc, %.o, $(KERNEL_ENGINE_SRC))
 KERNEL_ENGINE_HEADER = $(wildcard kernel/src/engine/*.h)
 
+KERNEL_ENGINE_SDK_SRC = $(wildcard kernel/src/sdk/*.cc)
+KERNEL_ENGINE_SDK_OBJ = $(patsubst %.cc, %.o, $(KERNEL_ENGINE_SDK_SRC))
+KERNEL_ENGINE_SDK_HEADER = $(wildcard kernel/src/sdk/*.h)
+
+
 
 
 KERNEL_FLAGS_OBJ = $(patsubst %.cc, %.o, $(wildcard kernel/src/*.cc))
@@ -50,6 +55,8 @@ all: $(BIN)
 # Depends
 $(KERNEL_MASTER_OBJ) $(KERNEL_AGENT_OBJ): $(KERNEL_PROTO_HEADER)
 
+$(KERNEL_ENGINE_OBJ): $(KERNEL_ENGINE_SDK_OBJ)
+
 # Targets
 dos_master: $(KERNEL_MASTER_OBJ) $(KERNEL_OBJS)
 	$(CXX) $(KERNEL_MASTER_OBJ)  $(KERNEL_OBJS) -o $@  $(LDFLAGS)
@@ -59,7 +66,7 @@ dos_let: $(KERNEL_AGENT_OBJ)  $(KERNEL_OBJS)
 
 
 dos_ce: $(KERNEL_ENGINE_OBJ)  $(KERNEL_OBJS)
-	$(CXX) $(KERNEL_ENGINE_OBJ) $(KERNEL_OBJS) -o $@ $(LDFLAGS)
+	$(CXX) $(KERNEL_ENGINE_OBJ) $(KERNEL_ENGINE_SDK_OBJ) $(KERNEL_OBJS) -o $@ $(LDFLAGS)
 
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) $(INCLUDE) -c $< -o $@
