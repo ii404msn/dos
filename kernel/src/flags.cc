@@ -17,7 +17,7 @@ DEFINE_string(ce_port, "7676", "dos container engine listen port");
 DEFINE_string(ce_initd_port, "9527", "initd listen port");
 DEFINE_string(ce_initd_conf_path, "runtime.json", "the default runtime path");
 DEFINE_bool(ce_enable_ns, true, "enable linux namespace");
-DEFINE_string(ce_bin_path,"./dos_ce","the path of dos ce");
+DEFINE_string(ce_bin_path,"./dos","the path of dos container engine");
 DEFINE_string(ce_gc_dir,"./gc_dir","the gc path of dos ce");
 DEFINE_string(ce_work_dir,"./work_dir","the work path of dos ce");
 DEFINE_string(ce_image_fetcher_name, "image_fetcher", "the name of image fetcher");

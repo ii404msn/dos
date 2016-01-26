@@ -1,1 +1,1 @@
-killall dos_ce
+killall dos

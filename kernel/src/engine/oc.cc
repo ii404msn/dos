@@ -118,9 +118,10 @@ bool Oc::Init() {
     return false;
   }
   ::dos::Config config;
-  bool load_ok = ::dos::LoadConfig("config.json", &config);
+  load_ok = ::dos::LoadConfig("config.json", &config);
   if (!load_ok) {
     LOG(WARNING, "fail to load config.json");
+    return false;
   }
   std::string rootfs_path = config.root.path();
   std::vector< ::dos::Mount>::iterator m_it = config.mounts.begin();

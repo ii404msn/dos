@@ -216,10 +216,10 @@ void EngineImpl::HandlePullImage(const ContainerState& pre_state,
       // no need pull image when type is kSystem
       // eg image fetcher helper, monitor
       target_state = kContainerBooting;
-      AppendLog(kContainerPulling, kContainerBooting, "pull image ok",
-               info);
+      AppendLog(kContainerPulling, kContainerBooting, "pull image ok", info);
     } else if (info->container.type() == kOci) {
       // fetch oci rootfs by wget
+      LOG(INFO, "start to pull image for container %s", name.c_str());
       it = containers_->find(FLAGS_ce_image_fetcher_name);
       ContainerInfo* fetcher = it->second;
       if (fetcher->status.state() != kContainerRunning) {
@@ -264,7 +264,6 @@ void EngineImpl::HandlePullImage(const ContainerState& pre_state,
       LOG(INFO, "container with name %s has been deleted", name.c_str());
       return;
     }
-    LOG(INFO, "start to pull image for container %s", name.c_str());
     ContainerInfo* info = it->second;
     info->status.set_state(kContainerPulling);
     if (info->container.type() == kOci) {

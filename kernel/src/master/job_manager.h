@@ -13,7 +13,6 @@ struct JobIndex {
   std::string name_;
   // the global unique
   std::string user_name_;
-
 };
 
 class JobManager {};
