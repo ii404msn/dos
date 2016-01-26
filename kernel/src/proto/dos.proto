@@ -160,6 +160,24 @@ message JobSpec {
   optional uint32 deploy_step_size = 3;
   optional uint32 update_step_size = 4;
   optional PodSpec pod = 5;
+  optional string version = 6;
+}
+
+enum JobState {
+  kJobNormal = 0;
+  kJobRemoved = 1;
+}
+
+message JobStatus {
+  optional string name = 1;
+  optional JobState state = 2;
+  // the user who creates the job
+  optional string user_name = 3;
+  // the create time
+  optional int64 ctime = 4;
+  // the update time
+  optional int64 utime = 5;
+  optional JobSpec desc = 6;
 }
 
 enum PodSchedStage {
@@ -191,6 +209,7 @@ enum PodState {
   // mark pod removed only master can do that
   kPodRemoved = 4;
 }
+
 
 message PodLog {
   optional string name = 1;

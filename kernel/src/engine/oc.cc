@@ -107,7 +107,11 @@ bool Oc::LoadRuntime() {
 
 
 bool Oc::Init() {
-  LoadRuntime();
+  bool load_ok = LoadRuntime();
+  if (!load_ok) {
+    LOG(WARNING, "fail to load runtime config");
+    return false;
+  }
   int ok = chdir(oc_path_.c_str());
   if (ok != 0) {
     LOG(WARNING, "fail to chdir to %s", oc_path_.c_str());
