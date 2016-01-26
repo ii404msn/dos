@@ -32,4 +32,4 @@ cd sandbox && sh start_all.sh
 2016-01-24 14:01:43 dfs change state from kContainerPulling to kContainerBooting with msg pull image ok
 ```
 
-### 感兴趣的可以随时提pr
+### 感兴趣的同学可以随时提pr
