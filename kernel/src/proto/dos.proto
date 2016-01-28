@@ -227,11 +227,11 @@ message PodStatus {
   optional PodState state = 5;
   // latest sched time, only master update it when scheduler schedules a pod
   optional int64 sched_time = 6;
-  // the time that is consumed on scheduling
-  optional int64 pending_to_sched = 7;
   // the time that is consumed on download package
   // and launch initd, only agent updates it
-  optional int64 boot_time = 8;
+  optional int64 boot_time = 7;
+  // the time that put pod in pending queue
+  optional int64 start_pending_time = 8;
 }
 
 message NodeStatus {
@@ -277,3 +277,5 @@ message ContainerStatus {
   optional ContainerType type = 5;
   optional int64 boot_time = 6;
 }
+
+

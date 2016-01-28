@@ -3,22 +3,29 @@
 
 #include <queue>
 #include "mutex.h"
+#include "logging.h"
 
 using ::baidu::common::MutexLock;
+using ::baidu::common::INFO;
+using ::baidu::common::WARNING;
+
 namespace dos {
+
 template <typename T>
 class FixedBlockingQueue {
 
 public:
-  FixedBlockingQueue(uint32_t capacity):mutex_(),
+  FixedBlockingQueue(uint32_t capacity, const std::string& name):mutex_(),
                         cond_(&mutex_),
-                        capacity_(capacity){}
+                        capacity_(capacity),
+  name_(name){}
   ~FixedBlockingQueue(){}
 
   T Pop() {
     MutexLock lock(&mutex_);
     if (queue_.size() <= 0) {
-      cond_.Wait("queue is empty");
+      LOG(INFO, "%s queue is empty", name_.c_str())
+      cond_.Wait();
     }
     T t = queue_.front();
     queue_.pop();
@@ -29,7 +36,8 @@ public:
   void Push(const T& t) {
     MutexLock lock(&mutex_);
     if (queue_.size() >= capacity_) {
-      cond_.Wait("queue is full");
+      LOG(WARNING, "%s queue is full", name_.c_str());
+      cond_.Wait();
     }
     queue_.Push(t);
     cond_.Signal();
@@ -40,6 +48,7 @@ private:
   ::baidu::common::CondVar cond_;
   uint32_t capacity_;
   std::queue<T> queue_;
+  std::string name_;
 };
 
 }
