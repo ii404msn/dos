@@ -7,7 +7,7 @@ class CpuIsolator {
 
 };
 
-// memory isolator implemented by ulimit
+// memory isolator implemented by cgroup
 class MemoryIsolator {
 
 };
