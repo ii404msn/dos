@@ -14,6 +14,7 @@
 #include "master/blocking_queue.h"
 #include "master/master_internal_types.h"
 #include "mutex.h"
+#include "thread_pool.h"
 
 namespace dos {
 
@@ -64,19 +65,22 @@ typedef std::map<PodSchedStage, PodEventHandle>  PodFSM;
 class PodManager {
 
 public:
-  PodManager(FixedBlockingQueue<PodOperation*>* op_queue);
+  PodManager(FixedBlockingQueue<PodOperation*>* pod_opqueue,
+             FixedBlockingQueue<JobOperation*>* job_opqueue);
   ~PodManager();
-  // create new pods
-  bool NewAdd(const std::string& job_name,
-              const std::string& user_name,
-              const PodSpec& desc,
-              int32_t replica);
+  void Start();
   // sync the pods on agent
   void SyncPodsOnAgent(const std::string& endpoint,
                        std::map<std::string, PodStatus>& pods);
   // sched pod, the tuple first arg is endpoint, the second is pod name
   void SchedPods(const std::vector<boost::tuple<std::string, std::string> >& pods);
 private:
+  void WatchJobOp();
+  // create new pods
+  bool NewAdd(const std::string& job_name,
+              const std::string& user_name,
+              const PodSpec& desc,
+              int32_t replica);
   void DispatchEvent(const Event& e);
   void HandleStageRunningChanged(const Event& e);
   void HandleStagePendingChanged(const Event& e);
@@ -87,7 +91,9 @@ private:
   ::baidu::common::Mutex mutex_;
   PodFSM* fsm_;
   std::map<PodState, PodSchedStage> state_to_stage_;
-  FixedBlockingQueue<PodOperation*>* op_queue_;
+  FixedBlockingQueue<PodOperation*>* pod_opqueue_;
+  FixedBlockingQueue<JobOperation*>* job_opqueue_;
+  ::baidu::common::ThreadPool tpool_;
 };
 
 }// namespace dos

@@ -15,6 +15,17 @@ struct PodOperation {
   PodStatus* pod_;
 };
 
+enum JobOperationType {
+  kJobNewAdd,
+  kJobRemove,
+  kJobUpdate
+};
+
+struct JobOperation {
+  JobStatus* job_;
+  JobOperationType type_;
+};
+
 }
 
 #endif

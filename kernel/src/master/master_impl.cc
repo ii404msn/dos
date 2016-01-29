@@ -3,14 +3,19 @@
 namespace dos {
 
 MasterImpl::MasterImpl():node_manager_(NULL),
-  node_status_queue_(NULL){
-  node_status_queue_ = new FixedBlockingQueue<NodeStatus*>(2 * 10240, "node_status"); 
-  node_manager_ = new NodeManager(node_status_queue_);
+  job_manager_(NULL),
+  pod_manager_(NULL),
+  node_status_queue_(NULL),
+  pod_opqueue_(NULL),
+  job_opqueue_(NULL){
+  node_status_queue_ = new FixedBlockingQueue<NodeStatus*>(2 * 10240, "node statue queue");
+  pod_opqueue_ = new FixedBlockingQueue<PodOperation*>(2 * 10240, "pod operation queue");
+  job_opqueue_ = new FixedBlockingQueue<JobOperation*>(2 * 10240, "job operation queue");
+  node_manager_ = new NodeManager(node_status_queue_, pod_opqueue_);
+  pod_manager_ = new PodManager(pod_opqueue_, job_opqueue_);
 }
 
 MasterImpl::~MasterImpl() {
-  delete node_manager_;
-  delete node_status_queue_;
 }
 
 void MasterImpl::HeartBeat(RpcController* /*controller*/,
@@ -25,8 +30,12 @@ void MasterImpl::SubmitJob(RpcController* controller,
                            const SubmitJobRequest* request,
                            SubmitJobResponse* response,
                            Closure* done) {
+  response->set_status(kRpcOk);
+  bool add_ok = job_manager_->Add(request->user_name(), request->job());
+  if (!add_ok) {
+    response->set_status(kRpcNameExist);
+  }
   done->Run();
-
 }
 
 } // end of dos
