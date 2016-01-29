@@ -1,5 +1,5 @@
 #ifndef KERNEL_MASTER_POD_MANAGER_H
-#ifndef KERNEL_MASTER_POD_MANAGER_H
+#define KERNEL_MASTER_POD_MANAGER_H
 
 #include <vector>
 #include <boost/multi_index_container.hpp>
@@ -64,7 +64,7 @@ typedef std::map<PodSchedStage, PodEventHandle>  PodFSM;
 class PodManager {
 
 public:
-  PodManager(FixedBlockingQueue<PodOperation*> op_queue);
+  PodManager(FixedBlockingQueue<PodOperation*>* op_queue);
   ~PodManager();
   // create new pods
   bool NewAdd(const std::string& job_name,
@@ -72,7 +72,7 @@ public:
               const PodSpec& desc,
               int32_t replica);
   // sync the pods on agent
-  bool SyncPodsOnAgent(const std::string& endpoint,
+  void SyncPodsOnAgent(const std::string& endpoint,
                        std::map<std::string, PodStatus>& pods);
   // sched pod, the tuple first arg is endpoint, the second is pod name
   void SchedPods(const std::vector<boost::tuple<std::string, std::string> >& pods);
@@ -87,7 +87,7 @@ private:
   ::baidu::common::Mutex mutex_;
   PodFSM* fsm_;
   std::map<PodState, PodSchedStage> state_to_stage_;
-  FixedBlockingQueue<PodOperation*> op_queue_;
+  FixedBlockingQueue<PodOperation*>* op_queue_;
 };
 
 }// namespace dos

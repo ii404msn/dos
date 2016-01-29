@@ -1,6 +1,8 @@
 #ifndef KERNEL_MASTER_INTERNEL_TYPES_H
 #define KERNEL_MASTER_INTERNEL_TYPES_H
 
+#include "proto/dos.pb.h"
+
 namespace dos {
 
 enum PodOperationType {
@@ -9,8 +11,8 @@ enum PodOperationType {
 };
 
 struct PodOperation {
-  PodOperationType type;
-  PodStatus* status;
+  PodOperationType type_;
+  PodStatus* pod_;
 };
 
 }

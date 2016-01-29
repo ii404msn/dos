@@ -24,7 +24,7 @@ public:
   T Pop() {
     MutexLock lock(&mutex_);
     while (queue_.size() <= 0) {
-      LOG(INFO, "%s queue is empty", name_.c_str())
+      LOG(INFO, "%s queue is empty", name_.c_str());
       cond_.Wait();
     }
     T t = queue_.front();
@@ -39,7 +39,7 @@ public:
       LOG(WARNING, "%s queue is full", name_.c_str());
       cond_.Wait();
     }
-    queue_.Push(t);
+    queue_.push(t);
     cond_.Signal();
   }
 
