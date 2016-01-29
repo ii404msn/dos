@@ -25,10 +25,8 @@ message GetScaleUpPodRequest {}
 // Simple pod information for scaling up
 message PodOverview {
   optional string name = 1;
-  optional PodSchedStage stage = 2;
-  optional PodState state = 3;
-  optional Resource requirement = 4;
-  optional PodType type = 5;
+  optional Resource requirement = 2;
+  optional PodType type = 3;
 }
 
 // get pods that need to be scheduled 

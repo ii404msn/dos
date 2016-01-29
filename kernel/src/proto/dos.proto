@@ -212,8 +212,6 @@ enum PodState {
   kPodRunning = 2;
   // core , oom or exit
   kPodDeath = 3;
-  // mark pod removed only master can do that
-  kPodRemoved = 4;
 }
 
 
