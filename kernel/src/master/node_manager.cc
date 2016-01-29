@@ -20,13 +20,17 @@ NodeManager::NodeManager(FixedBlockingQueue<NodeStatus*>* node_status_queue,
   nodes_(NULL),
   nexus_(NULL),
   node_metas_(NULL),
+  agent_conns_(NULL),
   thread_pool_(NULL),
   node_status_queue_(node_status_queue),
-  pod_opqueue_(pod_opqueue){
+  pod_opqueue_(pod_opqueue),
+  rpc_client_(NULL){
   nodes_ = new NodeSet();
   nexus_ = new ::galaxy::ins::sdk::InsSDK(FLAGS_nexus_servers);
   node_metas_ = new boost::unordered_map<std::string, NodeMeta*>();
+  agent_conns_ = new boost::unordered_map<std::string, Agent_Stub*>();
   thread_pool_ = new ::baidu::common::ThreadPool(4);
+  rpc_client_ = new RpcClient();
 }
 
 NodeManager::~NodeManager() {
@@ -92,6 +96,62 @@ void NodeManager::KeepAlive(const std::string& hostname,
 
 void NodeManager::HandleNodeTimeout(const std::string& endpoint) {
   LOG(WARNING, "agent with endpoint %s timeout ", endpoint.c_str());
+}
+
+void NodeManager::WatchPodOpQueue() {
+  PodOperation* pod_op = pod_opqueue_->Pop();
+  switch(pod_op->type_) {
+    case kKillPod:
+      //
+      break;
+    case kRunPod:
+      RunPod(pod_op->pod_->name(), pod_op->pod_->endpoint(),
+            pod_op->pod_->desc());
+      break;
+    default:
+      LOG(WARNING, "no handle for pod");
+  }
+  delete pod_op;
+}
+
+void NodeManager::RunPod(const std::string& pod_name,
+                         const std::string& endpoint,
+                         const PodSpec& desc) {
+  ::baidu::common::MutexLock lock(&mutex_);
+  Agent_Stub* agent_stub = NULL;
+  boost::unordered_map<std::string, Agent_Stub*>::iterator agent_it = agent_conns_->find(endpoint);
+  if (agent_it ==  agent_conns_->end()) {
+    bool ok = rpc_client_->GetStub(endpoint, &agent_stub);
+    if (ok) {
+      LOG(WARNING, "fail to get agent stub witn endpoint %s for pod %s",
+          endpoint.c_str(), pod_name.c_str());
+      return;
+    }
+    agent_conns_->insert(std::make_pair(endpoint, agent_stub));
+  } else {
+    agent_stub = agent_it->second;
+  }
+  RunPodRequest* request = new RunPodRequest();
+  request->set_pod_name(pod_name);
+  request->mutable_pod()->CopyFrom(desc);
+  RunPodResponse* response = new RunPodResponse();
+  boost::function<void (const RunPodRequest*, RunPodResponse*, bool, int)> call_back;
+  call_back = boost::bind(&NodeManager::RunPodCallback, this, _1, _2, _3, _4);
+  rpc_client_->AsyncRequest(agent_stub, &Agent_Stub::Run,
+                           request, response, call_back,
+                           5, 0);
+}
+
+void NodeManager::RunPodCallback(const RunPodRequest* request,
+                                RunPodResponse* response,
+                                bool failed, int) {
+  if (!failed) {
+    LOG(WARNING, "run pod %s fails", request->pod_name().c_str());
+  } else {
+    LOG(INFO, "run pod %s successfully", request->pod_name().c_str());
+  }
+  delete request;
+  delete response;
 }
 
 } // end of dos

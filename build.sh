@@ -82,7 +82,6 @@ else
    cd -
 fi
 
-pip install google-apputils
 
 if [ -d "protobuf" ]
 then
