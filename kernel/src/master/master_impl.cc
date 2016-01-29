@@ -4,7 +4,7 @@ namespace dos {
 
 MasterImpl::MasterImpl():node_manager_(NULL),
   node_status_queue_(NULL){
-  node_status_queue_ = new FixedBlockingQueue<NodeStatus*>(2 * 10240); 
+  node_status_queue_ = new FixedBlockingQueue<NodeStatus*>(2 * 10240, "node_status"); 
   node_manager_ = new NodeManager(node_status_queue_);
 }
 

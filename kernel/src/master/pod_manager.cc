@@ -10,114 +10,122 @@ using ::baidu::common::DEBUG;
 
 namespace dos {
 
-PodManager::PodManager(FixedBlockingQueue<PodOperation*> op_queue):pods_(NULL),
-  scale_down_pods_(NULL),
+PodManager::PodManager(FixedBlockingQueue<PodOperation*>* op_queue):pods_(NULL),
+  scale_up_pods_(NULL),
   scale_down_pods_(NULL),
   fsm_(NULL),
   state_to_stage_(),
-  op_queue_(op_queue_){
+  op_queue_(op_queue){
   pods_ = new PodSet();
   scale_up_pods_ = new std::set<std::string>();
   scale_down_pods_ = new std::set<std::string>();
-  fms_ = new PodStage();
+  fsm_ = new PodFSM();
 }
 
 PodManager::~PodManager(){}
 
 void PodManager::HandleStageRunningChanged(const Event& e) {
   mutex_.AssertHeld();
-  const PodNameIndex& name_index = pods->get<name_tag>();
-  PodNameIndex::const_iterator name_it = name_index.find(e[0].c_str());
+  const PodNameIndex& name_index = pods_->get<name_tag>();
+  const std::string pod_name = boost::get<0>(e);
+  const PodSchedStage& to_stage = boost::get<2>(e);
+  PodNameIndex::const_iterator name_it = name_index.find(pod_name);
   if (name_it == name_index.end()) {
-    LOG(WARNING, "no pod with name %s in pod manager", e[0].c_str());
+    LOG(WARNING, "no pod with name %s in pod manager", pod_name.c_str());
     return;
   }
   // pod on agent goes to death stage, clean it and change stage to
   // death
-  if (e[2] == kPodSchedStageDeath) {
+  if (to_stage == kPodSchedStageDeath) {
     // send kill cmd to agent to clean this pod
     PodOperation* op = new PodOperation();
-    op->status = name_it->status;
-    op->type = kKillPod;
+    op->pod_ = name_it->pod_;
+    op->type_ = kKillPod;
     op_queue_->Push(op);
-    name_it->status->set_stage(kPodSchedStageDeath);
-    LOG(INFO, "clean dead pod %s ", e[0].c_str());
-  } else if (e[2] == kPodSchedStageRunning) {
+    name_it->pod_->set_stage(kPodSchedStageDeath);
+    LOG(INFO, "clean dead pod %s ", pod_name.c_str());
+  } else if (to_stage == kPodSchedStageRunning) {
     // pod is running well
-  } else if (e[2] == kPodSchedStagePending) {
+  } else if (to_stage == kPodSchedStagePending) {
     // pod is lost , reschedule it
-    name_it->status->set_stage(kPodSchedStagePending);
+    name_it->pod_->set_stage(kPodSchedStagePending);
     // reset pod state
-    name_it->status->set_state(kPodPending);
+    name_it->pod_->set_state(kPodPending);
     // record pending time
-    name_it->status->set_start_pending_time(::baidu::common::timer::get_micros());
-    scale_up_pods_->push_back(e[0]);
-    LOG(INFO, "put pod %s into pending queue again", e[0].c_str());
-  } else if (e[2] == kPodSchedStageRemoved) {
+    name_it->pod_->set_start_pending_time(::baidu::common::timer::get_micros());
+    scale_up_pods_->insert(pod_name);
+    LOG(INFO, "put pod %s into pending queue again", pod_name.c_str());
+  } else if (to_stage == kPodSchedStageRemoved) {
     // remove pod , clean it on agent and change stage to kPodSchedStageRemoved
     PodOperation* op = new PodOperation();
-    op->status = name_it->status;
-    op->type = kKillPod;
+    op->pod_ = name_it->pod_;
+    op->type_ = kKillPod;
     op_queue_->Push(op);
-    name_it->status->set_stage(kPodSchedStageRemoved);
-    LOG(INFO, "kill running pod %s", e[0].c_str());
+    name_it->pod_->set_stage(kPodSchedStageRemoved);
+    LOG(INFO, "kill running pod %s", pod_name.c_str());
   } else {
     LOG(WARNING, "[alert]invalidate incoming stage %s with pod %s",
-        PodSchedStage_Name(e[2]).c_str(),
-        e[0].c_str());
+        PodSchedStage_Name(to_stage).c_str(),
+        pod_name.c_str());
   }
 }
 
 void PodManager::HandleStagePendingChanged(const Event& e) {
   mutex_.AssertHeld();
-  PodNameIndex& name_index = pods->get<name_tag>();
-  PodNameIndex::iterator name_it = name_index.find(e[0].c_str());
+  const std::string pod_name = boost::get<0>(e);
+  const PodSchedStage& to_stage = boost::get<2>(e);
+  PodNameIndex& name_index = pods_->get<name_tag>();
+  PodNameIndex::iterator name_it = name_index.find(pod_name);
   if (name_it == name_index.end()) {
-    LOG(WARNING, "no pod with name %s in pod manager", e[0].c_str());
+    LOG(WARNING, "no pod with name %s in pod manager", pod_name.c_str());
     return;
   }
   // schedule pending pod 
-  if (e[2] == kPodSchedStageRunning) {
-    LOG(INFO, "schedule pod %s to agent %s", e[0].c_str(), 
+  if (to_stage == kPodSchedStageRunning) {
+    LOG(INFO, "schedule pod %s to agent %s", PodSchedStage_Name(to_stage).c_str(), 
         name_it->endpoint_.c_str());
     PodOperation* op = new PodOperation();
-    op->status = name_it->status;
-    op->type = kRunPod;
+    op->pod_ = name_it->pod_;
+    op->type_ = kRunPod;
     op_queue_->Push(op);
-    name_it->status->set_stage(kPodSchedStageRunning);
-  } else if (e[2] == kPodSchedStageRemoved) {
+    name_it->pod_->set_stage(kPodSchedStageRunning);
+  } else if (to_stage == kPodSchedStageRemoved) {
     // remove pod with pending stage , just clean it
-    LOG(INFO, "delete pod %s", e[0].c_str());
+    LOG(INFO, "delete pod %s", pod_name.c_str());
+    // earse from scale up queue
+    scale_up_pods_->erase(pod_name);
     // free pod status
-    delete name_it->status;
+    delete name_it->pod_;
     name_index.erase(name_it);
   } else {
     LOG(WARNING, "[alert]invalidate incoming stage %s with pod %s",
-        PodSchedStage_Name(e[2]).c_str(),
-        e[0].c_str()); 
+        PodSchedStage_Name(to_stage).c_str(),
+        pod_name.c_str()); 
   }
 }
 
 void PodManager::SchedPods(const std::vector<boost::tuple<std::string, std::string> >& pods) {
   ::baidu::common::MutexLock lock(&mutex_);
+  PodNameIndex& name_index = pods_->get<name_tag>();
   std::vector<boost::tuple<std::string, std::string> >::const_iterator it = pods.begin();
-  PodNameIndex& name_index = pods->get<name_tag>();
   for (; it != pods.end(); ++it) {
     boost::tuple<std::string, std::string> pod = *it;
-    PodNameIndex::iterator name_it = name_index.find(pod[1]);
+    const std::string pod_name = boost::get<1>(pod);
+    const std::string endpoint = boost::get<0>(pod);
+    PodNameIndex::iterator name_it = name_index.find(pod_name);
     if (name_it == name_index.end()) {
-      LOG(WARNING, "pod with name %s does not exist", pod[1].c_str());
+      LOG(WARNING, "pod with name %s does not exist", pod_name.c_str());
       continue;
     }
-    if (name_it->status->stage() != kPodSchedStagePending) {
-      LOG(WARNING, "pod with name %s has been scheduled", pod[1].c_str());
+    if (name_it->pod_->stage() != kPodSchedStagePending) {
+      LOG(WARNING, "pod with name %s has been scheduled", pod_name.c_str());
       continue;
     }
     PodIndex index = *name_it;
-    index.endpoint_ = pod[0];
-    index.status->set_endpoint(index.endpoint_);
+    index.endpoint_ = endpoint;
+    index.pod_->set_endpoint(index.endpoint_);
     name_index.replace(name_it, index);
-    DispatchEvent(boost::make_tuple(pod[1], kPodSchedStagePending, kPodSchedStageRunning));
+    DispatchEvent(boost::make_tuple(pod_name, kPodSchedStagePending, kPodSchedStageRunning));
   }
 }
 
@@ -127,10 +135,10 @@ bool PodManager::NewAdd(const std::string& job_name,
                         const PodSpec& desc,
                         int32_t replica) {
   ::baidu::common::MutexLock lock(&mutex_);
-  const PodNameIndex& name_index = pods->get<name_tag>();
+  const PodNameIndex& name_index = pods_->get<name_tag>();
   std::vector<std::string> avilable_name;
-  for (int32_t offset = 0; index < replica; ++offset) {
-    std::string pod_name = boost::lexical_cast<std::string>  + "." + job_name;
+  for (int32_t offset = 0; offset < replica; ++offset) {
+    std::string pod_name = boost::lexical_cast<std::string>(offset) + "." + job_name;
     PodNameIndex::const_iterator name_it = name_index.find(pod_name);
     if (name_it != name_index.end()) {
       LOG(WARNING, "fail alloc pod name %s for that it has been used", pod_name.c_str());
@@ -140,7 +148,7 @@ bool PodManager::NewAdd(const std::string& job_name,
   }
   std::vector<std::string>::iterator pod_name_it = avilable_name.begin();
   for (; pod_name_it != avilable_name.end(); ++pod_name_it) {
-    PodStatus pod = new PodStatus();
+    PodStatus* pod = new PodStatus();
     pod->mutable_desc()->CopyFrom(desc);
     pod->set_name(*pod_name_it);
     pod->set_stage(kPodSchedStagePending);
@@ -152,41 +160,42 @@ bool PodManager::NewAdd(const std::string& job_name,
     pod_index.job_name_ = job_name;
     pod_index.pod_ = pod;
     pods_->insert(pod_index);
-    scale_up_pods_->push_back(pod_name);
+    scale_up_pods_->insert(pod->name());
     LOG(INFO, "add new pod %s", pod->name().c_str());
   }
   return true;
 }
 
-bool PodManager::SyncPodsOnAgent(const std::string& endpoint,
+void PodManager::SyncPodsOnAgent(const std::string& endpoint,
                                  std::map<std::string, PodStatus>& pods) {
   ::baidu::common::MutexLock lock(&mutex_);
   const PodEndpointIndex& endpoint_index = pods_->get<endpoint_tag>();
   PodEndpointIndex::const_iterator endpoint_it = endpoint_index.find(endpoint);
   std::vector<Event> events;
+  std::set<std::string> processed_pods;
   for (; endpoint_it != endpoint_index.end(); ++endpoint_it) {
-    std::map<std::string, PodStatus>::iterator pod_it = pods.find(endpoint_it->name);
+    std::map<std::string, PodStatus>::iterator pod_it = pods.find(endpoint_it->name_);
     if (pod_it == pods.end()) {
-      LOG(WARNING, "pod %s lost from agent %s", endpoint_it->name.c_str(),
+      LOG(WARNING, "pod %s lost from agent %s", endpoint_it->name_.c_str(),
           endpoint.c_str());
       // change pods that are lost to kPodSchedStagePending
-      events.push_back(boost::make_tuple(endpoint_it->name, 
-                                         endpoint_it->status->stage(),
+      events.push_back(boost::make_tuple(endpoint_it->name_, 
+                                         endpoint_it->pod_->stage(),
                                          kPodSchedStagePending));
     } else {
       // TODO add more stat eg cpu, memory, disk io
-      LOG(INFO, "pod %s from agent %s with stat: state %s", endpoint_it->name.c_str(),
+      LOG(INFO, "pod %s from agent %s with stat: state %s", endpoint_it->name_.c_str(),
           endpoint.c_str(), PodState_Name(pod_it->second.state()).c_str());
       // update status on agent
       PodSchedStage to_stage = state_to_stage_[pod_it->second.state()];
-      endpoint_it->status->mutable_cstatus()->CopyFrom(pod_it->second.cstatus());
-      endpoint_it->status->set_state(pod_it->second.state());
-      endpoint_it->status->set_boot_time(pod_it->second.boot_time());
-      events.push_back(boost::make_tuple(endpoint_it->name,
-                                         endpoint_it->status->stage(),
-                                         to_stage))
-      // erase pod that is handled, the left pods are expired
-      pods.erase(pod_it);
+      endpoint_it->pod_->mutable_cstatus()->CopyFrom(pod_it->second.cstatus());
+      endpoint_it->pod_->set_state(pod_it->second.state());
+      endpoint_it->pod_->set_boot_time(pod_it->second.boot_time());
+      events.push_back(boost::make_tuple(endpoint_it->name_,
+                                         endpoint_it->pod_->stage(),
+                                         to_stage));
+      // record the processed pods
+      processed_pods.insert(endpoint_it->name_);
     }
   }
 
@@ -194,17 +203,22 @@ bool PodManager::SyncPodsOnAgent(const std::string& endpoint,
     DispatchEvent(events[i]);
   }
   // TODO add handle expired pods
+
 }
 
 void PodManager::DispatchEvent(const Event& e) {
   mutex_.AssertHeld();
-  PodFSM::iterator it = fsm_->find(e[1]);
+  const std::string pod_name = boost::get<0>(e);
+  const PodSchedStage& current = boost::get<1>(e);
+  const PodSchedStage& to_stage = boost::get<2>(e); 
+  PodFSM::iterator it = fsm_->find(current);
   if (it == fsm_->end()) {
     LOG(WARNING, "no event handle for pod %s change stage from %s to %s",
-        e[0].c_str(), PodSchedStage_Name(e[1]),c_str(), PodSchedStage_Name(e[2]).c_str());
+        pod_name.c_str(), PodSchedStage_Name(current).c_str(), 
+        PodSchedStage_Name(to_stage).c_str());
     return;
   }
-  fsm_->second(e);
+  it->second(e);
 }
 
 }// namespace dos
