@@ -20,9 +20,30 @@ message SubmitJobResponse {
   optional RpcStatus status = 1; 
 }
 
-service Master {
+message GetScaleUpPodRequest {}
 
+// Simple pod information for scaling up
+message PodOverview {
+  optional string name = 1;
+  optional PodSchedStage stage = 2;
+  optional PodState state = 3;
+  optional Resource requirement = 4;
+  optional PodType type = 5;
+}
+
+// get pods that need to be scheduled 
+// and master will make a controll on 
+// deploy step size 
+message GetScaleUpPodResponse {
+  repeated PodOverview pods = 1;
+  optional RpcStatus status = 2;
+}
+
+service Master {
   // submit a job to master 
   rpc SubmitJob(SubmitJobRequest) returns(SubmitJobResponse);
+  // heart beat from agent
   rpc HeartBeat(HeartBeatRequest) returns(HeartBeatResponse);
+  // get pods that need scale up
+  rpc GetScaleUpPod(GetScaleUpPodRequest) returns(GetScaleUpPodResponse);
 }

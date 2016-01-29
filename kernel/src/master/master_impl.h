@@ -28,6 +28,11 @@ public:
                  HeartBeatResponse* response,
                  Closure* done);
 
+  void GetScaleUpPod(RpcController* controller,
+                    const GetScaleUpPodRequest* request,
+                    GetScaleUpPodResponse* response,
+                    Closure* done);
+
 private:
   NodeManager* node_manager_;
   JobManager* job_manager_;

@@ -16,6 +16,14 @@ MasterImpl::MasterImpl():node_manager_(NULL),
 }
 
 MasterImpl::~MasterImpl() {
+  //TODO make a clean
+}
+
+void MasterImpl::GetScaleUpPod(RpcController* controller,
+                               const GetScaleUpPodRequest* request,
+                               GetScaleUpPodResponse* response,
+                               Closure* done) {
+
 }
 
 void MasterImpl::HeartBeat(RpcController* /*controller*/,
