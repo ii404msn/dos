@@ -47,7 +47,7 @@ const std::string kDosCeUsage = "dos help message.\n"
                                 "    dos run -u <uri>  -n <name>\n" 
                                 "    dos ps \n"
                                 "    dos log -n <name> \n"
-                                "    dos version"
+                                "    dos version\n"
                                 "Options:\n"
                                 "    -u     Specify uri for download rootfs\n"
                                 "    -n     Specify name for container\n";
@@ -294,7 +294,7 @@ int main(int argc, char * args[]) {
     StartEngine();
   } else if (strcmp(args[1], "master") == 0) {
     StartMaster();
-  } else if (strcmp(args[1], "agent") == 0) {
+  } else if (strcmp(args[1], "let") == 0) {
     StartAgent();
   } else if (strcmp(args[1], "run") == 0) {
     Run();

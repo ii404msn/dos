@@ -4,6 +4,9 @@
 
 #include "master/blocking_queue.h"
 #include "master/node_manager.h"
+#include "master/job_manager.h"
+#include "master/pod_manager.h"
+#include "master/master_internal_types.h"
 
 using ::google::protobuf::RpcController;
 using ::google::protobuf::Closure;
@@ -27,7 +30,11 @@ public:
 
 private:
   NodeManager* node_manager_;
+  JobManager* job_manager_;
+  PodManager* pod_manager_;
   FixedBlockingQueue<NodeStatus*>* node_status_queue_;
+  FixedBlockingQueue<PodOperation*>* pod_opqueue_;
+  FixedBlockingQueue<JobOperation*>* job_opqueue_;
 };
 
 }

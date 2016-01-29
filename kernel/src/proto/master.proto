@@ -12,7 +12,7 @@ message HeartBeatRequest {
 message HeartBeatResponse {}
 
 message SubmitJobRequest{
-  optional string uid = 1;
+  optional string user_name = 1;
   optional JobSpec job = 2;
 }
 

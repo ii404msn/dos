@@ -8,6 +8,7 @@
 #include <boost/unordered_map.hpp>
 
 #include "master/blocking_queue.h"
+#include "master/master_internal_types.h"
 #include "master/idx_tag.h"
 #include "mutex.h"
 #include "ins_sdk.h"
@@ -43,7 +44,8 @@ typedef boost::multi_index::index<NodeSet, endpoint_tag>::type NodeEndpointIndex
 class NodeManager {
 
 public:
-  NodeManager(FixedBlockingQueue<NodeStatus*>* node_status_queue);
+  NodeManager(FixedBlockingQueue<NodeStatus*>* node_status_queue,
+              FixedBlockingQueue<PodOperation*>* pod_opqueue);
   ~NodeManager();
   bool LoadNodeMeta();
   void KeepAlive(const std::string& hostname, 
@@ -58,6 +60,7 @@ private:
   boost::unordered_map<std::string, NodeMeta*>* node_metas_;
   ::baidu::common::ThreadPool* thread_pool_;
   FixedBlockingQueue<NodeStatus*>* node_status_queue_;
+  FixedBlockingQueue<PodOperation*>* pod_opqueue_;
 };
 
 } // end of dos

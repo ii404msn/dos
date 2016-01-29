@@ -10,12 +10,15 @@ using ::baidu::common::DEBUG;
 
 namespace dos {
 
-PodManager::PodManager(FixedBlockingQueue<PodOperation*>* op_queue):pods_(NULL),
+PodManager::PodManager(FixedBlockingQueue<PodOperation*>* pod_opqueue,
+                       FixedBlockingQueue<JobOperation*>* job_opqueue):pods_(NULL),
   scale_up_pods_(NULL),
   scale_down_pods_(NULL),
   fsm_(NULL),
   state_to_stage_(),
-  op_queue_(op_queue){
+  pod_opqueue_(pod_opqueue),
+  job_opqueue_(job_opqueue),
+  tpool_(4){
   pods_ = new PodSet();
   scale_up_pods_ = new std::set<std::string>();
   scale_down_pods_ = new std::set<std::string>();
@@ -23,6 +26,33 @@ PodManager::PodManager(FixedBlockingQueue<PodOperation*>* op_queue):pods_(NULL),
 }
 
 PodManager::~PodManager(){}
+
+void PodManager::Start() {
+  WatchJobOp();
+}
+
+void PodManager::WatchJobOp() {
+  JobOperation* job_op = job_opqueue_->Pop();
+  bool ok = false;
+  switch(job_op->type_) {
+    case kJobNewAdd:
+      ok = NewAdd(job_op->job_->name(), job_op->job_->user_name(),
+                  job_op->job_->desc().pod(), job_op->job_->desc().replica());
+      break;
+    case kJobRemove:
+      break;
+    case kJobUpdate:
+      break;
+    default:
+      LOG(WARNING, "no handle for job %s op ", job_op->job_->name().c_str());
+  }
+  if (!ok) {
+    LOG(WARNING, "handle process job %s operation fails ", 
+        job_op->job_->name().c_str());
+  }
+  delete job_op;
+  tpool_.AddTask(boost::bind(&PodManager::WatchJobOp, this));
+}
 
 void PodManager::HandleStageRunningChanged(const Event& e) {
   mutex_.AssertHeld();
@@ -41,7 +71,7 @@ void PodManager::HandleStageRunningChanged(const Event& e) {
     PodOperation* op = new PodOperation();
     op->pod_ = name_it->pod_;
     op->type_ = kKillPod;
-    op_queue_->Push(op);
+    pod_opqueue_->Push(op);
     name_it->pod_->set_stage(kPodSchedStageDeath);
     LOG(INFO, "clean dead pod %s ", pod_name.c_str());
   } else if (to_stage == kPodSchedStageRunning) {
@@ -60,7 +90,7 @@ void PodManager::HandleStageRunningChanged(const Event& e) {
     PodOperation* op = new PodOperation();
     op->pod_ = name_it->pod_;
     op->type_ = kKillPod;
-    op_queue_->Push(op);
+    pod_opqueue_->Push(op);
     name_it->pod_->set_stage(kPodSchedStageRemoved);
     LOG(INFO, "kill running pod %s", pod_name.c_str());
   } else {
@@ -87,7 +117,7 @@ void PodManager::HandleStagePendingChanged(const Event& e) {
     PodOperation* op = new PodOperation();
     op->pod_ = name_it->pod_;
     op->type_ = kRunPod;
-    op_queue_->Push(op);
+    pod_opqueue_->Push(op);
     name_it->pod_->set_stage(kPodSchedStageRunning);
   } else if (to_stage == kPodSchedStageRemoved) {
     // remove pod with pending stage , just clean it

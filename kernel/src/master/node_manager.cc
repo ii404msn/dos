@@ -15,12 +15,14 @@ using ::baidu::common::WARNING;
 
 namespace dos {
 
-NodeManager::NodeManager(FixedBlockingQueue<NodeStatus*>* node_status_queue):mutex_(),
+NodeManager::NodeManager(FixedBlockingQueue<NodeStatus*>* node_status_queue,
+                         FixedBlockingQueue<PodOperation*>* pod_opqueue):mutex_(),
   nodes_(NULL),
   nexus_(NULL),
   node_metas_(NULL),
   thread_pool_(NULL),
-  node_status_queue_(node_status_queue){
+  node_status_queue_(node_status_queue),
+  pod_opqueue_(pod_opqueue){
   nodes_ = new NodeSet();
   nexus_ = new ::galaxy::ins::sdk::InsSDK(FLAGS_nexus_servers);
   node_metas_ = new boost::unordered_map<std::string, NodeMeta*>();
