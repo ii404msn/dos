@@ -73,10 +73,13 @@ public:
               int32_t replica);
   // sync the pods on agent
   bool SyncPodsOnAgent(const std::string& endpoint,
-                       std::map<std::string, PodStatus>& pods); 
+                       std::map<std::string, PodStatus>& pods);
+  // sched pod, the tuple first arg is endpoint, the second is pod name
+  void SchedPods(const std::vector<boost::tuple<std::string, std::string> >& pods);
 private:
   void DispatchEvent(const Event& e);
   void HandleStageRunningChanged(const Event& e);
+  void HandleStagePendingChanged(const Event& e);
 private:
   PodSet* pods_;
   std::set<std::string>* scale_up_pods_;
