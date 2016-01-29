@@ -68,6 +68,59 @@ void PodManager::HandleStageRunningChanged(const Event& e) {
   }
 }
 
+void PodManager::HandleStagePendingChanged(const Event& e) {
+  mutex_.AssertHeld();
+  PodNameIndex& name_index = pods->get<name_tag>();
+  PodNameIndex::iterator name_it = name_index.find(e[0].c_str());
+  if (name_it == name_index.end()) {
+    LOG(WARNING, "no pod with name %s in pod manager", e[0].c_str());
+    return;
+  }
+  // schedule pending pod 
+  if (e[2] == kPodSchedStageRunning) {
+    LOG(INFO, "schedule pod %s to agent %s", e[0].c_str(), 
+        name_it->endpoint_.c_str());
+    PodOperation* op = new PodOperation();
+    op->status = name_it->status;
+    op->type = kRunPod;
+    op_queue_->Push(op);
+    name_it->status->set_stage(kPodSchedStageRunning);
+  } else if (e[2] == kPodSchedStageRemoved) {
+    // remove pod with pending stage , just clean it
+    LOG(INFO, "delete pod %s", e[0].c_str());
+    // free pod status
+    delete name_it->status;
+    name_index.erase(name_it);
+  } else {
+    LOG(WARNING, "[alert]invalidate incoming stage %s with pod %s",
+        PodSchedStage_Name(e[2]).c_str(),
+        e[0].c_str()); 
+  }
+}
+
+void PodManager::SchedPods(const std::vector<boost::tuple<std::string, std::string> >& pods) {
+  ::baidu::common::MutexLock lock(&mutex_);
+  std::vector<boost::tuple<std::string, std::string> >::const_iterator it = pods.begin();
+  PodNameIndex& name_index = pods->get<name_tag>();
+  for (; it != pods.end(); ++it) {
+    boost::tuple<std::string, std::string> pod = *it;
+    PodNameIndex::iterator name_it = name_index.find(pod[1]);
+    if (name_it == name_index.end()) {
+      LOG(WARNING, "pod with name %s does not exist", pod[1].c_str());
+      continue;
+    }
+    if (name_it->status->stage() != kPodSchedStagePending) {
+      LOG(WARNING, "pod with name %s has been scheduled", pod[1].c_str());
+      continue;
+    }
+    PodIndex index = *name_it;
+    index.endpoint_ = pod[0];
+    index.status->set_endpoint(index.endpoint_);
+    name_index.replace(name_it, index);
+    DispatchEvent(boost::make_tuple(pod[1], kPodSchedStagePending, kPodSchedStageRunning));
+  }
+}
+
 // add nonexist pod
 bool PodManager::NewAdd(const std::string& job_name,
                         const std::string& user_name,

@@ -23,7 +23,7 @@ public:
 
   T Pop() {
     MutexLock lock(&mutex_);
-    if (queue_.size() <= 0) {
+    while (queue_.size() <= 0) {
       LOG(INFO, "%s queue is empty", name_.c_str())
       cond_.Wait();
     }
@@ -35,7 +35,7 @@ public:
 
   void Push(const T& t) {
     MutexLock lock(&mutex_);
-    if (queue_.size() >= capacity_) {
+    while (queue_.size() >= capacity_) {
       LOG(WARNING, "%s queue is full", name_.c_str());
       cond_.Wait();
     }
