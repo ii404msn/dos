@@ -148,6 +148,12 @@ message Container {
   optional bool reserved = 7;
 }
 
+enum PodType {
+  kPodBatch = 0;
+  kPodLongrun = 1;
+  kPodSystem = 2;
+}
+
 message PodSpec {
   repeated Container containers = 1;
   // the max log count that stored on agent

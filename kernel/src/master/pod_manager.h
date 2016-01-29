@@ -48,7 +48,6 @@ typedef boost::multi_index_container<
   >
 > PodSet;
 
-
 typedef boost::multi_index::index<PodSet, job_name_tag>::type PodJobNameIndex;
 typedef boost::multi_index::index<PodSet, name_tag>::type PodNameIndex;
 typedef boost::multi_index::index<PodSet, user_name_tag>::type PodUserNameIndex;
@@ -74,6 +73,7 @@ public:
                        std::map<std::string, PodStatus>& pods);
   // sched pod, the tuple first arg is endpoint, the second is pod name
   void SchedPods(const std::vector<boost::tuple<std::string, std::string> >& pods);
+
 private:
   void WatchJobOp();
   // create new pods
@@ -93,6 +93,7 @@ private:
   std::map<PodState, PodSchedStage> state_to_stage_;
   FixedBlockingQueue<PodOperation*>* pod_opqueue_;
   FixedBlockingQueue<JobOperation*>* job_opqueue_;
+  std::map<std::string, JobDesc>* job_desc_;
   ::baidu::common::ThreadPool tpool_;
 };
 

@@ -18,11 +18,13 @@ PodManager::PodManager(FixedBlockingQueue<PodOperation*>* pod_opqueue,
   state_to_stage_(),
   pod_opqueue_(pod_opqueue),
   job_opqueue_(job_opqueue),
+  job_desc_(NULL),
   tpool_(4){
   pods_ = new PodSet();
   scale_up_pods_ = new std::set<std::string>();
   scale_down_pods_ = new std::set<std::string>();
   fsm_ = new PodFSM();
+  job_desc_ = new std::map<std::string, JobDesc>();
 }
 
 PodManager::~PodManager(){}
@@ -38,6 +40,7 @@ void PodManager::WatchJobOp() {
     case kJobNewAdd:
       ok = NewAdd(job_op->job_->name(), job_op->job_->user_name(),
                   job_op->job_->desc().pod(), job_op->job_->desc().replica());
+      job_desc_->insert(std::make_pair(job_op->job_->name(), job_op->job_->desc()));
       break;
     case kJobRemove:
       break;
