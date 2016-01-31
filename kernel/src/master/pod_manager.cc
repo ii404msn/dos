@@ -1,6 +1,7 @@
 #include "master/pod_manager.h"
 
 #include <boost/lexical_cast.hpp>
+#include "common/resource_util.h"
 #include "logging.h"
 #include "timer.h"
 
@@ -60,6 +61,7 @@ void PodManager::WatchJobOp() {
 void PodManager::GetScaleUpPods(PodOverviewList* pods) {
   ::baidu::common::MutexLock lock(&mutex_);
   const PodJobNameIndex& job_name_index = pods_->get<job_name_tag>();
+  std::set<std::string> job_to_remove;
   std::set<std::string>::iterator it = scale_up_jobs_->begin();
   for (; it != scale_up_jobs_->end(); ++it) {
     std::string job_name = *it;
@@ -67,6 +69,11 @@ void PodManager::GetScaleUpPods(PodOverviewList* pods) {
     bool get_ok = GetJobStatForInternal(job_name, &stat);
     if (!get_ok) {
       LOG(WARNING, "fail get job stat for job %s", job_name.c_str());
+      continue;
+    }
+    if (stat->pending_ == 0) {
+      // remove job from scale up queue
+      job_to_remove.insert(job_name);
       continue;
     }
     int32_t deploy_step_size = 0;
@@ -92,10 +99,23 @@ void PodManager::GetScaleUpPods(PodOverviewList* pods) {
       has_been_scheduled_count ++;
       PodOverview* pod_overview = pods->Add();
       pod_overview->set_name(job_name_it->name_);
-      //TODO sum the pod resource requirement
-      //pod_overview->mutable_requirement()->CopyFrom(job_name_it->pod_->desc());
+      Resource total;
+      for (int index = 0; index < job_name_it->pod_->desc().containers_size(); index ++) {
+        bool plus_ok = ResourceUtil::Plus(job_it->desc().containers(index).requirement(), &total);
+        if (plus_ok) {
+          LOG(WARNING, "fail to calc resource for job %s", job_name_it->name_.c_str());
+        }
+      }
+      pod_overview->mutable_requirement()->CopyFrom(total);
     }
   }
+  std::set<std::string>::iterator job_to_remove_it = job_to_remove.begin();
+  for (; job_to_remove_it != job_to_remove.end(); ++job_to_remove_it) {
+    std::string job_name = *job_to_remove_it;
+    LOG(INFO, "remove job %s from scale up queue", job_name.c_str());
+    scale_up_jobs_->erase(job_name);
+  }
+
 }
 
 void PodManager::HandleStageRunningChanged(const Event& e) {

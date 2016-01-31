@@ -11,7 +11,7 @@
 #include <boost/tuple/tuple.hpp>
 
 #include "master/idx_tag.h"
-#include "master/blocking_queue.h"
+#include "common/blocking_queue.h"
 #include "master/master_internal_types.h"
 #include "mutex.h"
 #include "thread_pool.h"

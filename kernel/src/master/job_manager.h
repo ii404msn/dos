@@ -6,7 +6,7 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include "master/master_internal_types.h"
-#include "master/blocking_queue.h"
+#include "common/blocking_queue.h"
 #include "master/idx_tag.h"
 #include "mutex.h"
 
