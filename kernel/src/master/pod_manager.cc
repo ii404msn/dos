@@ -13,8 +13,8 @@ namespace dos {
 
 PodManager::PodManager(FixedBlockingQueue<PodOperation*>* pod_opqueue,
                        FixedBlockingQueue<JobOperation*>* job_opqueue):pods_(NULL),
-  scale_up_pods_(NULL),
-  scale_down_pods_(NULL),
+  scale_up_jobs_(NULL),
+  scale_down_jobs_(NULL),
   fsm_(NULL),
   state_to_stage_(),
   pod_opqueue_(pod_opqueue),
@@ -87,7 +87,7 @@ void PodManager::GetScaleUpPods(PodOverviewList* pods) {
     PodJobNameIndex::const_iterator job_name_it = job_name_index.find(job_name);
     // the death count +  deploying count 
     int32_t has_been_scheduled_count = stat->deploying_ + stat->death_;
-    for (; job_name_it != job_name_index && has_been_scheduled_count < deploy_step_size;
+    for (; job_name_it != job_name_index.end() && has_been_scheduled_count < deploy_step_size;
           ++job_name_it) {
       if (job_name_it->job_name_ != job_name) {
         // the end of scan

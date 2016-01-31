@@ -11,6 +11,8 @@
 #include <boost/tuple/tuple.hpp>
 
 #include "master/idx_tag.h"
+#include "proto/dos.pb.h"
+#include "proto/master.pb.h"
 #include "common/blocking_queue.h"
 #include "master/master_internal_types.h"
 #include "mutex.h"
@@ -111,7 +113,7 @@ private:
   FixedBlockingQueue<PodOperation*>* pod_opqueue_;
   FixedBlockingQueue<JobOperation*>* job_opqueue_;
   // the first key is job name ,the second is job desc
-  std::map<std::string, JobDesc>* job_desc_;
+  std::map<std::string, JobSpec>* job_desc_;
   // the thread pool used for watching job_opqueue
   ::baidu::common::ThreadPool tpool_;
 };
