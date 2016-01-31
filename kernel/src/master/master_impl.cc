@@ -23,7 +23,10 @@ void MasterImpl::GetScaleUpPod(RpcController* controller,
                                const GetScaleUpPodRequest* request,
                                GetScaleUpPodResponse* response,
                                Closure* done) {
-
+  // get pods that need to be scheduled
+  pod_manager_->GetScaleUpPods(response->mutable_pods());
+  response->set_status(kRpcOk);
+  done->Run();
 }
 
 void MasterImpl::HeartBeat(RpcController* /*controller*/,
@@ -39,7 +42,8 @@ void MasterImpl::SubmitJob(RpcController* controller,
                            SubmitJobResponse* response,
                            Closure* done) {
   response->set_status(kRpcOk);
-  bool add_ok = job_manager_->Add(request->user_name(), request->job());
+  bool add_ok = job_manager_->Add(request->user_name(), 
+                                  request->job());
   if (!add_ok) {
     response->set_status(kRpcNameExist);
   }

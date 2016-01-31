@@ -11,12 +11,18 @@
 #include <boost/tuple/tuple.hpp>
 
 #include "master/idx_tag.h"
-#include "master/blocking_queue.h"
+#include "common/blocking_queue.h"
 #include "master/master_internal_types.h"
 #include "mutex.h"
 #include "thread_pool.h"
 
 namespace dos {
+
+struct JobStat {
+  int32_t running_;
+  int32_t deploying_;
+  int32_t death_;
+};
 
 struct PodIndex {
   std::string name_;
@@ -61,6 +67,8 @@ typedef boost::function<void (const Event& e)> PodEventHandle;
 // the current stage handle event pair
 typedef std::map<PodSchedStage, PodEventHandle>  PodFSM;
 
+typedef google::protobuf::RepeatedPtrField<dos::PodOverview> PodOverviewList;
+
 class PodManager {
 
 public:
@@ -73,6 +81,13 @@ public:
                        std::map<std::string, PodStatus>& pods);
   // sched pod, the tuple first arg is endpoint, the second is pod name
   void SchedPods(const std::vector<boost::tuple<std::string, std::string> >& pods);
+  // get pods that need to be scheduled, the count of pods in single job will
+  // be limited by job deploy size
+  void GetScaleUpPods(PodOverviewList* pods);
+  // get jod stat, eg running count, deploying count
+  // death count
+  bool GetJobStat(const std::string& job_name,
+                  JobStat* stat);
 
 private:
   void WatchJobOp();
@@ -84,16 +99,20 @@ private:
   void DispatchEvent(const Event& e);
   void HandleStageRunningChanged(const Event& e);
   void HandleStagePendingChanged(const Event& e);
+  bool GetJobStatForInternal(const std::string& job_name,
+                             JobStat* stat);
 private:
   PodSet* pods_;
-  std::set<std::string>* scale_up_pods_;
-  std::set<std::string>* scale_down_pods_;
+  std::set<std::string>* scale_up_jobs_;
+  std::set<std::string>* scale_down_jobs_;
   ::baidu::common::Mutex mutex_;
   PodFSM* fsm_;
   std::map<PodState, PodSchedStage> state_to_stage_;
   FixedBlockingQueue<PodOperation*>* pod_opqueue_;
   FixedBlockingQueue<JobOperation*>* job_opqueue_;
+  // the first key is job name ,the second is job desc
   std::map<std::string, JobDesc>* job_desc_;
+  // the thread pool used for watching job_opqueue
   ::baidu::common::ThreadPool tpool_;
 };
 

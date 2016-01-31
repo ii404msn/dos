@@ -1,6 +1,7 @@
 #include "master/pod_manager.h"
 
 #include <boost/lexical_cast.hpp>
+#include "common/resource_util.h"
 #include "logging.h"
 #include "timer.h"
 
@@ -57,6 +58,66 @@ void PodManager::WatchJobOp() {
   tpool_.AddTask(boost::bind(&PodManager::WatchJobOp, this));
 }
 
+void PodManager::GetScaleUpPods(PodOverviewList* pods) {
+  ::baidu::common::MutexLock lock(&mutex_);
+  const PodJobNameIndex& job_name_index = pods_->get<job_name_tag>();
+  std::set<std::string> job_to_remove;
+  std::set<std::string>::iterator it = scale_up_jobs_->begin();
+  for (; it != scale_up_jobs_->end(); ++it) {
+    std::string job_name = *it;
+    JobStat stat;
+    bool get_ok = GetJobStatForInternal(job_name, &stat);
+    if (!get_ok) {
+      LOG(WARNING, "fail get job stat for job %s", job_name.c_str());
+      continue;
+    }
+    if (stat->pending_ == 0) {
+      // remove job from scale up queue
+      job_to_remove.insert(job_name);
+      continue;
+    }
+    int32_t deploy_step_size = 0;
+    std::map<std::string, JobDesc>::iterator job_it = job_desc_->find(job_name);
+    if (job_it == job_desc_->end()) {
+      LOG(WARNING, "fail to get job desc for job %s", job_name.c_str());
+      continue;
+    }
+    deploy_step_size = job_it->second.deploy_step_size();
+    // scan pod with the same job name
+    PodJobNameIndex::const_iterator job_name_it = job_name_index.find(job_name);
+    // the death count +  deploying count 
+    int32_t has_been_scheduled_count = stat->deploying_ + stat->death_;
+    for (; job_name_it != job_name_index && has_been_scheduled_count < deploy_step_size;
+          ++job_name_it) {
+      if (job_name_it->job_name_ != job_name) {
+        // the end of scan
+        break;
+      }
+      if (job_name_it->pod_->stage() != kPodSchedStagePending) {
+        continue;
+      }
+      has_been_scheduled_count ++;
+      PodOverview* pod_overview = pods->Add();
+      pod_overview->set_name(job_name_it->name_);
+      Resource total;
+      for (int index = 0; index < job_name_it->pod_->desc().containers_size(); index ++) {
+        bool plus_ok = ResourceUtil::Plus(job_it->desc().containers(index).requirement(), &total);
+        if (plus_ok) {
+          LOG(WARNING, "fail to calc resource for job %s", job_name_it->name_.c_str());
+        }
+      }
+      pod_overview->mutable_requirement()->CopyFrom(total);
+    }
+  }
+  std::set<std::string>::iterator job_to_remove_it = job_to_remove.begin();
+  for (; job_to_remove_it != job_to_remove.end(); ++job_to_remove_it) {
+    std::string job_name = *job_to_remove_it;
+    LOG(INFO, "remove job %s from scale up queue", job_name.c_str());
+    scale_up_jobs_->erase(job_name);
+  }
+
+}
+
 void PodManager::HandleStageRunningChanged(const Event& e) {
   mutex_.AssertHeld();
   const PodNameIndex& name_index = pods_->get<name_tag>();
@@ -86,7 +147,7 @@ void PodManager::HandleStageRunningChanged(const Event& e) {
     name_it->pod_->set_state(kPodPending);
     // record pending time
     name_it->pod_->set_start_pending_time(::baidu::common::timer::get_micros());
-    scale_up_pods_->insert(pod_name);
+    scale_up_jobs_->insert(name_it->job_name_);
     LOG(INFO, "put pod %s into pending queue again", pod_name.c_str());
   } else if (to_stage == kPodSchedStageRemoved) {
     // remove pod , clean it on agent and change stage to kPodSchedStageRemoved
@@ -122,11 +183,11 @@ void PodManager::HandleStagePendingChanged(const Event& e) {
     op->type_ = kRunPod;
     pod_opqueue_->Push(op);
     name_it->pod_->set_stage(kPodSchedStageRunning);
+    // init a start state  
+    name_it->pod_->set_state(kPodDeploying);
   } else if (to_stage == kPodSchedStageRemoved) {
     // remove pod with pending stage , just clean it
     LOG(INFO, "delete pod %s", pod_name.c_str());
-    // earse from scale up queue
-    scale_up_pods_->erase(pod_name);
     // free pod status
     delete name_it->pod_;
     name_index.erase(name_it);
@@ -135,6 +196,45 @@ void PodManager::HandleStagePendingChanged(const Event& e) {
         PodSchedStage_Name(to_stage).c_str(),
         pod_name.c_str()); 
   }
+}
+
+bool PodManager::GetJobStatForInternal(const std::string& job_name,
+                                       JobStat* stat) {
+  if (stat == NULL) {
+    LOG(WARNING, "stat is null");
+    return false;
+  }
+  mutex_.AssertHeld();
+  const PodJobNameIndex& job_name_index = pods_->get<job_name_tag>();
+  PodJobNameIndex::const_iterator it = job_name_index.find(job_name);
+  // scan all pods with the same job name 
+  for (; it != job_name_index.end(); ++it) {
+    if (it->job_name_ != job_name) {
+      break;
+    }
+    switch (it->pod_->state()) {
+      // the pending is on agent so 
+      case kPodPending:
+      case kPodDeploying:
+        stat->deploying_++;
+        break;
+      case kPodRunning:
+        stat->running_++;
+        break;
+      case kPodDeath:
+        stat->death_++;
+        break;
+    }
+  }
+  LOG(INFO, "job stat deploying %d running %d death %d",
+      stat->deploying_, stat->running_, stat->death_);
+  return true;
+}
+
+bool PodManager::GetJobStat(const std::string& job_name,
+                            JobStat* stat) {
+  ::baidu::common::MutexLock lock(&mutex_);
+  return GetJobStatForInternal(job_name, stat);
 }
 
 void PodManager::SchedPods(const std::vector<boost::tuple<std::string, std::string> >& pods) {
@@ -193,9 +293,9 @@ bool PodManager::NewAdd(const std::string& job_name,
     pod_index.job_name_ = job_name;
     pod_index.pod_ = pod;
     pods_->insert(pod_index);
-    scale_up_pods_->insert(pod->name());
     LOG(INFO, "add new pod %s", pod->name().c_str());
   }
+  scale_up_jobs_->insert(job_name); 
   return true;
 }
 

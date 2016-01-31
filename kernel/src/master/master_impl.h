@@ -2,7 +2,7 @@
 #define KERNEL_MASTER_IMPL_H
 #include "proto/master.pb.h"
 
-#include "master/blocking_queue.h"
+#include "common/blocking_queue.h"
 #include "master/node_manager.h"
 #include "master/job_manager.h"
 #include "master/pod_manager.h"

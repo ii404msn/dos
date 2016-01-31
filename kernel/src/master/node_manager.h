@@ -7,7 +7,7 @@
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/unordered_map.hpp>
 
-#include "master/blocking_queue.h"
+#include "common/blocking_queue.h"
 #include "master/master_internal_types.h"
 #include "master/idx_tag.h"
 #include "mutex.h"
