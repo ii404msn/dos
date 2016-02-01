@@ -1,3 +1,4 @@
+sudo apt-get install build-essential
 mv ~/.vim ~/.vim.orig
 mv ~/.vimrc ~/.vimrc.orig
 git clone git://github.com/fuhu/.vimrc.git ~/.vim

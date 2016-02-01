@@ -45,12 +45,18 @@ const std::string kDosCeUsage = "dos help message.\n"
                                 "    dos master \n" 
                                 "    dos let \n" 
                                 "    dos run -u <uri>  -n <name>\n" 
-                                "    dos ps \n"
+                                "    dos submit -u <uri>  -n <name> -r <replica> -c <cpu> -m <memory>\n"
+                                "    dos ps -j <job name> | -e <agent endpoint>\n"
                                 "    dos log -n <name> \n"
                                 "    dos version\n"
                                 "Options:\n"
                                 "    -u     Specify uri for download rootfs\n"
-                                "    -n     Specify name for container\n";
+                                "    -n     Specify name for container\n"
+                                "    -j     Specify name for job\n"
+                                "    -r     Specify replica for job\n"
+                                "    -c     Specify cpu for single pod instance\n"
+                                "    -m     Specify memory for single pod instance\n"
+                                "    -e     Specify endpoint for agent\n";
 
 static volatile bool s_quit = false;
 static void SignalIntHandler(int /*sig*/){
