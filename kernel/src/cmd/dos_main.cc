@@ -18,7 +18,7 @@
 #include "engine/engine_impl.h"
 #include "master/master_impl.h"
 #include "agent/agent_impl.h"
-#include "sdk/engine_sdk.h"
+#include "sdk/dos_sdk.h"
 #include "version.h"
 
 DECLARE_string(ce_initd_port);
@@ -199,7 +199,7 @@ void ShowLog() {
     exit(1);
   }
   
-  dos::EngineSdk* engine = dos::EngineSdk::Connect(FLAGS_ce_endpoint);
+  dos::DosSdk* engine = dos::DosSdk::Connect(FLAGS_ce_endpoint);
   if (engine == NULL) {
     fprintf(stderr, "fail to connect %s \n", FLAGS_ce_endpoint.c_str());
     exit(1);
@@ -230,7 +230,7 @@ void Run() {
     fprintf(stderr, "-u is required \n");
     exit(1);
   }
-  dos::EngineSdk* engine = dos::EngineSdk::Connect(FLAGS_ce_endpoint);
+  dos::DosSdk* engine = dos::DosSdk::Connect(FLAGS_ce_endpoint);
   if (engine == NULL) {
     fprintf(stderr, "fail to connect %s \n", FLAGS_ce_endpoint.c_str());
     exit(1);
@@ -249,7 +249,7 @@ void Run() {
 }
 
 void Show() {
-  dos::EngineSdk* engine = dos::EngineSdk::Connect(FLAGS_ce_endpoint);
+  dos::DosSdk* engine = dos::DosSdk::Connect(FLAGS_ce_endpoint);
   if (engine == NULL) {
     fprintf(stderr, "fail to connect %s \n", FLAGS_ce_endpoint.c_str());
     exit(1);
