@@ -24,6 +24,12 @@ struct JobStat {
   int32_t running_;
   int32_t deploying_;
   int32_t death_;
+  int32_t pending_;
+  JobStat():running_(0),
+  deploying_(0),
+  death_(0),
+  pending_(0){}
+  ~JobStat(){}
 };
 
 struct PodIndex {

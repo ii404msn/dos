@@ -22,16 +22,16 @@ PodManager::PodManager(FixedBlockingQueue<PodOperation*>* pod_opqueue,
   job_desc_(NULL),
   tpool_(4){
   pods_ = new PodSet();
-  scale_up_pods_ = new std::set<std::string>();
-  scale_down_pods_ = new std::set<std::string>();
+  scale_up_jobs_ = new std::set<std::string>();
+  scale_down_jobs_ = new std::set<std::string>();
   fsm_ = new PodFSM();
-  job_desc_ = new std::map<std::string, JobDesc>();
+  job_desc_ = new std::map<std::string, JobSpec>();
 }
 
 PodManager::~PodManager(){}
 
 void PodManager::Start() {
-  WatchJobOp();
+  tpool_.AddTask(boost::bind(&PodManager::WatchJobOp, this));
 }
 
 void PodManager::WatchJobOp() {
@@ -60,6 +60,7 @@ void PodManager::WatchJobOp() {
 
 void PodManager::GetScaleUpPods(PodOverviewList* pods) {
   ::baidu::common::MutexLock lock(&mutex_);
+  LOG(DEBUG, "get scale up pods, scale_up_jobs size %u", scale_up_jobs_->size());
   const PodJobNameIndex& job_name_index = pods_->get<job_name_tag>();
   std::set<std::string> job_to_remove;
   std::set<std::string>::iterator it = scale_up_jobs_->begin();
@@ -70,23 +71,28 @@ void PodManager::GetScaleUpPods(PodOverviewList* pods) {
     if (!get_ok) {
       LOG(WARNING, "fail get job stat for job %s", job_name.c_str());
       continue;
-    }
-    if (stat->pending_ == 0) {
+    } 
+    if (stat.pending_ <= 0) {
       // remove job from scale up queue
       job_to_remove.insert(job_name);
       continue;
     }
     int32_t deploy_step_size = 0;
-    std::map<std::string, JobDesc>::iterator job_it = job_desc_->find(job_name);
+    std::map<std::string, JobSpec>::iterator job_it = job_desc_->find(job_name);
     if (job_it == job_desc_->end()) {
       LOG(WARNING, "fail to get job desc for job %s", job_name.c_str());
       continue;
     }
     deploy_step_size = job_it->second.deploy_step_size();
+    LOG(DEBUG, "job %s  deploy step size %d stat: running %u, pending %d death %d", job_name.c_str(),
+        deploy_step_size,
+        stat.running_,
+        stat.pending_, 
+        stat.death_);
     // scan pod with the same job name
     PodJobNameIndex::const_iterator job_name_it = job_name_index.find(job_name);
     // the death count +  deploying count 
-    int32_t has_been_scheduled_count = stat->deploying_ + stat->death_;
+    int32_t has_been_scheduled_count = stat.deploying_ + stat.death_;
     for (; job_name_it != job_name_index.end() && has_been_scheduled_count < deploy_step_size;
           ++job_name_it) {
       if (job_name_it->job_name_ != job_name) {
@@ -96,13 +102,14 @@ void PodManager::GetScaleUpPods(PodOverviewList* pods) {
       if (job_name_it->pod_->stage() != kPodSchedStagePending) {
         continue;
       }
+      LOG(DEBUG, "return pod %s to scheduler", job_name_it->pod_->name().c_str());
       has_been_scheduled_count ++;
       PodOverview* pod_overview = pods->Add();
       pod_overview->set_name(job_name_it->name_);
       Resource total;
       for (int index = 0; index < job_name_it->pod_->desc().containers_size(); index ++) {
-        bool plus_ok = ResourceUtil::Plus(job_it->desc().containers(index).requirement(), &total);
-        if (plus_ok) {
+        bool plus_ok = ResourceUtil::Plus(job_it->second.pod().containers(index).requirement(), &total);
+        if (!plus_ok) {
           LOG(WARNING, "fail to calc resource for job %s", job_name_it->name_.c_str());
         }
       }
@@ -215,6 +222,8 @@ bool PodManager::GetJobStatForInternal(const std::string& job_name,
     switch (it->pod_->state()) {
       // the pending is on agent so 
       case kPodPending:
+        stat->pending_++;
+        break;
       case kPodDeploying:
         stat->deploying_++;
         break;
@@ -268,6 +277,7 @@ bool PodManager::NewAdd(const std::string& job_name,
                         const PodSpec& desc,
                         int32_t replica) {
   ::baidu::common::MutexLock lock(&mutex_);
+  LOG(DEBUG, "create pods for job %s", job_name.c_str());
   const PodNameIndex& name_index = pods_->get<name_tag>();
   std::vector<std::string> avilable_name;
   for (int32_t offset = 0; offset < replica; ++offset) {

@@ -18,7 +18,7 @@ public:
 
     target->mutable_memory()->set_limit(target->memory().limit() + add.memory().limit());
     target->mutable_memory()->set_used(target->memory().used() + add.memory().used());
-
+    return true;
     //TODO port
   }
 };

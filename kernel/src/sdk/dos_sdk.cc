@@ -1,13 +1,14 @@
-#include "sdk/engine_sdk.h"
+#include "sdk/dos_sdk.h"
 #include "proto/engine.pb.h"
 #include "proto/dos.pb.h"
+#include "proto/master.pb.h"
 #include "rpc/rpc_client.h"
 namespace dos {
 
-class DosSdk : public DosSdk {
+class EngineSdkImpl : public EngineSdk {
 
 public:
-  DosSdk(const std::string& addr):rpc_client_(NULL),
+  EngineSdkImpl(const std::string& addr):rpc_client_(NULL),
   engine_(NULL), addr_(addr) {
     rpc_client_ = new RpcClient();
   }
@@ -15,7 +16,7 @@ public:
     bool get_ok = rpc_client_->GetStub(addr_, &engine_);
     return get_ok;
   }
-  virtual ~DosSdk() {
+  virtual ~EngineSdkImpl() {
     delete engine_;
     delete rpc_client_;
   }
@@ -26,14 +27,15 @@ public:
   SdkStatus ShowAll(std::vector<CInfo>& containers);
   SdkStatus ShowCLog(const std::string& name,
                      std::vector<CLog>& logs);
+  SdkStatus Submit(const JobDescriptor& job);
 private:
   RpcClient* rpc_client_;
   Engine_Stub* engine_;
   std::string addr_;
 };
 
-DosSdk* DosSdk::Connect(const std::string& addr) {
-  DosSdk* engine = new DosSdk(addr);
+EngineSdk* EngineSdk::Connect(const std::string& addr) {
+  EngineSdkImpl* engine = new EngineSdkImpl(addr);
   bool init_ok = engine->Init();
   if (init_ok) {
     return engine;
@@ -42,7 +44,7 @@ DosSdk* DosSdk::Connect(const std::string& addr) {
   }
 }
 
-SdkStatus DosSdk::Run(const std::string& name, 
+SdkStatus EngineSdkImpl::Run(const std::string& name, 
     const CDescriptor& desc) {
   RunContainerRequest request;
   request.set_name(name);
@@ -65,7 +67,7 @@ SdkStatus DosSdk::Run(const std::string& name,
   return kSdkOk;
 }
 
-SdkStatus DosSdk::ShowAll(std::vector<CInfo>& containers) {
+SdkStatus EngineSdkImpl::ShowAll(std::vector<CInfo>& containers) {
   ShowContainerRequest request;
   ShowContainerResponse response;
   bool rpc_ok = rpc_client_->SendRequest(engine_, 
@@ -86,7 +88,7 @@ SdkStatus DosSdk::ShowAll(std::vector<CInfo>& containers) {
   return kSdkOk;
 }
 
-SdkStatus DosSdk::ShowCLog(const std::string& name,
+SdkStatus EngineSdkImpl::ShowCLog(const std::string& name,
                                   std::vector<CLog>& logs){
   ShowCLogRequest request;
   request.set_name(name);
@@ -105,6 +107,59 @@ SdkStatus DosSdk::ShowCLog(const std::string& name,
     log.cto = ContainerState_Name(response.logs(i).cto());
     log.msg = response.logs(i).msg();
     logs.push_back(log);
+  }
+  return kSdkOk;
+}
+
+// Dos Sdk implemetation
+class DosSdkImpl : public DosSdk {
+  public:
+    DosSdkImpl(const std::string& addr): rpc_client_(NULL),
+      master_(NULL), addr_(addr){ 
+      rpc_client_ = new RpcClient();
+    }
+    virtual ~DosSdkImpl(){}
+    bool Init() {
+      bool get_ok = rpc_client_->GetStub(addr_, &master_);
+      return get_ok;
+    }
+    SdkStatus Submit(const JobDescriptor& job);
+  private:
+    RpcClient* rpc_client_;
+    Master_Stub* master_;
+    std::string addr_;
+};
+
+DosSdk* DosSdk::Connect(const std::string& dos_addr) {
+  DosSdkImpl* dos_sdk = new DosSdkImpl(dos_addr);
+  if (dos_sdk->Init()) {
+    return dos_sdk;
+  }
+  delete dos_sdk;
+  return NULL;
+}
+
+SdkStatus DosSdkImpl::Submit(const JobDescriptor& job) {
+
+  SubmitJobRequest request;
+  request.set_user_name("imotai");
+  request.mutable_job()->set_name(job.name);
+  request.mutable_job()->set_replica(job.replica);
+  request.mutable_job()->set_deploy_step_size(job.deploy_step_size);
+  for (size_t i = 0; i < job.pod.containers.size(); ++i) {
+    Container* container = request.mutable_job()->mutable_pod()->add_containers();
+    container->set_uri(job.pod.containers[i].uri);
+    ContainerType c_type;
+    if (!ContainerType_Parse(job.pod.containers[i].type, &c_type)) {
+      return kSdkInvalidateEnum;
+    }
+    container->set_type(c_type);
+  }
+  SubmitJobResponse response;
+  bool rpc_ok = rpc_client_->SendRequest(master_, &Master_Stub::SubmitJob, 
+                                         &request, &response, 5, 1);
+  if (!rpc_ok || response.status() != kRpcOk) {
+    return kSdkError;
   }
   return kSdkOk;
 }
