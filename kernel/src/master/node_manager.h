@@ -15,6 +15,7 @@
 #include "thread_pool.h"
 #include "proto/dos.pb.h"
 #include "proto/agent.pb.h"
+#include "proto/master.pb.h"
 #include "rpc/rpc_client.h"
 
 namespace dos {
@@ -22,7 +23,6 @@ namespace dos {
 struct NodeIndex {
   std::string hostname_;
   std::string endpoint_;
-  NodeMeta* meta_;
   NodeStatus* status_;
 };
 
@@ -43,6 +43,10 @@ typedef boost::multi_index_container<
 typedef boost::multi_index::index<NodeSet, hostname_tag>::type NodeHostnameIndex;
 typedef boost::multi_index::index<NodeSet, endpoint_tag>::type NodeEndpointIndex;
 
+typedef google::protobuf::RepeatedPtrField<dos::AgentOverview> AgentOverviewList;
+typedef google::protobuf::RepeatedPtrField<dos::AgentVersion> AgentVersionList;
+typedef google::protobuf::RepeatedPtrField<std::string> StringList;
+
 class NodeManager {
 
 public:
@@ -52,9 +56,11 @@ public:
   bool LoadNodeMeta();
   void KeepAlive(const std::string& hostname, 
                  const std::string& endpoint);
-  void QueryNode(const std::string& endpoint);
-
+  void SyncAgentInfo(const AgentVersionList& versions,
+                     AgentOverviewList* agents,
+                     StringList* del_list);
 private:
+  void PollNode(const std::string& endpoint);
   void HandleNodeTimeout(const std::string& endpoint);
   void WatchPodOpQueue();
   void RunPod(const std::string& pod_name,
@@ -63,6 +69,10 @@ private:
   void RunPodCallback(const RunPodRequest* request,
                       RunPodResponse* response,
                       bool failed, int);
+  void PollNodeCallback(const std::string& endpoint,
+                        const PollAgentRequest* request,
+                        PollAgentResponse* response,
+                        bool failed, int);
 private:
   ::baidu::common::Mutex mutex_;
   NodeSet* nodes_;

@@ -42,6 +42,17 @@ void MasterImpl::HeartBeat(RpcController* /*controller*/,
   done->Run();
 }
 
+void MasterImpl::SyncAgentInfo(RpcController* controller,
+                     const SyncAgentInfoRequest* request,
+                     SyncAgentInfoResponse* response,
+                     Closure* done) {
+  node_manager_->SyncAgentInfo(request->versions(),
+                               response->mutable_diff_mod(),
+                               response->mutable_diff_del());
+  response->set_status(kRpcOk);
+  done->Run();
+}
+
 void MasterImpl::SubmitJob(RpcController* controller,
                            const SubmitJobRequest* request,
                            SubmitJobResponse* response,

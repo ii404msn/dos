@@ -28,7 +28,7 @@ DECLARE_string(ce_initd_conf_path);
 DECLARE_bool(ce_enable_ns);
 DECLARE_string(ce_work_dir);
 DECLARE_string(ce_gc_dir);
-DECLARE_string(agent_port);
+DECLARE_string(agent_endpoint);
 DECLARE_string(master_port);
 
 DEFINE_string(n, "", "specify container name");
@@ -142,9 +142,8 @@ void StartAgent() {
     LOG(WARNING, "fail to register agent rpc service");
     exit(1);
   }
-  std::string endpoint = "0.0.0.0:" + FLAGS_agent_port;
-  if (!rpc_server.Start(endpoint)) {
-    LOG(WARNING, "fail to listen port %s", FLAGS_agent_port.c_str());
+  if (!rpc_server.Start(FLAGS_agent_endpoint)) {
+    LOG(WARNING, "fail to start agent on %s", FLAGS_agent_endpoint.c_str());
     exit(1);
   }
   bool ok = agent->Start();
@@ -152,7 +151,7 @@ void StartAgent() {
     LOG(WARNING, "fail to start agent");
     exit(1);
   }
-  LOG(INFO, "start agent on port %s", FLAGS_agent_port.c_str());
+  LOG(INFO, "start agent on %s", FLAGS_agent_endpoint.c_str());
   signal(SIGINT, SignalIntHandler);
   signal(SIGTERM, SignalIntHandler);
   while (!s_quit) {
