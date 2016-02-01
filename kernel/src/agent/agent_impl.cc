@@ -6,6 +6,7 @@
 #include "util.h"
 
 DECLARE_string(master_port);
+DECLARE_string(agent_endpoint);
 DECLARE_int32(agent_heart_beat_interval);
 
 using ::baidu::common::INFO;
@@ -53,7 +54,7 @@ void AgentImpl::HeartBeat() {
   ::baidu::common::MutexLock lock(&mutex_);
   HeartBeatRequest* request = new HeartBeatRequest();
   request->set_hostname(::baidu::common::util::GetLocalHostName());
-  request->set_endpoint("127.0.0.1:111");
+  request->set_endpoint(FLAGS_agent_endpoint);
   HeartBeatResponse* response = new HeartBeatResponse();
   boost::function<void (const HeartBeatRequest*, HeartBeatResponse*, bool, int)> callback;
   callback = boost::bind(&AgentImpl::HeartBeatCallback, this, _1, _2, _3, _4);

@@ -37,6 +37,32 @@ message GetScaleUpPodResponse {
   optional RpcStatus status = 2;
 }
 
+message AgentOverview {
+  optional string endpoint = 1;
+  optional Resource total = 2;
+  optional Resource assigned = 3;
+  optional int32 pod_count = 4;
+  optional int32 version = 5;
+  optional Resource used = 6;
+}
+
+message AgentVersion {
+  optional string endpoint = 1;
+  optional int32 version = 2;
+}
+
+message SyncAgentInfoRequest {
+  repeated AgentVersion versions = 1;
+}
+
+message SyncAgentInfoResponse {
+  // should be deleted
+  repeated string diff_del = 1;
+  // add or mod
+  repeated AgentOverview diff_mod = 2;
+  optional RpcStatus status = 3;
+}
+
 service Master {
   // submit a job to master 
   rpc SubmitJob(SubmitJobRequest) returns(SubmitJobResponse);
@@ -44,4 +70,6 @@ service Master {
   rpc HeartBeat(HeartBeatRequest) returns(HeartBeatResponse);
   // get pods that need scale up
   rpc GetScaleUpPod(GetScaleUpPodRequest) returns(GetScaleUpPodResponse);
+  // scheduler sync agent infos from master
+  rpc SyncAgentInfo(SyncAgentInfoRequest) returns(SyncAgentInfoResponse);
 }

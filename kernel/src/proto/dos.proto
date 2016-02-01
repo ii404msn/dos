@@ -247,6 +247,8 @@ message NodeStatus {
   optional NodeMeta meta = 4;
   // check node hearbeat timeout task id
   optional int64 task_id = 5;
+  optional int32 version = 6;
+  optional Resource assigned = 7;
 }
 
 enum ContainerState {

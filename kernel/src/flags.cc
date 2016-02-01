@@ -7,7 +7,7 @@ DEFINE_string(master_root_path, "/dos", "the root path of master on nexus");
 DEFINE_string(master_lock_path, "/lock", "the lock path of master on nexus");
 DEFINE_string(master_node_path_prefix, "/nodes", "the node prefix path of master on nexus");
 
-DEFINE_string(agent_port, "8527", "the port that agent listen");
+DEFINE_string(agent_endpoint, "127.0.0.1:8527", "the endpoint of agent");
 // the time to check agent whether it's timeout
 DEFINE_int32(agent_heart_beat_timeout, 10000, "the timeout of agent heart beat");
 // the interval to send heart beat to master , it should be less than agent_heart_beat_timeout

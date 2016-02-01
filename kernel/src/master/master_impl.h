@@ -34,6 +34,10 @@ public:
                     GetScaleUpPodResponse* response,
                     Closure* done);
 
+  void SyncAgentInfo(RpcController* controller,
+                     const SyncAgentInfoRequest* request,
+                     SyncAgentInfoResponse* response,
+                     Closure* done);
 private:
   NodeManager* node_manager_;
   JobManager* job_manager_;
