@@ -13,10 +13,15 @@ MasterImpl::MasterImpl():node_manager_(NULL),
   job_opqueue_ = new FixedBlockingQueue<JobOperation*>(2 * 10240, "job operation queue");
   node_manager_ = new NodeManager(node_status_queue_, pod_opqueue_);
   pod_manager_ = new PodManager(pod_opqueue_, job_opqueue_);
+  job_manager_ = new JobManager(job_opqueue_);
 }
 
 MasterImpl::~MasterImpl() {
   //TODO make a clean
+}
+
+void MasterImpl::Start() {
+  pod_manager_->Start();
 }
 
 void MasterImpl::GetScaleUpPod(RpcController* controller,

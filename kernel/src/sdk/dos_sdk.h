@@ -11,7 +11,8 @@ enum SdkStatus {
   kSdkOk,
   kSdkError,
   kSdkParseDescError,
-  kSdkNameExist
+  kSdkNameExist,
+  kSdkInvalidateEnum
 };
 
 struct CDescriptor {
@@ -36,16 +37,34 @@ struct CLog {
   std::string msg;
 };
 
+struct PodDescritpor {
+  std::vector<CDescriptor> containers;
+};
+
+struct JobDescriptor {
+  std::string name;
+  PodDescritpor pod;
+  uint32_t replica;
+  uint32_t deploy_step_size;
+};
+
 class EngineSdk {
 
 public:
-  static EngineSdk* Connect(const std::string& addr);
+  static EngineSdk* Connect(const std::string& engine_addr);
 
   virtual SdkStatus Run(const std::string& name, 
                         const CDescriptor& desc) = 0;
   virtual SdkStatus ShowAll(std::vector<CInfo>& containers) = 0;
   virtual SdkStatus ShowCLog(const std::string& name,
                              std::vector<CLog>& logs) = 0;
+};
+
+class DosSdk {
+  public:
+    static DosSdk* Connect(const std::string& dos_addr);
+    // submit a job to dos
+    virtual SdkStatus Submit(const JobDescriptor& job) = 0;
 };
 
 }

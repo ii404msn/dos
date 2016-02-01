@@ -33,6 +33,7 @@ bool JobManager::Add(const std::string& user_name,
   job_status->set_utime(::baidu::common::timer::get_micros());
   job_status->set_user_name(user_name);
   job_status->set_state(kJobNormal);
+  job_status->set_name(desc.name());
   JobIndex job_index;
   job_index.name_ = desc.name();
   job_index.user_name_ = user_name;

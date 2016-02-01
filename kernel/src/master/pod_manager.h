@@ -11,6 +11,8 @@
 #include <boost/tuple/tuple.hpp>
 
 #include "master/idx_tag.h"
+#include "proto/dos.pb.h"
+#include "proto/master.pb.h"
 #include "common/blocking_queue.h"
 #include "master/master_internal_types.h"
 #include "mutex.h"
@@ -22,6 +24,12 @@ struct JobStat {
   int32_t running_;
   int32_t deploying_;
   int32_t death_;
+  int32_t pending_;
+  JobStat():running_(0),
+  deploying_(0),
+  death_(0),
+  pending_(0){}
+  ~JobStat(){}
 };
 
 struct PodIndex {
@@ -111,7 +119,7 @@ private:
   FixedBlockingQueue<PodOperation*>* pod_opqueue_;
   FixedBlockingQueue<JobOperation*>* job_opqueue_;
   // the first key is job name ,the second is job desc
-  std::map<std::string, JobDesc>* job_desc_;
+  std::map<std::string, JobSpec>* job_desc_;
   // the thread pool used for watching job_opqueue
   ::baidu::common::ThreadPool tpool_;
 };

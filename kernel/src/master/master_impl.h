@@ -18,6 +18,7 @@ public:
   MasterImpl();
   ~MasterImpl();
 
+  void Start();
   void SubmitJob(RpcController* controller,
                  const SubmitJobRequest* request,
                  SubmitJobResponse* response,

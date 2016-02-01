@@ -342,9 +342,10 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
     initd.set_cwd(info->work_dir);
     initd.add_args(FLAGS_ce_bin_path);
     initd.add_args("initd");
-    initd.add_args("--ce_initd_conf_path=./runtime.json");
     if (info->container.type() == kSystem) {
       initd.add_args("--ce_enable_ns=false");
+    } else {
+      initd.add_args("--ce_initd_conf_path=./runtime.json");
     }
     initd.add_args("--ce_initd_port=" + boost::lexical_cast<std::string>(port)); 
     initd.mutable_user()->set_name("root");
