@@ -43,6 +43,7 @@ bool NodeManager::Start() {
   ::baidu::common::MutexLock lock(&mutex_);
   //bool load_ok = LoadNodeMeta();
   ScheduleNextPoll();
+  thread_pool_->AddTask(boost::bind(&NodeManager::WatchPodOpQueue, this));
   return true;
 }
 
@@ -200,12 +201,14 @@ void NodeManager::WatchPodOpQueue() {
       LOG(WARNING, "no handle for pod");
   }
   delete pod_op;
+  thread_pool_->AddTask(boost::bind(&NodeManager::WatchPodOpQueue, this));
 }
 
 void NodeManager::RunPod(const std::string& pod_name,
                          const std::string& endpoint,
                          const PodSpec& desc) {
   ::baidu::common::MutexLock lock(&mutex_);
+  LOG(INFO, "run pod %s on agent %s", pod_name.c_str(), endpoint.c_str());
   Agent_Stub* agent_stub = NULL;
   boost::unordered_map<std::string, Agent_Stub*>::iterator agent_it = agent_conns_->find(endpoint);
   if (agent_it ==  agent_conns_->end()) {
@@ -257,7 +260,7 @@ void NodeManager::StartPoll() {
 void NodeManager::RunPodCallback(const RunPodRequest* request,
                                 RunPodResponse* response,
                                 bool failed, int) {
-  if (!failed) {
+  if (failed || response->status() != kRpcOk) {
     LOG(WARNING, "run pod %s fails", request->pod_name().c_str());
   } else {
     LOG(INFO, "run pod %s successfully", request->pod_name().c_str());

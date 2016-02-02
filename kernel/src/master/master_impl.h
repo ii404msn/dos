@@ -38,6 +38,12 @@ public:
                      const SyncAgentInfoRequest* request,
                      SyncAgentInfoResponse* response,
                      Closure* done);
+  
+  void ScaleUpPropose(RpcController* controller,
+                     const ScaleUpProposeRequest* request,
+                     ScaleUpProposeResponse* response,
+                     Closure* done);
+
 private:
   NodeManager* node_manager_;
   JobManager* job_manager_;

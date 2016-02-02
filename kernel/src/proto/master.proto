@@ -63,6 +63,19 @@ message SyncAgentInfoResponse {
   optional RpcStatus status = 3;
 }
 
+message Propose {
+  optional string pod_name = 1;
+  optional string endpoint = 2;
+}
+
+message ScaleUpProposeRequest {
+  repeated Propose proposes = 1;
+}
+
+message ScaleUpProposeResponse {
+  optional RpcStatus status = 1;
+}
+
 service Master {
   // submit a job to master 
   rpc SubmitJob(SubmitJobRequest) returns(SubmitJobResponse);
@@ -72,4 +85,6 @@ service Master {
   rpc GetScaleUpPod(GetScaleUpPodRequest) returns(GetScaleUpPodResponse);
   // scheduler sync agent infos from master
   rpc SyncAgentInfo(SyncAgentInfoRequest) returns(SyncAgentInfoResponse);
+  // scale up propose from scheduler
+  rpc ScaleUpPropose(ScaleUpProposeRequest) returns(ScaleUpProposeResponse);
 }

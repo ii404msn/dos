@@ -282,8 +282,8 @@ message ContainerStatus {
   optional int64 start_time = 2;
   optional Resource used = 3;
   optional ContainerState state = 4;
-  optional ContainerType type = 5;
   optional int64 boot_time = 6;
+  optional Container spec = 7;
 }
 
 
