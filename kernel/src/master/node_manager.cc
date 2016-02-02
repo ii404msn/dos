@@ -128,7 +128,12 @@ void NodeManager::PollNode(const std::string& endpoint) {
 void NodeManager::PollNodeCallback(const std::string& endpoint,
     const PollAgentRequest* request, PollAgentResponse* response,
     bool failed, int) {
-  LOG(INFO, "poll agent %s call back", endpoint.c_str());
+  for (int32_t index = 0; index < response->status().pstatus_size(); ++index) {
+    const PodStatus& pod = response->status().pstatus(index);
+    LOG(INFO, "pod %s state %s from agent %s", pod.name().c_str(), 
+        PodState_Name(pod.state()).c_str(),
+        endpoint.c_str());
+  }
   delete request;
   delete response;
   ::baidu::common::MutexLock lock(&mutex_);
