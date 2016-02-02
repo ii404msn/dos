@@ -110,9 +110,10 @@ void NodeManager::PollNode(const std::string& endpoint) {
   Agent_Stub* agent = agent_it->second;
   PollAgentRequest* request = new PollAgentRequest();
   PollAgentResponse* response = new PollAgentResponse();
-  boost::function(void (const std::string&,const PollAgentRequest*, PollAgentResponse*, bool, int)) callback;
+  boost::function<void (const PollAgentRequest*, PollAgentResponse*, bool, int)> callback;
   callback = boost::bind(&NodeManager::PollNodeCallback, this, endpoint, _1, _2, _3, _4);
-  rpc_client_->AsyncRequest(agent, request, response,
+  rpc_client_->AsyncRequest(agent, &Agent_Stub::Poll,
+                            request, response,
                             callback, 5, 1);
 }
 
