@@ -22,6 +22,7 @@ MasterImpl::~MasterImpl() {
 
 void MasterImpl::Start() {
   pod_manager_->Start();
+  node_manager_->Start();
 }
 
 void MasterImpl::GetScaleUpPod(RpcController* controller,

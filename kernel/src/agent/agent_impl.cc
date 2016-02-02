@@ -28,6 +28,8 @@ void AgentImpl::Poll(RpcController* controller,
                      const PollAgentRequest* request,
                      PollAgentResponse* response,
                      Closure* done) {
+  ::baidu::common::MutexLock lock(&mutex_);
+  LOG(WARNING, "poll from master");
   done->Run();
 }
 

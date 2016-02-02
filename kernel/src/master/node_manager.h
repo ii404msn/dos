@@ -27,17 +27,17 @@ struct NodeIndex {
 };
 
 typedef boost::multi_index_container<
-     NodeIndex,
-     boost::multi_index::indexed_by<
-          boost::multi_index::hashed_unique<
-             boost::multi_index::tag<hostname_tag>,
-             BOOST_MULTI_INDEX_MEMBER(NodeIndex , std::string, hostname_)
-         >,
-         boost::multi_index::hashed_unique<
-             boost::multi_index::tag<endpoint_tag>,
-             BOOST_MULTI_INDEX_MEMBER(NodeIndex, std::string, endpoint_)
-        >
+  NodeIndex,
+  boost::multi_index::indexed_by<
+    boost::multi_index::hashed_unique<
+      boost::multi_index::tag<hostname_tag>,
+      BOOST_MULTI_INDEX_MEMBER(NodeIndex , std::string, hostname_)
+    >,
+    boost::multi_index::hashed_unique<
+      boost::multi_index::tag<endpoint_tag>,
+      BOOST_MULTI_INDEX_MEMBER(NodeIndex, std::string, endpoint_)
     >
+  >
 > NodeSet;
 
 typedef boost::multi_index::index<NodeSet, hostname_tag>::type NodeHostnameIndex;
@@ -53,13 +53,14 @@ public:
   NodeManager(FixedBlockingQueue<NodeStatus*>* node_status_queue,
               FixedBlockingQueue<PodOperation*>* pod_opqueue);
   ~NodeManager();
-  bool LoadNodeMeta();
+  bool Start();
   void KeepAlive(const std::string& hostname, 
                  const std::string& endpoint);
   void SyncAgentInfo(const AgentVersionList& versions,
                      AgentOverviewList* agents,
                      StringList* del_list);
 private:
+  bool LoadNodeMeta();
   void PollNode(const std::string& endpoint);
   void HandleNodeTimeout(const std::string& endpoint);
   void WatchPodOpQueue();
@@ -73,6 +74,8 @@ private:
                         const PollAgentRequest* request,
                         PollAgentResponse* response,
                         bool failed, int);
+  void StartPoll();
+  void ScheduleNextPoll();
 private:
   ::baidu::common::Mutex mutex_;
   NodeSet* nodes_;
@@ -85,6 +88,10 @@ private:
   FixedBlockingQueue<NodeStatus*>* node_status_queue_;
   FixedBlockingQueue<PodOperation*>* pod_opqueue_;
   RpcClient* rpc_client_;
+  // the agents which is under polling
+  std::set<std::string> agent_under_polling_;
+  // the agents which is under first polling 
+  std::set<std::string> agent_under_fisrt_polling_;
 };
 
 } // end of dos
