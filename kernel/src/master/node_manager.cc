@@ -39,8 +39,15 @@ NodeManager::~NodeManager() {
   delete node_metas_;
 }
 
+bool NodeManager::Start() {
+  ::baidu::common::MutexLock lock(&mutex_);
+  //bool load_ok = LoadNodeMeta();
+  ScheduleNextPoll();
+  return true;
+}
+
 bool NodeManager::LoadNodeMeta() {
-  MutexLock lock(&mutex_);
+  mutex_.AssertHeld();
   std::string start_key = FLAGS_master_root_path + FLAGS_master_node_path_prefix + "/";
   std::string end_key = start_key + "~";
   ::galaxy::ins::sdk::ScanResult* result = nexus_->Scan(start_key, end_key);
@@ -123,6 +130,9 @@ void NodeManager::PollNodeCallback(const std::string& endpoint,
   LOG(INFO, "poll agent %s call back", endpoint.c_str());
   delete request;
   delete response;
+  ::baidu::common::MutexLock lock(&mutex_);
+  agent_under_polling_.erase(endpoint);
+  ScheduleNextPoll();
 }
 
 void NodeManager::SyncAgentInfo(const AgentVersionList& versions,
@@ -218,6 +228,30 @@ void NodeManager::RunPod(const std::string& pod_name,
   rpc_client_->AsyncRequest(agent_stub, &Agent_Stub::Run,
                            request, response, call_back,
                            5, 0);
+}
+
+void NodeManager::ScheduleNextPoll() {
+  mutex_.AssertHeld();
+  if (agent_under_polling_.size() != 0) {
+    return;
+  }
+  thread_pool_->DelayTask(5000, boost::bind(&NodeManager::StartPoll, this));
+}
+
+void NodeManager::StartPoll() {
+  ::baidu::common::MutexLock lock(&mutex_);
+  if (agent_under_polling_.size() != 0) {
+    return;
+  }
+  LOG(INFO, "start the next poll turn");
+  const NodeEndpointIndex& endpoint_idx = nodes_->get<endpoint_tag>();
+  NodeEndpointIndex::const_iterator endpoint_it = endpoint_idx.begin();
+  for (; endpoint_it != endpoint_idx.end(); ++endpoint_it) {
+    // mark agent is under polling
+    agent_under_polling_.insert(endpoint_it->endpoint_);
+    PollNode(endpoint_it->endpoint_);
+  }
+  ScheduleNextPoll();
 }
 
 void NodeManager::RunPodCallback(const RunPodRequest* request,
