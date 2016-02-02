@@ -33,9 +33,20 @@ void AgentImpl::Poll(RpcController* controller,
                      Closure* done) {
   ::baidu::common::MutexLock lock(&mutex_);
   const ContainerPodNameIdx& pod_name_idx = c_set_->get<p_name_tag>();
-  PodStatus* pod = NULL;
   ContainerPodNameIdx::const_iterator pod_name_it = pod_name_idx.begin();
-
+  PodStatus* pod = NULL;
+  std::string last_pod_name = "";
+  for (; pod_name_it != pod_name_idx.end(); ++pod_name_it) {
+    if (last_pod_name != pod_name_it->pod_name_) {
+      pod = response->mutable_status()->add_pstatus();
+      pod->set_name(pod_name_it->pod_name_);
+      pod->set_state(kPodRunning);
+      last_pod_name = pod_name_it->pod_name_;
+      pod->mutable_desc()->CopyFrom(*pod_name_it->pod_);
+    }
+    ContainerStatus* status = pod->add_cstatus();
+    status->CopyFrom(*pod_name_it->status_);
+  }
   done->Run();
 }
 
