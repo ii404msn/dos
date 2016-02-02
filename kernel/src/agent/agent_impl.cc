@@ -2,6 +2,7 @@
 #include <boost/bind.hpp>
 #include <boost/scoped_ptr.hpp>
 #include <boost/function.hpp>
+#include <boost/lexical_cast.hpp>
 #include <gflags/gflags.h>
 #include "util.h"
 
@@ -18,8 +19,10 @@ namespace dos {
 AgentImpl::AgentImpl():thread_pool_(4),
   master_(NULL),
   rpc_client_(NULL),
-  mutex_(){
+  mutex_(),
+  c_set_(NULL){
   rpc_client_ = new RpcClient();
+  c_set_ = new ContainerSet();
 }
 
 AgentImpl::~AgentImpl(){}
@@ -29,7 +32,10 @@ void AgentImpl::Poll(RpcController* controller,
                      PollAgentResponse* response,
                      Closure* done) {
   ::baidu::common::MutexLock lock(&mutex_);
-  LOG(WARNING, "poll from master");
+  const ContainerPodNameIdx& pod_name_idx = c_set_->get<p_name_tag>();
+  PodStatus* pod = NULL;
+  ContainerPodNameIdx::const_iterator pod_name_it = pod_name_idx.begin();
+
   done->Run();
 }
 
@@ -37,6 +43,45 @@ void AgentImpl::Run(RpcController* controller,
                     const RunPodRequest* request,
                     RunPodResponse* response,
                     Closure* done) {
+  ::baidu::common::MutexLock lock(&mutex_);
+  const ContainerPodNameIdx& pod_name_idx = c_set_->get<p_name_tag>();
+  const ContainerNameIdx& c_name_idx = c_set_->get<c_name_tag>();
+  ContainerPodNameIdx::const_iterator pod_name_it = pod_name_idx.find(request->pod_name());
+  if (pod_name_it != pod_name_idx.end()) {
+    LOG(WARNING, "pod name %s exists in agent", request->pod_name().c_str());
+    response->set_status(kRpcNameExist);
+    done->Run();
+    return;
+  }
+  std::deque<std::string> avilable_name;
+  for (int32_t offset = 0; offset < request->pod().containers_size(); ++offset) { 
+    std::string c_name = boost::lexical_cast<std::string>(offset) + "_container." + request->pod_name();
+    if (c_name_idx.find(c_name) != c_name_idx.end()) {
+      LOG(WARNING, "container name %s exists in agent ", c_name.c_str());
+      response->set_status(kRpcNameExist);
+      done->Run();
+      return;
+    }
+    avilable_name.push_back(c_name);
+  }
+
+  PodSpec* pod_spec = new PodSpec();
+  for (int32_t index = 0; index < request->pod().containers_size(); ++index) {
+    std::string c_name = avilable_name.front();
+    avilable_name.pop_front();
+    LOG(INFO, "add container %s", c_name.c_str());
+    ContainerIdx idx;
+    idx.name_ = c_name;
+    idx.pod_name_ = request->pod_name();
+    idx.status_ = new ContainerStatus();
+    idx.status_->set_name(c_name);
+    idx.status_->set_state(kContainerPending);
+    idx.status_->mutable_spec()->CopyFrom(request->pod().containers(index));
+    idx.pod_ = pod_spec;
+    idx.logs_ = new std::deque<PodLog>();
+    c_set_->insert(idx);
+  }
+  response->set_status(kRpcOk);
   done->Run();
 }
 

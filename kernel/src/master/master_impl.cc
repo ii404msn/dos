@@ -43,6 +43,20 @@ void MasterImpl::HeartBeat(RpcController* /*controller*/,
   done->Run();
 }
 
+void MasterImpl::ScaleUpPropose(RpcController* controller,
+                     const ScaleUpProposeRequest* request,
+                     ScaleUpProposeResponse* response,
+                     Closure* done) {
+  std::vector<boost::tuple<std::string, std::string> > pods;
+  for (int32_t index = 0; index < request->proposes_size(); ++index) {
+    pods.push_back(boost::make_tuple(request->proposes(index).endpoint(),
+                                     request->proposes(index).pod_name()));
+  }
+  response->set_status(kRpcOk);
+  done->Run();
+  pod_manager_->SchedPods(pods);
+}
+
 void MasterImpl::SyncAgentInfo(RpcController* controller,
                      const SyncAgentInfoRequest* request,
                      SyncAgentInfoResponse* response,

@@ -25,6 +25,10 @@ PodManager::PodManager(FixedBlockingQueue<PodOperation*>* pod_opqueue,
   scale_up_jobs_ = new std::set<std::string>();
   scale_down_jobs_ = new std::set<std::string>();
   fsm_ = new PodFSM();
+  fsm_->insert(std::make_pair(kPodSchedStagePending, 
+                              boost::bind(&PodManager::HandleStagePendingChanged, this, _1)));
+  fsm_->insert(std::make_pair(kPodSchedStageRunning, 
+                              boost::bind(&PodManager::HandleStageRunningChanged, this, _1)));
   job_desc_ = new std::map<std::string, JobSpec>();
 }
 
@@ -281,7 +285,7 @@ bool PodManager::NewAdd(const std::string& job_name,
   const PodNameIndex& name_index = pods_->get<name_tag>();
   std::vector<std::string> avilable_name;
   for (int32_t offset = 0; offset < replica; ++offset) {
-    std::string pod_name = boost::lexical_cast<std::string>(offset) + "." + job_name;
+    std::string pod_name = boost::lexical_cast<std::string>(offset) + "_pod." + job_name;
     PodNameIndex::const_iterator name_it = name_index.find(pod_name);
     if (name_it != name_index.end()) {
       LOG(WARNING, "fail alloc pod name %s for that it has been used", pod_name.c_str());
