@@ -151,7 +151,7 @@ void AgentImpl::HandleRunContainer(const std::string& c_name) {
       LOG(WARNING, "fail to run container %s", c_name.c_str());
       c_name_it->status_->set_state(kContainerError);
     }else {
-      LOG(WARNING, "run container %s successfully");
+      LOG(WARNING, "run container %s successfully", c_name.c_str());
       c_name_it->status_->set_state(kContainerRunning);
     }
   } else { 
