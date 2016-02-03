@@ -269,7 +269,7 @@ void EngineImpl::HandlePullImage(const ContainerState& pre_state,
           LOG(INFO, "send fetch cmd %s for container %s successfully",
               cmd.c_str(), name.c_str());
           target_state = kContainerPulling;
-          exec_task_interval = 0;
+          exec_task_interval = FLAGS_ce_image_fetch_status_check_interval;
           AppendLog(kContainerPulling, kContainerPulling, "send fetch cmd to inid successfully",
               info);
         }
