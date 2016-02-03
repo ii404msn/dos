@@ -78,7 +78,9 @@ public:
                ShowCLogResponse* response,
                Closure* done);
 private:
+
   void StartContainerFSM(const std::string& name);
+
   // pull a image and produce a state,
   // if pulling is successfully, produce a kContainerRunning state 
   // or produce a kContainerPulling when retry is in limit
@@ -86,14 +88,25 @@ private:
   void HandlePullImage(const ContainerState& pre_state, 
                        const std::string& name);
 
+  // handle boot initd , alloc port for it
+  // and load rootfs
   void HandleBootInitd(const ContainerState& pre_state,
                        const std::string& name);
+
   // run a image or pull container state from initd
   // pre_state is kContainerPulling, run a image
   // pre_state is kContainerRunning, pull container state from initd
   void HandleRunContainer(const ContainerState& pre_state,
                           const std::string& name);
 
+  // every handle has a unified result
+  // target_state , container name , delay task interval
+  void ProcessHandleResult(const ContainerState& target_state,
+                           const ContainerState& current_state,
+                           const std::string& name,
+                           int32_t exec_task_interval);
+
+  // record container state log
   void AppendLog(const ContainerState& cfrom, 
                  const ContainerState& cto,
                  const std::string& msg,

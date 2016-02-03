@@ -194,136 +194,166 @@ void EngineImpl::AppendLog(const ContainerState& cfrom,
 
 void EngineImpl::HandlePullImage(const ContainerState& pre_state,
                                  const std::string& name) {
-  ContainerState target_state = kContainerPending;
-  ContainerState current_state = kContainerPulling;
+  ::baidu::common::MutexLock lock(&mutex_);
+  Containers::iterator it = containers_->find(name);
+  if (it == containers_->end()) {
+    // end of container fsm
+    LOG(INFO, "container with name %s has been deleted", name.c_str());
+    return;
+  }
+  ContainerInfo* info = it->second;
+  ContainerState target_state = kContainerPulling;
+  int32_t exec_task_interval = 0;
   if (pre_state == kContainerPending) {
-    ::baidu::common::MutexLock lock(&mutex_);
-    Containers::iterator it = containers_->find(name);
-    if (it == containers_->end()) {
-      LOG(INFO, "container with name %s has been deleted", name.c_str());
-      return;
-    }
-    LOG(INFO, "start to pull image for container %s", name.c_str());
-    ContainerInfo* info = it->second;
-    info->status.set_state(kContainerPulling);
-    info->work_dir= work_dir_ + "/" + name;
-    if (!Mkdir(info->work_dir)) {
-      LOG(WARNING, "fail to create work dir for container %s ", name.c_str());
-      //TODO go to err state;
-      return;
-    }
-    if (info->container.type() == kSystem) {
-      // no need pull image when type is kSystem
-      // eg image fetcher helper, monitor
-      target_state = kContainerBooting;
-      AppendLog(kContainerPulling, kContainerBooting, "pull image ok", info);
-    } else if (info->container.type() == kOci) {
-      // fetch oci rootfs by wget
-      LOG(INFO, "start to pull image for container %s", name.c_str());
-      it = containers_->find(FLAGS_ce_image_fetcher_name);
-      ContainerInfo* fetcher = it->second;
-      if (fetcher->status.state() != kContainerRunning) {
-        LOG(WARNING, "fetcher is in invalidate state %s", 
-            ContainerState(fetcher->status.state()));
-        // TODO handle fetcher err
-        return;
+    do { 
+      info->status.set_state(kContainerPulling);
+      info->work_dir = work_dir_ + "/" + name;
+      if (!Mkdir(info->work_dir)) {
+        LOG(WARNING, "fail to create work dir %s for container %s ",
+            name.c_str(), info->work_dir.c_str());
+        target_state = kContainerError;
+        exec_task_interval = FLAGS_ce_process_status_check_interval;
+        AppendLog(pre_state, kContainerPulling, "fail to create work dir", info);
+        break;
       }
-      if (fetcher->initd_stub == NULL) {
-        rpc_client_->GetStub(fetcher->initd_endpoint, &fetcher->initd_stub);
-      }
-      info->fetcher_name = "fetcher_for_" + name;
-      //TODO optimalize fetch cmd builder
-      std::string cmd = "cd " + info->work_dir;
-      cmd += " && wget -O rootfs.tar.gz " + info->container.uri();
-      cmd += " && tar -zxvf rootfs.tar.gz";
-      ForkRequest request;
-      ForkResponse response;
-      Process fetch_process;
-      request.mutable_process()->mutable_user()->set_name("root");
-      request.mutable_process()->add_args(cmd);
-      request.mutable_process()->set_name(info->fetcher_name);
-      request.mutable_process()->set_terminal(false);
-      bool rpc_ok = rpc_client_->SendRequest(fetcher->initd_stub, 
-                                             &Initd_Stub::Fork,
-                                             &request, &response, 5, 1);
-      if (!rpc_ok || response.status() != kRpcOk) {
-        LOG(WARNING, "fail to send fetch cmd %s for container %s",
-            cmd.c_str(), name.c_str());
-        //TODO handle rpc error
-        return;
-      } else {
-        LOG(INFO, "send fetch cmd %s for container %s successfully",
-            cmd.c_str(), name.c_str());
-        target_state = kContainerPulling;
-      }
-    }
-  } else if (pre_state == kContainerPulling) {
-    ::baidu::common::MutexLock lock(&mutex_);
-    Containers::iterator it = containers_->find(name);
-    if (it == containers_->end()) {
-      LOG(INFO, "container with name %s has been deleted", name.c_str());
-      return;
-    }
-    ContainerInfo* info = it->second;
-    info->status.set_state(kContainerPulling);
-    if (info->container.type() == kOci) {
-      it = containers_->find(FLAGS_ce_image_fetcher_name);
-      ContainerInfo* fetcher = it->second;
-      if (fetcher->status.state() != kContainerRunning) {
-        LOG(WARNING, "fetcher is in invalidate state %s", 
-            ContainerState(fetcher->status.state()));
-        // TODO handle fetcher err
-        return;
-      }
-      if (fetcher->initd_stub == NULL) {
-        rpc_client_->GetStub(fetcher->initd_endpoint, &fetcher->initd_stub);
-      }
-      WaitRequest request;
-      request.add_names(info->fetcher_name);
-      WaitResponse response;
-      bool rpc_ok = rpc_client_->SendRequest(fetcher->initd_stub, 
-                                             &Initd_Stub::Wait,
-                                             &request, &response, 5, 1);
-      if (!rpc_ok || response.status() != kRpcOk) {
-        LOG(WARNING, "fail to wait fetch status for container %s", name.c_str());
-        //TODO handle rpc error
-        return;
-      } else {
-        const Process& status = response.processes(0);
-        if (status.running()) {
-          target_state = kContainerPulling;
-          LOG(DEBUG, "container %s is under fetching rootfs", name.c_str());
-        }else if (status.exit_code() == 0) {
-          LOG(INFO, "fetch container %s rootfs successfully", name.c_str());
-          target_state = kContainerBooting;
-          AppendLog(kContainerPulling, kContainerBooting, "pull image ok", info);
+      if (info->container.type() == kSystem) {
+        // no need pull image when type is kSystem
+        // eg image fetcher helper, monitor
+        target_state = kContainerBooting;
+        exec_task_interval = 0;
+        AppendLog(kContainerPulling, kContainerBooting, "pull image ok", info);
+        break;
+      } else if (info->container.type() == kOci) {
+        // fetch oci rootfs by wget
+        LOG(INFO, "start to pull image for container %s from uri %s", 
+            name.c_str(), info->container.uri().c_str());
+        it = containers_->find(FLAGS_ce_image_fetcher_name);
+        ContainerInfo* fetcher = it->second;
+        if (fetcher->status.state() != kContainerRunning) {
+          LOG(WARNING, "fetcher is in invalidate state %s", 
+              ContainerState(fetcher->status.state()));
+          AppendLog(kContainerPulling, kContainerError,
+              "fetcher is no avilable", info);
+          target_state = kContainerError;
+          exec_task_interval = 0;
+          break;
+        }
+        if (fetcher->initd_stub == NULL) {
+          rpc_client_->GetStub(fetcher->initd_endpoint, &fetcher->initd_stub);
+        }
+        info->fetcher_name = "fetcher_for_" + name;
+        //TODO optimalize fetch cmd builder 
+        // add limit and retry
+        std::string cmd = "cd " + info->work_dir;
+        cmd += " && wget -O rootfs.tar.gz " + info->container.uri();
+        cmd += " && tar -zxvf rootfs.tar.gz";
+        ForkRequest request;
+        ForkResponse response;
+        Process fetch_process;
+        request.mutable_process()->mutable_user()->set_name("root");
+        request.mutable_process()->add_args(cmd);
+        request.mutable_process()->set_name(info->fetcher_name);
+        request.mutable_process()->set_terminal(false);
+        bool rpc_ok = rpc_client_->SendRequest(fetcher->initd_stub, 
+                                               &Initd_Stub::Fork,
+                                               &request, &response, 5, 1);
+        if (!rpc_ok || response.status() != kRpcOk) {
+          LOG(WARNING, "fail to send fetch cmd %s for container %s",
+              cmd.c_str(), name.c_str());
+          target_state = kContainerError;
+          exec_task_interval = 0;
+          AppendLog(kContainerPulling, kContainerError, "fail to send fetch cmd to initd",
+              info);
+          break;
         } else {
-          LOG(WARNING, "fail to fetch container %s rootfs", name.c_str());
-          //TODO handle fetch fails
-          return;
+          LOG(INFO, "send fetch cmd %s for container %s successfully",
+              cmd.c_str(), name.c_str());
+          target_state = kContainerPulling;
+          exec_task_interval = 0;
+          AppendLog(kContainerPulling, kContainerPulling, "send fetch cmd to inid successfully",
+              info);
         }
       }
+    } while(0);
+  } else if (pre_state == kContainerPulling) {
+    do {
+      info->status.set_state(kContainerPulling);
+      if (info->container.type() == kOci) {
+        it = containers_->find(FLAGS_ce_image_fetcher_name);
+        ContainerInfo* fetcher = it->second;
+        if (fetcher->status.state() != kContainerRunning) {
+          LOG(WARNING, "fetcher is in invalidate state %s", 
+              ContainerState(fetcher->status.state()));
+          target_state = kContainerError;
+          exec_task_interval = 0;
+          AppendLog(kContainerPulling, kContainerError, "fetcher is in validate state",
+              info);
+          break;
+        }
+        if (fetcher->initd_stub == NULL) {
+          rpc_client_->GetStub(fetcher->initd_endpoint, &fetcher->initd_stub);
+        }
+        WaitRequest request;
+        request.add_names(info->fetcher_name);
+        WaitResponse response;
+        bool rpc_ok = rpc_client_->SendRequest(fetcher->initd_stub, 
+                                               &Initd_Stub::Wait,
+                                               &request, &response, 5, 1);
+        if (!rpc_ok || response.status() != kRpcOk) {
+          LOG(WARNING, "fail to wait fetch status for container %s", name.c_str());
+          target_state = kContainerError;
+          exec_task_interval = 0;
+          AppendLog(kContainerPulling, kContainerError, "fail to wait fetch status", info);
+          break;
+        } else {
+          const Process& status = response.processes(0);
+          if (status.running()) {
+            target_state = kContainerPulling;
+            LOG(DEBUG, "container %s is under fetching rootfs", name.c_str());
+            exec_task_interval = FLAGS_ce_image_fetch_status_check_interval;
+          }else if (status.exit_code() == 0) {
+            LOG(INFO, "fetch container %s rootfs successfully", name.c_str());
+            target_state = kContainerBooting;
+            AppendLog(kContainerPulling, kContainerBooting, "pull image ok", info);
+            exec_task_interval = 0;
+          } else {
+            LOG(WARNING, "fail to fetch container %s rootfs", name.c_str());
+            target_state = kContainerError;
+            exec_task_interval = 0;
+            AppendLog(kContainerPulling, kContainerError, "fail to fetch container rootfs", info);
+          }
+        }
 
-    }
+      }
+    } while(0); 
   }
+  ProcessHandleResult(target_state, kContainerPulling, name, exec_task_interval);
+}
+
+void EngineImpl::ProcessHandleResult(const ContainerState& target_state,
+                                     const ContainerState& current_state,
+                                     const std::string& name,
+                                     int32_t exec_task_interval) {
   FSM::iterator fsm_it = fsm_->find(target_state);
   if (fsm_it == fsm_->end()) {
     LOG(WARNING, "container %s has no fsm config with state %s",
-          name.c_str(), ContainerState_Name(kContainerPulling).c_str());
+          name.c_str(), ContainerState_Name(target_state).c_str());
     return;
   }
-  if (target_state == kContainerPulling) {
-    thread_pool_->DelayTask(FLAGS_ce_image_fetch_status_check_interval,
-        boost::bind(fsm_it->second, current_state, name));
+
+  if (exec_task_interval <= 0) {
+    thread_pool_->AddTask(boost::bind(fsm_it->second, current_state, name));
   } else {
-    fsm_it->second(current_state, name);
+    thread_pool_->DelayTask(exec_task_interval, 
+        boost::bind(fsm_it->second, current_state, name));
   }
 }
-
 
 void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
                                  const std::string& name) {
   ::baidu::common::MutexLock lock(&mutex_);
+  ContainerState target_state = kContainerPulling;
+  int32_t exec_task_interval = 0;
   Containers::iterator it = containers_->find(name);
   if (it == containers_->end()) {
     LOG(INFO, "container with name %s has been deleted", name.c_str());
@@ -331,78 +361,83 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
   }
   ContainerInfo* info = it->second;
   info->status.set_state(kContainerBooting);
-  // boot initd
-  if (pre_state == kContainerPulling) {
-    int32_t port = ports_->front();
-    ports_->pop();
-    LOG(INFO, "boot container %s with type %s initd in work dir %s with port %d", name.c_str(),
-        ContainerType_Name(info->container.type()).c_str(),
-        info->work_dir.c_str(), port);
-    info->initd_endpoint = "127.0.0.1:" + boost::lexical_cast<std::string>(port);
-    Process initd;
-    initd.set_cwd(info->work_dir);
-    initd.add_args(FLAGS_ce_bin_path);
-    initd.add_args("initd");
-    if (info->container.type() == kSystem) {
-      initd.add_args("--ce_enable_ns=false");
-    } else {
-      initd.add_args("--ce_initd_conf_path=./runtime.json");
-    }
-    initd.add_args("--ce_initd_port=" + boost::lexical_cast<std::string>(port)); 
-    initd.mutable_user()->set_name("root");
-    initd.set_terminal(false);
-    //TODO read from runtime.json
-    
-    int flag = CLONE_NEWNS | CLONE_NEWPID | CLONE_NEWUTS | SIGCHLD;
-    if (info->container.type() == kSystem) {
-      flag = SIGCHLD;
-    }
-    bool ok = info->initd_proc.Clone(initd, flag);
-    if (!ok) {
-      LOG(WARNING, "fail to clone initd from container %s for %s",
-          name.c_str(), strerror(errno));
-      info->status.set_state(kContainerError);
-    } else {
-      info->status.set_state(kContainerBooting);
-      thread_pool_->DelayTask(FLAGS_ce_initd_boot_check_interval,
-                              boost::bind(&EngineImpl::HandleBootInitd,
-                              this, kContainerBooting, name));
-    }
-
-  } else if (pre_state == kContainerBooting) {
-    // check initd is ok
-    LOG(INFO, "check initd status with endpoint %s", info->initd_endpoint.c_str());
-    if (info->initd_stub == NULL) {
-      rpc_client_->GetStub(info->initd_endpoint, &info->initd_stub);
-    }
-    info->initd_status_check_times ++;
-    StatusRequest request;
-    StatusResponse response;
-    bool ok = rpc_client_->SendRequest(info->initd_stub, &Initd_Stub::Status,
-                             &request, &response, 5, 1);
-    if (!ok) { 
-      if (info->initd_status_check_times > FLAGS_ce_initd_boot_check_max_times) {
-        LOG(WARNING, "init for container %s has reach max boot times", name.c_str());
+  do {
+    // boot initd
+    if (pre_state == kContainerPulling) {
+      int32_t port = ports_->front();
+      ports_->pop();
+      LOG(INFO, "boot container %s with type %s initd in work dir %s with port %d", name.c_str(),
+          ContainerType_Name(info->container.type()).c_str(),
+          info->work_dir.c_str(), port);
+      info->initd_endpoint = "127.0.0.1:" + boost::lexical_cast<std::string>(port);
+      Process initd;
+      initd.set_cwd(info->work_dir);
+      initd.add_args(FLAGS_ce_bin_path);
+      initd.add_args("initd");
+      if (info->container.type() == kSystem) {
+        initd.add_args("--ce_enable_ns=false");
+      } else {
+        initd.add_args("--ce_initd_conf_path=./runtime.json");
+      }
+      initd.add_args("--ce_initd_port=" + boost::lexical_cast<std::string>(port));
+      // TODO custom user
+      initd.mutable_user()->set_name("root");
+      initd.set_terminal(false);
+      //TODO read from runtime.json 
+      int flag = CLONE_NEWNS | CLONE_NEWPID | CLONE_NEWUTS | SIGCHLD;
+      if (info->container.type() == kSystem) {
+        flag = SIGCHLD;
+      }
+      bool ok = info->initd_proc.Clone(initd, flag);
+      if (!ok) {
+        LOG(WARNING, "fail to clone initd from container %s for %s",
+            name.c_str(), strerror(errno));
         info->status.set_state(kContainerError);
-      }else {
-        thread_pool_->DelayTask(FLAGS_ce_initd_boot_check_interval,
-                              boost::bind(&EngineImpl::HandleBootInitd,
-                              this, kContainerBooting, name));
+        target_state = kContainerError;
+        exec_task_interval = 0;
+        AppendLog(kContainerBooting, kContainerError, "fail to clone initd",
+            info);
+        break;
+      } else {
+        info->status.set_state(kContainerBooting);
+        target_state = kContainerBooting;
+        exec_task_interval = FLAGS_ce_initd_boot_check_interval;
+      }
+    } else if (pre_state == kContainerBooting) {
+      // check initd is ok
+      LOG(INFO, "check initd status with endpoint %s", info->initd_endpoint.c_str());
+      if (info->initd_stub == NULL) {
+        rpc_client_->GetStub(info->initd_endpoint, &info->initd_stub);
+      }
+      info->initd_status_check_times ++;
+      StatusRequest request;
+      StatusResponse response;
+      bool ok = rpc_client_->SendRequest(info->initd_stub, &Initd_Stub::Status,
+                               &request, &response, 5, 1);
+      if (!ok) { 
+        if (info->initd_status_check_times > FLAGS_ce_initd_boot_check_max_times) {
+          LOG(WARNING, "init for container %s has reach max boot times", name.c_str());
+          info->status.set_state(kContainerError);
+          target_state = kContainerError;
+          exec_task_interval = 0;
+          AppendLog(kContainerBooting, kContainerError, "initd booting fails", info);
+          break;
+        }else {
+          target_state = kContainerBooting;
+          exec_task_interval = FLAGS_ce_initd_boot_check_interval;
+        }
+      } else {
+        // initd boots successfully 
+        info->status.set_boot_time(::baidu::common::timer::get_micros() - info->start_pull_time);
+        AppendLog(kContainerBooting, kContainerRunning, "start initd ok", info);
+        target_state = kContainerRunning;
+        exec_task_interval = 0;
       }
     } else {
-      FSM::iterator fsm_it = fsm_->find(kContainerRunning);
-      if (fsm_it == fsm_->end()) {
-        LOG(WARNING, "container %s has no fsm config with state %s",
-          name.c_str(), ContainerState_Name(kContainerRunning).c_str());
-        return;
-      }
-      info->status.set_boot_time(::baidu::common::timer::get_micros() - info->start_pull_time);
-      AppendLog(kContainerBooting, kContainerRunning, "start initd ok", info);
-      thread_pool_->AddTask(boost::bind(fsm_it->second, kContainerBooting, name)); 
+      LOG(WARNING, "invalidate pre state for container %s", name.c_str());
     }
-  } else {
-    LOG(WARNING, "invalidate pre state");
-  }
+  } while(0);
+  ProcessHandleResult(target_state, kContainerBooting, name, exec_task_interval);
 }
 
 void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
@@ -414,65 +449,126 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
     return;
   }
   ContainerInfo* info = it->second;
-  // run command in container 
-  if (pre_state == kContainerBooting) {
-    LOG(INFO, "start container %s in work dir %s", name.c_str(),
-        info->work_dir.c_str());
-    if (info->initd_stub == NULL) {
-      rpc_client_->GetStub(info->initd_endpoint, &info->initd_stub);
-    }
-    bool rpc_ok = false;
-    // handle reserved container which only has initd
-    if (info->container.reserved()) {
-      StatusRequest request;
-      StatusResponse response;
-      rpc_ok = rpc_client_->SendRequest(info->initd_stub, 
-                                        &Initd_Stub::Status,
-                                        &request, &response, 5, 1);
-      rpc_ok = rpc_ok && response.status() == kRpcOk;
-
-    } else {
-      std::string config_path = info->work_dir + "/config.json";
-      dos::Config config;
-      bool load_ok = dos::LoadConfig(config_path, &config);
-      if (!load_ok) {
-        LOG(WARNING, "fail to load config.json");
-        //TODO handle err state
-        return;
+  ContainerState target_state = kContainerRunning;
+  int32_t exec_task_interval = 0;
+  do {
+    // run command in container 
+    if (pre_state == kContainerBooting) {
+      LOG(INFO, "start container %s in work dir %s", name.c_str(),
+          info->work_dir.c_str());
+      if (info->initd_stub == NULL) {
+        rpc_client_->GetStub(info->initd_endpoint, &info->initd_stub);
       }
-      ForkRequest request;
-      config.process.set_name(name);
-      // TODO handle process create user logic
-      config.process.mutable_user()->set_name("root");
-      request.mutable_process()->CopyFrom(config.process);
-      ForkResponse response;
-      rpc_ok = rpc_client_->SendRequest(info->initd_stub, 
-                             &Initd_Stub::Fork,
-                             &request, &response, 5, 1);
-      rpc_ok = rpc_ok && response.status() == kRpcOk;
-    }
-    if (!rpc_ok) {
-      LOG(WARNING, "fail to fork process for container %s", name.c_str());
-      info->status.set_state(kContainerError);
-    } else {
-      info->status.set_start_time(::baidu::common::timer::get_micros());
-      LOG(INFO, "fork process for container %s successfully", name.c_str());
-      info->status.set_state(kContainerRunning);
-      FSM::iterator fsm_it = fsm_->find(kContainerRunning);
-      if (fsm_it == fsm_->end()) {
-        LOG(WARNING, "container %s has no fsm config with state %s",
-          name.c_str(), ContainerState_Name(kContainerRunning).c_str());
-        return;
+      bool rpc_ok = false;
+      // handle reserved container which only has initd
+      if (info->container.reserved()) {
+        StatusRequest request;
+        StatusResponse response;
+        rpc_ok = rpc_client_->SendRequest(info->initd_stub, 
+                                          &Initd_Stub::Status,
+                                          &request, &response, 5, 1);
+        rpc_ok = rpc_ok && response.status() == kRpcOk;
+      } else {
+        std::string config_path = info->work_dir + "/config.json";
+        dos::Config config;
+        bool load_ok = dos::LoadConfig(config_path, &config);
+        if (!load_ok) {
+          LOG(WARNING, "fail to load config.json");
+          target_state = kContainerError;
+          exec_task_interval = 0;
+          info->status.set_state(kContainerError);
+          AppendLog(kContainerRunning, kContainerError, "fail to load config.json", info);
+          break;
+        }
+        ForkRequest request;
+        config.process.set_name(name);
+        // TODO handle process create user logic
+        config.process.mutable_user()->set_name("root");
+        request.mutable_process()->CopyFrom(config.process);
+        ForkResponse response;
+        rpc_ok = rpc_client_->SendRequest(info->initd_stub, 
+                               &Initd_Stub::Fork,
+                               &request, &response, 5, 1);
+        rpc_ok = rpc_ok && response.status() == kRpcOk;
       }
-      AppendLog(kContainerRunning, kContainerRunning, "start user process ok", info);
-      thread_pool_->DelayTask(FLAGS_ce_process_status_check_interval,
-                              boost::bind(fsm_it->second, kContainerRunning, name));
+      if (!rpc_ok) {
+        LOG(WARNING, "fail to fork process for container %s", name.c_str());
+        info->status.set_state(kContainerError);
+        target_state = kContainerError;
+        exec_task_interval = 0;
+        AppendLog(kContainerRunning, kContainerError, "fail to fork process", info);
+        break;
+      } else {
+        info->status.set_start_time(::baidu::common::timer::get_micros());
+        LOG(INFO, "fork process for container %s successfully", name.c_str());
+        info->status.set_state(kContainerRunning);
+        AppendLog(kContainerRunning, kContainerRunning, "start user process ok", info);
+        exec_task_interval = FLAGS_ce_process_status_check_interval;
+        target_state = kContainerRunning;
+      }
+    } else if (pre_state == kContainerRunning) {
+      if (info->container.reserved()) {
+        StatusRequest request;
+        StatusResponse response;
+        bool rpc_ok = rpc_client_->SendRequest(info->initd_stub, 
+                                              &Initd_Stub::Status,
+                                              &request, &response, 5, 1);
+        rpc_ok = rpc_ok && response.status() == kRpcOk;
+        if (rpc_ok) {
+          target_state = kContainerRunning;
+          LOG(DEBUG, "container %s is under running", name.c_str());
+          exec_task_interval = FLAGS_ce_process_status_check_interval;
+          info->status.set_state(kContainerRunning);
+        } else {
+          target_state = kContainerError;
+          exec_task_interval = 0;
+          info->status.set_state(kContainerError);
+          AppendLog(kContainerRunning, kContainerError, "fail to check process", info);
+        }
+        break;
+      }
+      // check container process status
+      WaitRequest request;
+      request.add_names(name);
+      WaitResponse response;
+      if (info->initd_stub == NULL) {
+        rpc_client_->GetStub(info->initd_endpoint, &info->initd_stub);
+      }
+      bool rpc_ok = rpc_client_->SendRequest(info->initd_stub, 
+                                             &Initd_Stub::Wait,
+                                             &request, &response, 5, 1);
+      if (!rpc_ok || response.status() != kRpcOk) {
+        LOG(WARNING, "fail to connect to initd %s", info->initd_endpoint.c_str());
+        // TODO add check times that fails reach
+        target_state = kContainerError;
+        exec_task_interval = 0;
+        AppendLog(kContainerRunning, kContainerError, "fail to connect to initd", info);
+        break;
+      } else {
+        const Process& status = response.processes(0);
+        if (status.running()) {
+          target_state = kContainerRunning;
+          LOG(DEBUG, "container %s is under running", name.c_str());
+          exec_task_interval = FLAGS_ce_process_status_check_interval;
+          info->status.set_state(kContainerRunning);
+        }else if (status.exit_code() == 0) {
+          LOG(INFO, "container %s exit with 0", name.c_str());
+          target_state = kContainerCompleted;
+          AppendLog(kContainerRunning, kContainerCompleted, "container completed", info);
+          exec_task_interval = 0;
+          info->status.set_state(kContainerCompleted);
+        } else {
+          LOG(WARNING, "fail to check container %s status", name.c_str());
+          target_state = kContainerError;
+          exec_task_interval = 0;
+          info->status.set_state(kContainerError);
+          AppendLog(kContainerRunning, kContainerError, "fail to check container status", info);
+        }
+      }
     }
-  } else {
-  
-  }
+  } while(0);
+  ProcessHandleResult(target_state, kContainerRunning, name, exec_task_interval);
 }
-
 
 
 } // namespace dos
