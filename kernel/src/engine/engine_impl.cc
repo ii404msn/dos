@@ -335,7 +335,8 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
   if (pre_state == kContainerPulling) {
     int32_t port = ports_->front();
     ports_->pop();
-    LOG(INFO, "boot container %s initd in work dir %s with port %d", name.c_str(),
+    LOG(INFO, "boot container %s with type %s initd in work dir %s with port %d", name.c_str(),
+        ContainerType_Name(info->container.type()).c_str(),
         info->work_dir.c_str(), port);
     info->initd_endpoint = "127.0.0.1:" + boost::lexical_cast<std::string>(port);
     Process initd;

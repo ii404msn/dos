@@ -8,6 +8,7 @@
 
 DECLARE_string(master_port);
 DECLARE_string(agent_endpoint);
+DECLARE_string(ce_port);
 DECLARE_int32(agent_heart_beat_interval);
 
 using ::baidu::common::INFO;
@@ -20,7 +21,8 @@ AgentImpl::AgentImpl():thread_pool_(4),
   master_(NULL),
   rpc_client_(NULL),
   mutex_(),
-  c_set_(NULL){
+  c_set_(NULL),
+  engine_(NULL){
   rpc_client_ = new RpcClient();
   c_set_ = new ContainerSet();
 }
@@ -42,7 +44,6 @@ void AgentImpl::Poll(RpcController* controller,
       pod->set_name(pod_name_it->pod_name_);
       pod->set_state(kPodRunning);
       last_pod_name = pod_name_it->pod_name_;
-      pod->mutable_desc()->CopyFrom(*pod_name_it->pod_);
     }
     ContainerStatus* status = pod->add_cstatus();
     status->CopyFrom(*pod_name_it->status_);
@@ -76,7 +77,6 @@ void AgentImpl::Run(RpcController* controller,
     avilable_name.push_back(c_name);
   }
 
-  PodSpec* pod_spec = new PodSpec();
   for (int32_t index = 0; index < request->pod().containers_size(); ++index) {
     std::string c_name = avilable_name.front();
     avilable_name.pop_front();
@@ -88,9 +88,9 @@ void AgentImpl::Run(RpcController* controller,
     idx.status_->set_name(c_name);
     idx.status_->set_state(kContainerPending);
     idx.status_->mutable_spec()->CopyFrom(request->pod().containers(index));
-    idx.pod_ = pod_spec;
     idx.logs_ = new std::deque<PodLog>();
     c_set_->insert(idx);
+    thread_pool_.AddTask(boost::bind(&AgentImpl::HandleRunContainer, this, c_name));
   }
   response->set_status(kRpcOk);
   done->Run();
@@ -102,6 +102,12 @@ bool AgentImpl::Start() {
   bool ok = rpc_client_->GetStub(master_addr, &master_);
   if (!ok) {
     LOG(WARNING, "fail to build master stub");
+    return false;
+  }
+  std::string engine_addr = "127.0.0.1:" + FLAGS_ce_port;
+  ok = rpc_client_->GetStub(engine_addr, &engine_);
+  if (!ok) {
+    LOG(WARNING, "fail to build engine stub");
     return false;
   }
   thread_pool_.AddTask(boost::bind(&AgentImpl::HeartBeat, this));
@@ -122,6 +128,34 @@ void AgentImpl::HeartBeat() {
                             response,
                             callback,
                             2, 0);
+}
+
+void AgentImpl::HandleRunContainer(const std::string& c_name) {
+  ::baidu::common::MutexLock lock(&mutex_);
+  const ContainerNameIdx& c_name_idx = c_set_->get<c_name_tag>();
+  ContainerNameIdx::const_iterator c_name_it = c_name_idx.find(c_name);
+  if (c_name_it == c_name_idx.end()) {
+    LOG(WARNING, "container with name %s has been removed", c_name.c_str());
+    return;
+  }
+  ContainerState current_state = c_name_it->status_->state();
+  if (current_state == kContainerPending) {
+    RunContainerRequest request;
+    request.mutable_container()->CopyFrom(c_name_it->status_->spec());
+    request.set_name(c_name);
+    RunContainerResponse response;
+    bool ok = rpc_client_->SendRequest(engine_, &Engine_Stub::RunContainer,
+                                       &request, &response,
+                                       5, 1);
+    if (!ok) {
+      LOG(WARNING, "fail to run container %s", c_name.c_str());
+      c_name_it->status_->set_state(kContainerError);
+    }else {
+      LOG(WARNING, "run container %s successfully", c_name.c_str());
+      c_name_it->status_->set_state(kContainerRunning);
+    }
+  } else { 
+  }
 }
 
 void AgentImpl::HeartBeatCallback(const HeartBeatRequest* request,

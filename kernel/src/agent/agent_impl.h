@@ -10,6 +10,7 @@
 
 #include "thread_pool.h"
 #include "proto/master.pb.h"
+#include "proto/engine.pb.h"
 #include "rpc/rpc_client.h"
 #include "mutex.h"
 
@@ -27,7 +28,7 @@ struct ContainerIdx {
   std::string name_;
   std::string pod_name_;
   ContainerStatus* status_;
-  PodSpec* pod_;
+  Container* desc_;
   std::deque<PodLog>* logs_;
   ContainerIdx():name_(), pod_name_(),
   status_(NULL), logs_(NULL){}
@@ -70,12 +71,14 @@ private:
   void HeartBeatCallback(const HeartBeatRequest* request,
                          HeartBeatResponse* response,
                          bool failed, int);
+  void HandleRunContainer(const std::string& c_name);
 private:
   ::baidu::common::ThreadPool thread_pool_;
   Master_Stub* master_;
   RpcClient* rpc_client_;
   ::baidu::common::Mutex mutex_;
   ContainerSet* c_set_;
+  Engine_Stub* engine_;
 };
 
 }// end of dos
