@@ -42,9 +42,9 @@ void InitdImpl::Fork(RpcController*,
 
   bool ok = Launch(request->process());
   if (!ok) {
-      response->set_status(kRpcError);
+    response->set_status(kRpcError);
   }else { 
-      response->set_status(kRpcOk);
+    response->set_status(kRpcOk);
   }
   done->Run();
 }
@@ -66,7 +66,10 @@ bool InitdImpl::Launch(const Process& process) {
   }else {
     LOG(INFO, "fork process %s  successfully", process.name().c_str());
   }
-  tasks_->insert(std::make_pair(process.name(), process));
+  Process copied_process;
+  copied_process.CopyFrom(process);
+  copied_process.set_running(true);
+  tasks_->insert(std::make_pair(process.name(), copied_process));
   workers_->DelayTask(1000, boost::bind(&InitdImpl::CheckStatus, this,process.name()));
   return true;
 }
