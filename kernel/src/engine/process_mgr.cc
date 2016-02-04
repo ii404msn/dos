@@ -47,7 +47,7 @@ int ProcessMgr::LaunchProcess(void* args) {
     ::close(fd);
   }
 /*  int set_hostname_ok = sethostname(context->process.name().c_str(),
-                                    context->process.name().length());
+                                      context->process.name().length());
   if (set_hostname_ok != 0) {
     fprintf(stderr, "fail to set hostname %s", 
             context->process.name().c_str());
@@ -251,10 +251,8 @@ bool ProcessMgr::Clone(const Process& process, int flag) {
   context->stdout_fd = -1;
   context->stderr_fd = -1;
   context->stdin_fd = -1;
-  ok = ResetIo(process, 
-              context->stdout_fd,
-              context->stderr_fd, 
-              context->stdin_fd);
+  ok = ResetIo(process, context->stdout_fd, context->stderr_fd, 
+               context->stdin_fd);
   if (!ok) {
     LOG(WARNING, "fail to reset io for process %s", process.name().c_str());
     return false;
@@ -265,9 +263,9 @@ bool ProcessMgr::Clone(const Process& process, int flag) {
     return false;
   }
   int clone_ok = ::clone(&ProcessMgr::LaunchProcess,
-                    CLONE_STACK + STACK_SIZE,
-                    flag,
-                    context);
+                         CLONE_STACK + STACK_SIZE,
+                         flag,
+                         context);
   if (context->stdout_fd != -1) {
     close(context->stdout_fd);
   }

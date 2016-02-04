@@ -17,7 +17,6 @@ public:
   int AddUser(const User& user);
   // get a user
   int GetUser(const std::string& username, User* user);
-
   ~UserManager();
 private:
    int InitBash(const User& user);
