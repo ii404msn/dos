@@ -5,6 +5,7 @@
 #include "engine/initd.h"
 
 #include <sstream>
+#include <gflags/gflags.h>
 #include <dirent.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -12,8 +13,10 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/bind.hpp>
 
+DECLARE_int32(ce_initd_process_wait_interval);
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
+
 namespace dos {
 
 InitdImpl::InitdImpl():tasks_(NULL), mutex_(), workers_(NULL),
@@ -70,7 +73,7 @@ bool InitdImpl::Launch(const Process& process) {
   copied_process.CopyFrom(process);
   copied_process.set_running(true);
   tasks_->insert(std::make_pair(process.name(), copied_process));
-  workers_->DelayTask(1000, boost::bind(&InitdImpl::CheckStatus, this,process.name()));
+  workers_->DelayTask(FLAGS_ce_initd_process_wait_interval, boost::bind(&InitdImpl::CheckStatus, this,process.name()));
   return true;
 }
 
@@ -91,7 +94,8 @@ void InitdImpl::CheckStatus(const std::string& name) {
   }
   it->second.CopyFrom(p);
   if (p.running()) {
-    workers_->DelayTask(2000, boost::bind(&InitdImpl::CheckStatus, this, name));
+    workers_->DelayTask(FLAGS_ce_initd_process_wait_interval,
+                  boost::bind(&InitdImpl::CheckStatus, this, name));
   }else { 
     LOG(INFO, "task with name %s is dead", name.c_str());
   }

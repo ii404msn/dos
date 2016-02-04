@@ -77,6 +77,10 @@ public:
                const ShowCLogRequest* request,
                ShowCLogResponse* response,
                Closure* done);
+  void JailContainer(RpcController* controller,
+                     const JailContainerRequest* request,
+                     JailContainerResponse* response,
+                     Closure* done);
 private:
 
   void StartContainerFSM(const std::string& name);
@@ -111,6 +115,9 @@ private:
                  const ContainerState& cto,
                  const std::string& msg,
                  ContainerInfo* info);
+  void CleanProcessInInitd(const std::string& name, ContainerInfo* info);
+  void KillProcessCallback(const KillRequest* request, KillResponse* response,
+                           bool failed, int);
 private:
   ::baidu::common::Mutex mutex_;
   typedef std::map<std::string, ContainerInfo*> Containers;

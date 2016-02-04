@@ -43,32 +43,48 @@ int ProcessMgr::LaunchProcess(void* args) {
         || fd == STDERR_FILENO) {
       continue;
     }
-    LOG(INFO, "close fd %d", fd);
-    close(fd);
+    fprintf(stdout, "close fd %d", fd);
+    ::close(fd);
   }
-  pid_t self_pid = getpid();
-  int ret = setpgid(self_pid, self_pid);
+/*  int set_hostname_ok = sethostname(context->process.name().c_str(),
+                                    context->process.name().length());
+  if (set_hostname_ok != 0) {
+    fprintf(stderr, "fail to set hostname %s", 
+            context->process.name().c_str());
+    exit(1);
+  }*/
+  pid_t self_pid = ::getpid();
+  int ret = ::setpgid(self_pid, self_pid);
   if (ret != 0) {
     fprintf(stderr, "fail to set pgid %d", self_pid);
-    exit(1);
+    assert(0);
   }
+  fprintf(stdout, "set pgid %d successfully", self_pid);
   if (!context->process.cwd().empty()) {
-    ret = chdir(context->process.cwd().c_str());
+    ret = ::chdir(context->process.cwd().c_str());
     if (ret != 0) {
       fprintf(stderr, "fail to chdir to %s", context->process.cwd().c_str());
-      exit(1);
+      assert(0);
     }
+    fprintf(stdout, "chdir to %s successfully", context->process.cwd().c_str());
   }
-  ret = setuid(context->uid);
+  ret = ::setuid(context->uid);
   if (ret != 0) {
     fprintf(stderr, "fail to set uid %d", context->uid);
-    exit(1);
+    assert(0);
   }
-  ret = setgid(context->gid);
+  fprintf(stdout, "set uid %d successfully", context->uid);
+  ret = ::setgid(context->gid);
   if (ret != 0) {
     fprintf(stderr, "fail to set gid %d", context->gid);
-    exit(1);
+    assert(0);
   }
+  fprintf(stdout, "set gid %d successfully", context->gid);
+  /*ret = ::setsid();
+  if (ret != 0) {
+    fprintf(stderr, "fail to setsid %s", strerror(errno));
+    assert(0);
+  }*/
   char* argv[context->process.args_size() + 1];
   int32_t argv_index = 0;
   for (;argv_index < context->process.args_size(); ++argv_index) {
@@ -145,7 +161,14 @@ bool ProcessMgr::Exec(const Process& process) {
         fprintf(stderr, "fail to chdir to %s", local.cwd().c_str());
         assert(0);
       }
-    } 
+    }
+    /*if (!local.pty().empty()) {
+      pid_t sid = setsid();
+      if (sid == -1) {
+        fprintf(stderr, "fail to set sid for %s", strerror(errno));
+        exit(1);
+      }
+    }*/
     ret = setuid(uid);
     if (ret != 0) {
       fprintf(stderr, "fail to set uid %d", uid);
@@ -156,26 +179,43 @@ bool ProcessMgr::Exec(const Process& process) {
       fprintf(stderr, "fail to set gid %d", gid);
       assert(0);
     }
-    std::string cmd;
-    for (int32_t index = 0; index < local.args_size(); ++index) {
-      if (index > 0) {
-        cmd += " ";
+    if (local.use_bash_interceptor()) {
+      std::string cmd;
+      for (int32_t index = 0; index < local.args_size(); ++index) {
+        if (index > 0) {
+          cmd += " ";
+        }
+        cmd += local.args(index);
       }
-      cmd += local.args(index);
+      char* argv[] = {
+              const_cast<char*>("bash"),
+              const_cast<char*>("-c"),
+              const_cast<char*>(cmd.c_str()),
+              NULL};
+      char* env[local.envs_size() + 1];
+      int32_t env_index = 0;
+      for (; env_index < local.envs_size(); env_index ++) { 
+        env[env_index] =const_cast<char*>(local.envs(env_index).c_str());
+      }
+      env[env_index+1] = NULL;
+      ::execve("/bin/bash", argv, env);
+      assert(0);
+    } else {
+      char* argv[local.args_size() + 1];
+      std::string cmd;
+      for (int32_t index = 0; index < local.args_size(); ++index) {
+        argv[index] = const_cast<char*>(local.args(index).c_str());
+      }
+      argv[local.args_size()] = NULL;
+      char* env[local.envs_size() + 1];
+      int32_t env_index = 0;
+      for (; env_index < local.envs_size(); env_index ++) { 
+        env[env_index] = const_cast<char*>(local.envs(env_index).c_str());
+      }
+      env[env_index+1] = NULL;
+      ::execve(argv[0], argv, env);
+      assert(0);
     }
-    char* argv[] = {
-            const_cast<char*>("sh"),
-            const_cast<char*>("-c"),
-            const_cast<char*>(cmd.c_str()),
-            NULL};
-    char* env[local.envs_size() + 1];
-    int32_t env_index = 0;
-    for (; env_index < local.envs_size(); env_index ++) { 
-      env[env_index] =const_cast<char*>(local.envs(env_index).c_str());
-    }
-    env[env_index+1] = NULL;
-    ::execve("/bin/sh", argv, env);
-    assert(0);
   }else {
     if (stdout_fd != -1) {
       ::close(stdout_fd);
@@ -272,11 +312,10 @@ bool ProcessMgr::GetUser(const std::string& user,
     } else if (errno == ERANGE) {
       user_passd_buf_len *= 2; 
     }
-        break;
   }
   if (user_passd_buf != NULL) {
-      delete []user_passd_buf; 
-      user_passd_buf = NULL;
+    delete []user_passd_buf; 
+    user_passd_buf = NULL;
   }
   return ok;
 }
@@ -313,7 +352,7 @@ bool ProcessMgr::ResetIo(const Process& process,
 void ProcessMgr::Dup2(const int stdout_fd,
                       const int stderr_fd,
                       const int stdin_fd) {
-  LOG(INFO, "dup stdout %d stderr %d stdin %d", stdout_fd, stderr_fd, stdin_fd);
+  fprintf(stdout, "dup stdout %d stderr %d stdin %d", stdout_fd, stderr_fd, stdin_fd);
   while (stdout_fd != -1 
          && ::dup2(stdout_fd, STDOUT_FILENO) == -1
          && errno == EINTR) {}
@@ -339,7 +378,6 @@ bool ProcessMgr::Wait(const std::string& name, Process* process) {
   pid_t ret_pid = ::waitpid(it->second.pid(), &status, WNOHANG);
   // process exit
   if (ret_pid == it->second.pid()) {
-    LOG(DEBUG, "process %s with pid %d exists", name.c_str(), it->second.pid());
     it->second.set_running(false);
     it->second.set_coredump(false);
     // normal exit
@@ -349,6 +387,8 @@ bool ProcessMgr::Wait(const std::string& name, Process* process) {
       it->second.set_coredump(true);
       it->second.set_exit_code(9);
     }
+    LOG(DEBUG, "process %s with pid %d exits with status %d", name.c_str(), 
+        it->second.pid(), it->second.exit_code());
     process->CopyFrom(it->second);
   } else if (ret_pid == 0) {
     it->second.set_running(true);
@@ -373,13 +413,14 @@ bool ProcessMgr::Kill(const std::string& name, int signal) {
         it->second.gpid());
     return false;
   }
-  int ok = ::killpg(it->second.gpid(), signal);
-  processes_->erase(name);
-  if (ok != 0) {
-    LOG(WARNING, "fail to kill process group %d with err %s", it->second.gpid(), strerror(errno));
-    return false;
+  if (it->second.running()) {
+    int ok = ::killpg(it->second.gpid(), signal);
+    if (ok != 0) {
+      LOG(WARNING, "fail to kill process group %d with err %s", it->second.gpid(), strerror(errno));
+    }
   }
   LOG(INFO, "kill process with gid %d and signal %d successfully", it->second.gpid(), signal);
+  processes_->erase(name);
   return true;
 }
 

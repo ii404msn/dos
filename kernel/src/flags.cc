@@ -29,3 +29,4 @@ DEFINE_int32(ce_initd_boot_check_max_times, 5, "the max times that try to connec
 DEFINE_int32(ce_initd_boot_check_interval, 4000, "the interval of check initd boot");
 DEFINE_int32(ce_process_status_check_interval, 2000, "the interval of check process status");
 DEFINE_int32(ce_container_log_max_size, 100, "the max size of container logs");
+DEFINE_int32(ce_initd_process_wait_interval, 1000, "the interval of initd to wait process status to change");

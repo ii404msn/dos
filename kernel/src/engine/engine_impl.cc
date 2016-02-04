@@ -316,11 +316,15 @@ void EngineImpl::HandlePullImage(const ContainerState& pre_state,
             target_state = kContainerBooting;
             AppendLog(kContainerPulling, kContainerBooting, "pull image ok", info);
             exec_task_interval = 0;
+            // clean fetcher process 
+            CleanProcessInInitd(info->fetcher_name, fetcher);
           } else {
             LOG(WARNING, "fail to fetch container %s rootfs", name.c_str());
             target_state = kContainerError;
             exec_task_interval = 0;
             AppendLog(kContainerPulling, kContainerError, "fail to fetch container rootfs", info);
+            // clean fetcher process
+            CleanProcessInInitd(info->fetcher_name, fetcher);
           }
         }
 
@@ -380,9 +384,11 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
         initd.add_args("--ce_initd_conf_path=./runtime.json");
       }
       initd.add_args("--ce_initd_port=" + boost::lexical_cast<std::string>(port));
-      // TODO custom user
+      //TODO custom user
       initd.mutable_user()->set_name("root");
       initd.set_terminal(false);
+      // container name used as hostname
+      initd.set_name(name);
       //TODO read from runtime.json 
       int flag = CLONE_NEWNS | CLONE_NEWPID | CLONE_NEWUTS | SIGCHLD;
       if (info->container.type() == kSystem) {
@@ -395,8 +401,7 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
         info->status.set_state(kContainerError);
         target_state = kContainerError;
         exec_task_interval = 0;
-        AppendLog(kContainerBooting, kContainerError, "fail to clone initd",
-            info);
+        AppendLog(kContainerBooting, kContainerError, "fail to clone initd", info);
         break;
       } else {
         info->status.set_state(kContainerBooting);
@@ -413,7 +418,7 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
       StatusRequest request;
       StatusResponse response;
       bool ok = rpc_client_->SendRequest(info->initd_stub, &Initd_Stub::Status,
-                               &request, &response, 5, 1);
+                                         &request, &response, 5, 1);
       if (!ok) { 
         if (info->initd_status_check_times > FLAGS_ce_initd_boot_check_max_times) {
           LOG(WARNING, "init for container %s has reach max boot times", name.c_str());
@@ -438,6 +443,30 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
     }
   } while(0);
   ProcessHandleResult(target_state, kContainerBooting, name, exec_task_interval);
+}
+
+void EngineImpl::CleanProcessInInitd(const std::string& name, ContainerInfo* info) {
+  mutex_.AssertHeld();
+  LOG(INFO, "clean process %s", name.c_str());
+  KillRequest* request = new KillRequest();
+  request->add_names(name);
+  KillResponse* response = new KillResponse();
+  boost::function< void (const KillRequest*, KillResponse*, bool, int)> callback;
+  callback = boost::bind(&EngineImpl::KillProcessCallback, this, _1, _2, _3, _4);
+  rpc_client_->AsyncRequest(info->initd_stub, 
+                            &Initd_Stub::Kill,
+                            request, 
+                            response, 
+                            callback, 
+                            5,0);
+}
+
+void EngineImpl::KillProcessCallback(const KillRequest* request,
+                                     KillResponse* response,
+                                     bool failed,
+                                     int) {
+  delete response;
+  delete request;
 }
 
 void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
@@ -570,5 +599,38 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
   ProcessHandleResult(target_state, kContainerRunning, name, exec_task_interval);
 }
 
+// fork a process in container
+void EngineImpl::JailContainer(RpcController* controller,
+                               const JailContainerRequest* request,
+                               JailContainerResponse* response,
+                               Closure* done) {
+  ::baidu::common::MutexLock lock(&mutex_);
+  Containers::iterator it = containers_->find(request->c_name());
+  if (it == containers_->end()) {
+    LOG(INFO, "container with name %s has been deleted", request->c_name().c_str());
+    response->set_status(kRpcNotFound);
+    done->Run();
+    return;
+  }
+  ContainerInfo* info = it->second;
+  ForkRequest fork_request;
+  fork_request.mutable_process()->CopyFrom(request->process());
+  fork_request.mutable_process()->set_use_bash_interceptor(false);
+  ForkResponse fork_response;
+  bool fork_ok = rpc_client_->SendRequest(info->initd_stub, 
+                                          &Initd_Stub::Fork,
+                                          &fork_request,
+                                          &fork_response, 5, 1);
+  if (fork_ok) {
+    LOG(INFO, "jail in container %s with cmds %s successfully", request->c_name().c_str(),
+        request->process().args(0).c_str());
+    response->set_status(kRpcOk);
+  }else {
+    LOG(INFO, "jail in container %s with cmds %s fails", request->c_name().c_str(),
+        request->process().args(0).c_str());
+    response->set_status(kRpcError);
+  }
+  done->Run();
+}
 
 } // namespace dos

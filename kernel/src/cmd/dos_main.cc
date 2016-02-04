@@ -10,6 +10,7 @@
 #include <sofa/pbrpc/pbrpc.h>
 #include <logging.h>
 #include <gflags/gflags.h>
+#include <boost/lexical_cast.hpp>
 #include "engine/oc.h"
 #include "engine/initd.h"
 #include "tprinter.h"
@@ -20,6 +21,7 @@
 #include "scheduler/scheduler.h"
 #include "agent/agent_impl.h"
 #include "sdk/dos_sdk.h"
+#include "cmd/pty.h"
 #include "version.h"
 
 DECLARE_string(ce_initd_port);
@@ -39,6 +41,10 @@ DEFINE_int32(c, 1,  "specify cpu for pod instance");
 DEFINE_int32(d, 1,  "specify deploy step size for job");
 DEFINE_string(ce_endpoint, "127.0.0.1:7676", "specify container engine endpoint");
 
+DEFINE_int32(terminal_lines, 90, "specify the terminal lines");
+DEFINE_int32(terminal_columes, 139, "specify the terminal columes");
+DEFINE_string(term, "xterm-256color", "specify the terminal mode");
+
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
 using ::baidu::common::DEBUG;
@@ -54,6 +60,7 @@ const std::string kDosCeUsage = "dos help message.\n"
                                 "    dos submit -u <uri>  -n <name> -r <replica> -c <cpu> -m <memory> -d <deploy_step_size>\n"
                                 "    dos ps -j <job name> | -e <agent endpoint>\n"
                                 "    dos log -n <name> \n"
+                                "    dos jail -n <name> \n"
                                 "    dos version\n"
                                 "Options:\n"
                                 "    -u     Specify uri for download rootfs\n"
@@ -109,7 +116,37 @@ void StartScheduler() {
   while (!s_quit) {
     sleep(1);
   }
+}
 
+void JailContainer() {
+  if (FLAGS_n.empty()) {
+    fprintf(stderr, "-n is required \n");
+    exit(1);
+  }
+  dos::Pty pty;
+  int master;
+  std::string pty_path;
+  bool create_ok = pty.Create(&master, &pty_path);
+  if (!create_ok) {
+    fprintf(stderr, "fail to create pty");
+    exit(1);
+  }
+  ::dos::JailProcess process;
+  process.envs.push_back("LINES="+ boost::lexical_cast<std::string>(FLAGS_terminal_lines));
+  process.envs.push_back("COLUMES="+ boost::lexical_cast<std::string>(FLAGS_terminal_columes));
+  process.envs.push_back("TERM="+ FLAGS_term);
+  process.cmds = "/bin/bash";
+  process.user = "root";
+  process.pty = pty_path;
+  dos::EngineSdk* engine = dos::EngineSdk::Connect(FLAGS_ce_endpoint);
+  if (engine == NULL) {
+    fprintf(stderr, "fail to connect %s \n", FLAGS_ce_endpoint.c_str());
+    exit(1);
+  }
+  dos::SdkStatus status = engine->Jail(FLAGS_n, process);
+  if (status == dos::kSdkOk) {
+    pty.ConnectMaster(master);
+  }
 }
 
 void StartMaster() {
@@ -368,6 +405,8 @@ int main(int argc, char * args[]) {
     SubmitJob();
   } else if (strcmp(args[1], "scheduler") == 0) {
     StartScheduler();
+  } else if (strcmp(args[1], "jail") == 0) {
+    JailContainer();
   } else {
     fprintf(stderr,"%s", kDosCeUsage.c_str());
     return -1;

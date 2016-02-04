@@ -48,6 +48,13 @@ struct JobDescriptor {
   uint32_t deploy_step_size;
 };
 
+struct JailProcess {
+  std::string cmds;
+  std::vector<std::string> envs;
+  std::string user;
+  std::string pty;
+};
+
 class EngineSdk {
 
 public:
@@ -58,6 +65,8 @@ public:
   virtual SdkStatus ShowAll(std::vector<CInfo>& containers) = 0;
   virtual SdkStatus ShowCLog(const std::string& name,
                              std::vector<CLog>& logs) = 0;
+  virtual SdkStatus Jail(const std::string& name,
+                         const JailProcess& process) = 0;
 };
 
 class DosSdk {
