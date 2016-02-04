@@ -28,6 +28,8 @@ public:
   SdkStatus ShowCLog(const std::string& name,
                      std::vector<CLog>& logs);
   SdkStatus Submit(const JobDescriptor& job);
+  SdkStatus Jail(const std::string& name,
+                 const JailProcess& process);
 private:
   RpcClient* rpc_client_;
   Engine_Stub* engine_;
@@ -42,6 +44,25 @@ EngineSdk* EngineSdk::Connect(const std::string& addr) {
   }else {
     return NULL;
   }
+}
+
+SdkStatus EngineSdkImpl::Jail(const std::string& name,
+                              const JailProcess& process) {
+  JailContainerRequest request;
+  request.set_c_name(name);
+  request.mutable_process()->add_args(process.cmds);
+  request.mutable_process()->mutable_user()->set_name(process.user);
+  for (size_t i = 0; i < process.envs.size(); ++i) {
+    request.mutable_process()->add_envs(process.envs[i]);
+  }
+  request.mutable_process()->set_pty(process.pty);
+  JailContainerResponse response;
+  bool rpc_ok = rpc_client_->SendRequest(engine_, &Engine_Stub::JailContainer,
+                                         &request, &response, 5, 1);
+  if (rpc_ok) {
+    return kSdkOk;
+  }
+  return kSdkError;
 }
 
 SdkStatus EngineSdkImpl::Run(const std::string& name, 

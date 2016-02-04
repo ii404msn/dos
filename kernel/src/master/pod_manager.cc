@@ -88,10 +88,12 @@ void PodManager::GetScaleUpPods(PodOverviewList* pods) {
       continue;
     }
     deploy_step_size = job_it->second.deploy_step_size();
-    LOG(DEBUG, "job %s  deploy step size %d stat: running %u, pending %d death %d", job_name.c_str(),
+    LOG(DEBUG, "job %s deploy step size %d stat: pending %d,deploying %d, running %d, death %d", 
+        job_name.c_str(),
         deploy_step_size,
+        stat.pending_,
+        stat.deploying_, 
         stat.running_,
-        stat.pending_, 
         stat.death_);
     // scan pod with the same job name
     PodJobNameIndex::const_iterator job_name_it = job_name_index.find(job_name);
@@ -239,8 +241,10 @@ bool PodManager::GetJobStatForInternal(const std::string& job_name,
         break;
     }
   }
-  LOG(INFO, "job stat deploying %d running %d death %d",
-      stat->deploying_, stat->running_, stat->death_);
+  LOG(INFO, "job %s stat pending_ %d, deploying %d, running %d ,death %d",
+      job_name.c_str(), stat->pending_,
+      stat->deploying_, stat->running_,
+      stat->death_);
   return true;
 }
 

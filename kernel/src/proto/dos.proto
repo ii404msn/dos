@@ -81,6 +81,7 @@ message Process {
   optional int32 exit_code = 11;
   optional string name = 12;
   optional bool terminal = 13;
+  optional bool use_bash_interceptor = 14 [default = true];
 }
 
 message Platform {

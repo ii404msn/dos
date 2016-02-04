@@ -21,6 +21,7 @@ struct CloneContext {
   int stdout_fd;
   int stdin_fd;
   int stderr_fd;
+  std::string name;
 };
 
 class ProcessMgr {
@@ -28,9 +29,12 @@ class ProcessMgr {
 public:
   ProcessMgr();
   ~ProcessMgr();
-  bool Exec(const Process& process); 
+  // after exec a process , kill method must be invoked for free process data 
+  bool Exec(const Process& process);
+  // 
   bool Clone(const Process& process, int flag);
   bool Wait(const std::string& name, Process* process);
+  // kill process and clean data
   bool Kill(const std::string& name, int signal);
 private:
   static bool GetOpenedFds(std::set<int>& fds);
