@@ -119,6 +119,8 @@ private:
   void CleanProcessInInitd(const std::string& name, ContainerInfo* info);
   void KillProcessCallback(const KillRequest* request, KillResponse* response,
                            bool failed, int);
+  // add user info to process
+  bool HandleProcessUser(Process* process);
 private:
   ::baidu::common::Mutex mutex_;
   typedef std::map<std::string, ContainerInfo*> Containers;
