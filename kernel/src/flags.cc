@@ -13,6 +13,7 @@ DEFINE_int32(agent_heart_beat_timeout, 10000, "the timeout of agent heart beat")
 // the interval to send heart beat to master , it should be less than agent_heart_beat_timeout
 DEFINE_int32(agent_heart_beat_interval, 2000, "the interval of agent heart beat");
 
+DEFINE_string(ce_process_default_user, "dos", "launch process with default user");
 DEFINE_string(ce_port, "7676", "dos container engine listen port");
 DEFINE_string(ce_initd_port, "9527", "initd listen port");
 DEFINE_string(ce_initd_conf_path, "runtime.json", "the default runtime path");

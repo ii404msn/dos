@@ -9,6 +9,7 @@
 #include "mutex.h"
 #include "thread_pool.h"
 #include "engine/process_mgr.h"
+#include "engine/user_mgr.h"
 #include "rpc/rpc_client.h"
 #include "proto/initd.pb.h"
 
@@ -118,6 +119,8 @@ private:
   void CleanProcessInInitd(const std::string& name, ContainerInfo* info);
   void KillProcessCallback(const KillRequest* request, KillResponse* response,
                            bool failed, int);
+  // add user info to process
+  bool HandleProcessUser(Process* process);
 private:
   ::baidu::common::Mutex mutex_;
   typedef std::map<std::string, ContainerInfo*> Containers;
@@ -128,6 +131,7 @@ private:
   FSM* fsm_;
   RpcClient* rpc_client_;
   std::queue<int32_t>* ports_;
+  UserMgr* user_mgr_;
 };
 
 } // namespace dos

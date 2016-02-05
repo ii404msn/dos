@@ -25,6 +25,7 @@
 
 DECLARE_string(ce_bin_path);
 DECLARE_string(ce_image_fetcher_name);
+DECLARE_string(ce_process_default_user);
 DECLARE_int32(ce_image_fetch_status_check_interval);
 DECLARE_int32(ce_initd_boot_check_max_times);
 DECLARE_int32(ce_initd_boot_check_interval);
@@ -41,7 +42,8 @@ EngineImpl::EngineImpl(const std::string& work_dir,
   gc_dir_(gc_dir),
   fsm_(NULL),
   rpc_client_(NULL),
-  ports_(NULL){
+  ports_(NULL),
+  user_mgr_(NULL){
   containers_ = new Containers();
   thread_pool_ = new ::baidu::common::ThreadPool(20);
   fsm_ = new FSM();
@@ -53,6 +55,7 @@ EngineImpl::EngineImpl(const std::string& work_dir,
   for (int32_t i= 9000; i < 10000; i++) {
     ports_->push(i);
   }
+  user_mgr_ = new UserMgr();
 }
 
 EngineImpl::~EngineImpl() {}
@@ -69,7 +72,11 @@ bool EngineImpl::Init() {
     info->status.set_start_time(0);
     info->status.set_state(kContainerPending);
     containers_->insert(std::make_pair(name, info));
-    thread_pool_->AddTask(boost::bind(&EngineImpl::StartContainerFSM, this, name)); 
+    thread_pool_->AddTask(boost::bind(&EngineImpl::StartContainerFSM, this, name));
+    int ok = user_mgr_->SetUp();
+    if (ok != 0) {
+      return false;
+    }
   }
   while (true) {
     {
@@ -250,10 +257,18 @@ void EngineImpl::HandlePullImage(const ContainerState& pre_state,
         ForkRequest request;
         ForkResponse response;
         Process fetch_process;
-        request.mutable_process()->mutable_user()->set_name("root");
         request.mutable_process()->add_args(cmd);
         request.mutable_process()->set_name(info->fetcher_name);
         request.mutable_process()->set_terminal(false);
+        bool process_user_ok = HandleProcessUser(request.mutable_process());
+        if (!process_user_ok) {
+          LOG(WARNING, "fail to process user %s", request.process().user().name().c_str());
+          target_state = kContainerError;
+          exec_task_interval = 0;
+          AppendLog(kContainerPulling, kContainerError, "fail to process user ",
+              info);
+          break;
+        }
         bool rpc_ok = rpc_client_->SendRequest(fetcher->initd_stub, 
                                                &Initd_Stub::Fork,
                                                &request, &response, 5, 1);
@@ -384,11 +399,19 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
         initd.add_args("--ce_initd_conf_path=./runtime.json");
       }
       initd.add_args("--ce_initd_port=" + boost::lexical_cast<std::string>(port));
-      //TODO custom user
       initd.mutable_user()->set_name("root");
       initd.set_terminal(false);
       // container name used as hostname
       initd.set_name(name);
+      bool process_user_ok = HandleProcessUser(&initd);
+      if (!process_user_ok) {
+        LOG(WARNING, "fail to process user %s", initd.user().name().c_str());
+        target_state = kContainerError;
+        exec_task_interval = 0;
+        AppendLog(kContainerBooting, kContainerError, "fail to process user ",
+            info);
+        break;
+      }
       //TODO read from runtime.json 
       int flag = CLONE_NEWNS | CLONE_NEWPID | CLONE_NEWUTS | SIGCHLD;
       if (info->container.type() == kSystem) {
@@ -511,9 +534,16 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
         }
         ForkRequest request;
         config.process.set_name(name);
-        // TODO handle process create user logic
-        config.process.mutable_user()->set_name("root");
         request.mutable_process()->CopyFrom(config.process);
+        bool process_user_ok = HandleProcessUser(request.mutable_process());
+        if (!process_user_ok) {
+          LOG(WARNING, "fail to process user %s", request.process().user().name().c_str());
+          target_state = kContainerError;
+          exec_task_interval = 0;
+          AppendLog(kContainerPulling, kContainerError, "fail to process user ",
+              info);
+          break;
+        }
         ForkResponse response;
         rpc_ok = rpc_client_->SendRequest(info->initd_stub, 
                                &Initd_Stub::Fork,
@@ -599,6 +629,25 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
   ProcessHandleResult(target_state, kContainerRunning, name, exec_task_interval);
 }
 
+bool EngineImpl::HandleProcessUser(Process* process) {
+  mutex_.AssertHeld();
+  if (process->user().name().empty()) {
+    process->mutable_user()->set_name(FLAGS_ce_process_default_user);
+  }
+  int add_ok = user_mgr_->AddUser(process->user());
+  if (add_ok != 0) {
+    LOG(WARNING, "fail to add user %s ", process->user().name().c_str());
+    return false;
+  }
+  int get_ok = user_mgr_->GetUser(process->user().name(), 
+                                  process->mutable_user());
+  if (get_ok != 0) {
+    LOG(WARNING, "fail to get user %s", process->user().name().c_str());
+    return false;
+  }
+  return true;
+}
+
 // fork a process in container
 void EngineImpl::JailContainer(RpcController* controller,
                                const JailContainerRequest* request,
@@ -616,6 +665,13 @@ void EngineImpl::JailContainer(RpcController* controller,
   ForkRequest fork_request;
   fork_request.mutable_process()->CopyFrom(request->process());
   fork_request.mutable_process()->set_use_bash_interceptor(false);
+  bool process_user_ok = HandleProcessUser(fork_request.mutable_process());
+  if (!process_user_ok) {
+    LOG(WARNING, "process user %s failed", fork_request.process().user().name().c_str());
+    response->set_status(kRpcError);
+    done->Run();
+    return;
+  }
   ForkResponse fork_response;
   bool fork_ok = rpc_client_->SendRequest(info->initd_stub, 
                                           &Initd_Stub::Fork,

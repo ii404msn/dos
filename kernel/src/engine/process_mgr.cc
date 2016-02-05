@@ -47,7 +47,7 @@ int ProcessMgr::LaunchProcess(void* args) {
     ::close(fd);
   }
 /*  int set_hostname_ok = sethostname(context->process.name().c_str(),
-                                    context->process.name().length());
+                                      context->process.name().length());
   if (set_hostname_ok != 0) {
     fprintf(stderr, "fail to set hostname %s", 
             context->process.name().c_str());
@@ -68,18 +68,18 @@ int ProcessMgr::LaunchProcess(void* args) {
     }
     fprintf(stdout, "chdir to %s successfully", context->process.cwd().c_str());
   }
-  ret = ::setuid(context->uid);
+  ret = ::setuid(context->process.user().uid());
   if (ret != 0) {
-    fprintf(stderr, "fail to set uid %d", context->uid);
+    fprintf(stderr, "fail to set uid %d", context->process.user().uid());
     assert(0);
   }
-  fprintf(stdout, "set uid %d successfully", context->uid);
-  ret = ::setgid(context->gid);
+  fprintf(stdout, "set uid %d successfully", context->process.user().uid());
+  ret = ::setgid(context->process.user().gid());
   if (ret != 0) {
-    fprintf(stderr, "fail to set gid %d", context->gid);
+    fprintf(stderr, "fail to set gid %d", context->process.user().gid());
     assert(0);
   }
-  fprintf(stdout, "set gid %d successfully", context->gid);
+  fprintf(stdout, "set gid %d successfully", context->process.user().gid());
   /*ret = ::setsid();
   if (ret != 0) {
     fprintf(stderr, "fail to setsid %s", strerror(errno));
@@ -102,19 +102,17 @@ ProcessMgr::ProcessMgr():processes_(NULL){
 ProcessMgr::~ProcessMgr(){}
 
 bool ProcessMgr::Exec(const Process& process) {
-  int32_t uid = 0;
-  int32_t gid = 0;
-  bool ok = ProcessMgr::GetUser(process.user().name(), &uid, &gid);
-  if (!ok) {
-    LOG(WARNING, "user %s does not exists, use root", process.user().name().c_str());
-  }
   Process local;
   local.CopyFrom(process);
   local.set_rtime(::baidu::common::timer::get_micros());
+  if (local.user().uid() <= 0) {
+    LOG(WARNING, "user is required");
+    return false;
+  }
   if (local.cwd().empty()) {
     local.set_cwd("/home/" + process.user().name());
   }
-  ok = MkdirRecur(local.cwd());
+  bool ok = MkdirRecur(local.cwd());
   if (!ok) {
     LOG(WARNING, "fail create workdir %s", local.cwd().c_str());
     return false;
@@ -161,23 +159,23 @@ bool ProcessMgr::Exec(const Process& process) {
         fprintf(stderr, "fail to chdir to %s", local.cwd().c_str());
         assert(0);
       }
+    } 
+    ret = setuid(local.user().uid());
+    if (ret != 0) {
+      fprintf(stderr, "fail to set uid %d", local.user().uid());
+      assert(0);
     }
-    /*if (!local.pty().empty()) {
+    ret = setgid(local.user().gid());
+    if (ret != 0) {
+      fprintf(stderr, "fail to set gid %d", local.user().gid());
+      assert(0);
+    }
+    if (!local.pty().empty()) {
       pid_t sid = setsid();
       if (sid == -1) {
         fprintf(stderr, "fail to set sid for %s", strerror(errno));
-        exit(1);
+        assert(0);
       }
-    }*/
-    ret = setuid(uid);
-    if (ret != 0) {
-      fprintf(stderr, "fail to set uid %d", uid);
-      assert(0);
-    }
-    ret = setgid(gid);
-    if (ret != 0) {
-      fprintf(stderr, "fail to set gid %d", gid);
-      assert(0);
     }
     if (local.use_bash_interceptor()) {
       std::string cmd;
@@ -235,26 +233,15 @@ bool ProcessMgr::Exec(const Process& process) {
   }
 }
 
-bool ProcessMgr::Clone(const Process& process, int flag) {
-  int32_t uid;
-  int32_t gid;
-  //TODO add create user function
-  bool ok = GetUser(process.user().name(), &uid, &gid);
-  if (!ok) {
-    LOG(WARNING, "user %s does not exists", process.user().name().c_str());
-    return false;
-  } 
+bool ProcessMgr::Clone(const Process& process, int flag) { 
   CloneContext* context = new CloneContext();
   context->process = process;
-  context->uid = uid;
-  context->gid = gid;
   context->stdout_fd = -1;
   context->stderr_fd = -1;
   context->stdin_fd = -1;
-  ok = ResetIo(process, 
-              context->stdout_fd,
-              context->stderr_fd, 
-              context->stdin_fd);
+  bool ok = ResetIo(process, context->stdout_fd,
+               context->stderr_fd, 
+               context->stdin_fd);
   if (!ok) {
     LOG(WARNING, "fail to reset io for process %s", process.name().c_str());
     return false;
@@ -265,9 +252,9 @@ bool ProcessMgr::Clone(const Process& process, int flag) {
     return false;
   }
   int clone_ok = ::clone(&ProcessMgr::LaunchProcess,
-                    CLONE_STACK + STACK_SIZE,
-                    flag,
-                    context);
+                         CLONE_STACK + STACK_SIZE,
+                         flag,
+                         context);
   if (context->stdout_fd != -1) {
     close(context->stdout_fd);
   }
