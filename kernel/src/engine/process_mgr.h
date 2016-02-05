@@ -10,14 +10,13 @@
 #include <stdint.h>
 #include <set>
 #include "proto/dos.pb.h"
+#include "engine/user_mgr.h"
 
 namespace dos {
 
 struct CloneContext {
   std::set<int> fds;
   Process process;
-  int32_t uid;
-  int32_t gid;
   int stdout_fd;
   int stdin_fd;
   int stderr_fd;

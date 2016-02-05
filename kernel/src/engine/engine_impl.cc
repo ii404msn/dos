@@ -41,7 +41,8 @@ EngineImpl::EngineImpl(const std::string& work_dir,
   gc_dir_(gc_dir),
   fsm_(NULL),
   rpc_client_(NULL),
-  ports_(NULL){
+  ports_(NULL),
+  user_mgr_(NULL){
   containers_ = new Containers();
   thread_pool_ = new ::baidu::common::ThreadPool(20);
   fsm_ = new FSM();
@@ -53,6 +54,7 @@ EngineImpl::EngineImpl(const std::string& work_dir,
   for (int32_t i= 9000; i < 10000; i++) {
     ports_->push(i);
   }
+  user_mgr_ = new UserMgr();
 }
 
 EngineImpl::~EngineImpl() {}
@@ -69,7 +71,11 @@ bool EngineImpl::Init() {
     info->status.set_start_time(0);
     info->status.set_state(kContainerPending);
     containers_->insert(std::make_pair(name, info));
-    thread_pool_->AddTask(boost::bind(&EngineImpl::StartContainerFSM, this, name)); 
+    thread_pool_->AddTask(boost::bind(&EngineImpl::StartContainerFSM, this, name));
+    int ok = user_mgr_->SetUp();
+    if (ok != 0) {
+      return false;
+    }
   }
   while (true) {
     {
