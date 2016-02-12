@@ -50,6 +50,8 @@ EngineImpl::EngineImpl(const std::string& work_dir,
   fsm_->insert(std::make_pair(kContainerPulling, boost::bind(&EngineImpl::HandlePullImage, this, _1, _2)));
   fsm_->insert(std::make_pair(kContainerBooting, boost::bind(&EngineImpl::HandleBootInitd, this, _1, _2)));
   fsm_->insert(std::make_pair(kContainerRunning, boost::bind(&EngineImpl::HandleRunContainer, this, _1, _2)));
+  fsm_->insert(std::make_pair(kContainerError, boost::bind(&EngineImpl::HandleError, this, _1, _2)));
+  fsm_->insert(std::make_pair(kContainerCompleted, boost::bind(&EngineImpl::HandleCompleteContainer, this, _1, _2)));
   rpc_client_ = new RpcClient();
   ports_ = new std::queue<int32_t>();
   for (int32_t i= 9000; i < 10000; i++) {
@@ -466,6 +468,30 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
     }
   } while(0);
   ProcessHandleResult(target_state, kContainerBooting, name, exec_task_interval);
+}
+
+void EngineImpl::HandleError(const ContainerState& pre_state,
+                             const std::string& name) {
+  ::baidu::common::MutexLock lock(&mutex_);
+  Containers::iterator it = containers_->find(name);
+  if (it == containers_->end()) {
+    LOG(INFO, "container with name %s has been deleted", name.c_str());
+    return;
+  }
+  ContainerInfo* info = it->second;
+  info->status.set_state(kContainerError);
+}
+
+void EngineImpl::HandleCompleteContainer(const ContainerState& pre_state,
+                                         const std::string& name) {
+  ::baidu::common::MutexLock lock(&mutex_);
+  Containers::iterator it = containers_->find(name);
+  if (it == containers_->end()) {
+    LOG(INFO, "container with name %s has been deleted", name.c_str());
+    return;
+  }
+  ContainerInfo* info = it->second;
+  info->status.set_state(kContainerCompleted);
 }
 
 void EngineImpl::CleanProcessInInitd(const std::string& name, ContainerInfo* info) {

@@ -20,6 +20,12 @@ message User {
   optional string home = 5;
 }
 
+message Group {
+  optional int32 gid = 1;
+  optional string name = 2;
+  optional uint64 ctime = 3;
+}
+
 // resource related descriptor
 message Cpu {
   optional uint32 limit = 1;
