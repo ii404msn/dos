@@ -480,6 +480,7 @@ void EngineImpl::HandleError(const ContainerState& pre_state,
   }
   ContainerInfo* info = it->second;
   info->status.set_state(kContainerError);
+  LOG(WARNING, "container %s go to %s state", name.c_str(), ContainerState_Name(info->status.state()).c_str());
 }
 
 void EngineImpl::HandleCompleteContainer(const ContainerState& pre_state,
@@ -492,6 +493,7 @@ void EngineImpl::HandleCompleteContainer(const ContainerState& pre_state,
   }
   ContainerInfo* info = it->second;
   info->status.set_state(kContainerCompleted);
+  LOG(WARNING, "container %s go to %s state", name.c_str(), ContainerState_Name(info->status.state()).c_str());
 }
 
 void EngineImpl::CleanProcessInInitd(const std::string& name, ContainerInfo* info) {

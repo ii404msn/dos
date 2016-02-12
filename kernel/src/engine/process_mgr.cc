@@ -43,7 +43,6 @@ int ProcessMgr::LaunchProcess(void* args) {
         || fd == STDERR_FILENO) {
       continue;
     }
-    fprintf(stdout, "close fd %d", fd);
     ::close(fd);
   }
 /*  int set_hostname_ok = sethostname(context->process.name().c_str(),
@@ -56,30 +55,22 @@ int ProcessMgr::LaunchProcess(void* args) {
   pid_t self_pid = ::getpid();
   int ret = ::setpgid(self_pid, self_pid);
   if (ret != 0) {
-    fprintf(stderr, "fail to set pgid %d", self_pid);
     assert(0);
   }
-  fprintf(stdout, "set pgid %d successfully", self_pid);
   if (!context->process.cwd().empty()) {
     ret = ::chdir(context->process.cwd().c_str());
     if (ret != 0) {
-      fprintf(stderr, "fail to chdir to %s", context->process.cwd().c_str());
       assert(0);
     }
-    fprintf(stdout, "chdir to %s successfully", context->process.cwd().c_str());
   }
   ret = ::setuid(context->process.user().uid());
   if (ret != 0) {
-    fprintf(stderr, "fail to set uid %d", context->process.user().uid());
     assert(0);
   }
-  fprintf(stdout, "set uid %d successfully", context->process.user().uid());
   ret = ::setgid(context->process.user().gid());
   if (ret != 0) {
-    fprintf(stderr, "fail to set gid %d", context->process.user().gid());
     assert(0);
   }
-  fprintf(stdout, "set gid %d successfully", context->process.user().gid());
   /*ret = ::setsid();
   if (ret != 0) {
     fprintf(stderr, "fail to setsid %s", strerror(errno));
@@ -105,7 +96,7 @@ bool ProcessMgr::Exec(const Process& process) {
   Process local;
   local.CopyFrom(process);
   local.set_rtime(::baidu::common::timer::get_micros());
-  if (local.user().uid() <= 0) {
+  if (local.user().uid() < 0) {
     LOG(WARNING, "user is required");
     return false;
   }
@@ -150,30 +141,25 @@ bool ProcessMgr::Exec(const Process& process) {
     pid_t self_pid = getpid();
     int ret = setpgid(self_pid, self_pid);
     if (ret != 0) {
-      fprintf(stderr, "fail to set pgid %d", self_pid);
       assert(0);
     }
     if (!local.cwd().empty()) { 
       ret = chdir(local.cwd().c_str());
       if (ret != 0) {
-        fprintf(stderr, "fail to chdir to %s", local.cwd().c_str());
         assert(0);
       }
     } 
     ret = setuid(local.user().uid());
     if (ret != 0) {
-      fprintf(stderr, "fail to set uid %d", local.user().uid());
       assert(0);
     }
     ret = setgid(local.user().gid());
     if (ret != 0) {
-      fprintf(stderr, "fail to set gid %d", local.user().gid());
       assert(0);
     }
     if (!local.pty().empty()) {
       pid_t sid = setsid();
       if (sid == -1) {
-        fprintf(stderr, "fail to set sid for %s", strerror(errno));
         assert(0);
       }
     }
@@ -339,7 +325,6 @@ bool ProcessMgr::ResetIo(const Process& process,
 void ProcessMgr::Dup2(const int stdout_fd,
                       const int stderr_fd,
                       const int stdin_fd) {
-  fprintf(stdout, "dup stdout %d stderr %d stdin %d", stdout_fd, stderr_fd, stdin_fd);
   while (stdout_fd != -1 
          && ::dup2(stdout_fd, STDOUT_FILENO) == -1
          && errno == EINTR) {}

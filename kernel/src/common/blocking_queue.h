@@ -11,6 +11,8 @@ using ::baidu::common::WARNING;
 
 namespace dos {
 
+// to avoid copying big object 
+// please using pointer type
 template <typename T>
 class FixedBlockingQueue {
 
