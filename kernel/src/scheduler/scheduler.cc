@@ -1,6 +1,9 @@
 #include "scheduler/scheduler.h"
 
+#include <gflags/gflags.h>
 #include "logging.h"
+
+DECLARE_int32(scheduler_sync_agent_info_interval);
 
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
@@ -67,7 +70,8 @@ void Scheduler::SyncAgentInfo() {
 
     }
   }
-  pool_.DelayTask(2000, boost::bind(&Scheduler::SyncAgentInfo, this));
+  pool_.DelayTask(FLAGS_scheduler_sync_agent_info_interval, 
+                  boost::bind(&Scheduler::SyncAgentInfo, this));
 }
 
 void Scheduler::GetScaleUpPods() {

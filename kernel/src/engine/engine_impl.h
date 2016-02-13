@@ -121,6 +121,12 @@ private:
                            bool failed, int);
   // add user info to process
   bool HandleProcessUser(Process* process);
+
+  void HandleError(const ContainerState& pre_state,
+                   const std::string& name);
+
+  void HandleCompleteContainer(const ContainerState& pre_state,
+                               const std::string& name);
 private:
   ::baidu::common::Mutex mutex_;
   typedef std::map<std::string, ContainerInfo*> Containers;
