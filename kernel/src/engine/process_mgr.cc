@@ -355,10 +355,12 @@ bool ProcessMgr::Wait(const std::string& name, Process* process) {
     // normal exit
     if (WIFEXITED(status)) {
       it->second.set_exit_code(WEXITSTATUS(status));
-    }else if(WCOREDUMP(status)) {
-      it->second.set_coredump(true);
-      it->second.set_exit_code(9);
-    }
+    }else if (WIFSIGNALED(status)) {
+      it->second.set_exit_code(128 + WTERMSIG(status));
+      if (WCOREDUMP(status)) {
+        it->second.set_coredump(true);
+      }
+    } 
     LOG(DEBUG, "process %s with pid %d exits with status %d", name.c_str(), 
         it->second.pid(), it->second.exit_code());
     process->CopyFrom(it->second);

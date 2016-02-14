@@ -272,7 +272,7 @@ enum ContainerState {
   // task was killed -9
   kContainerKilled = 5;
   // when main process exit, the container can be remained
-  kContainerReserved = 6;
+  kContainerReserving = 6;
   // the end state when some errors happened
   kContainerError = 7;
 }

@@ -262,6 +262,8 @@ void EngineImpl::HandlePullImage(const ContainerState& pre_state,
         request.mutable_process()->add_args(cmd);
         request.mutable_process()->set_name(info->fetcher_name);
         request.mutable_process()->set_terminal(false);
+        // user root for fetcher
+        request.mutable_process()->mutable_user()->set_name("root");
         bool process_user_ok = HandleProcessUser(request.mutable_process());
         if (!process_user_ok) {
           LOG(WARNING, "fail to process user %s", request.process().user().name().c_str());
@@ -480,6 +482,7 @@ void EngineImpl::HandleError(const ContainerState& pre_state,
   }
   ContainerInfo* info = it->second;
   info->status.set_state(kContainerError);
+  info->status.set_start_time(0);
   LOG(WARNING, "container %s go to %s state", name.c_str(), ContainerState_Name(info->status.state()).c_str());
 }
 
@@ -492,6 +495,7 @@ void EngineImpl::HandleCompleteContainer(const ContainerState& pre_state,
     return;
   }
   ContainerInfo* info = it->second;
+  info->status.set_start_time(0);
   info->status.set_state(kContainerCompleted);
   LOG(WARNING, "container %s go to %s state", name.c_str(), ContainerState_Name(info->status.state()).c_str());
 }
