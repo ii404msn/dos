@@ -7,6 +7,7 @@ class ResourceMgr {
 public:
   ResourceMgr();
   ~ResourceMgr();
+
 };
 
 }
