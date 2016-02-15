@@ -12,7 +12,10 @@ DEFINE_string(agent_endpoint, "127.0.0.1:8527", "the endpoint of agent");
 DEFINE_int32(agent_heart_beat_timeout, 10000, "the timeout of agent heart beat");
 // the interval to send heart beat to master , it should be less than agent_heart_beat_timeout
 DEFINE_int32(agent_heart_beat_interval, 2000, "the interval of agent heart beat");
-
+DEFINE_double(agent_cpu_rate, 0.7, "the cpu rate for sharing agent cpu");
+DEFINE_double(agent_memory_rate, 0.7, "the memory rate for sharing agent memory");
+DEFINE_int32(agent_port_range_start, 4000, "the port start range for agent");
+DEFINE_int32(agent_port_range_end, 6000, "the port end range for agent");
 DEFINE_int32(scheduler_sync_agent_info_interval, 2000, "the interval of scheduler sync agent info from master");
 
 DEFINE_string(ce_process_default_user, "dos", "launch process with default user");

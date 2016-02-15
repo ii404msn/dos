@@ -39,11 +39,9 @@ message GetScaleUpPodResponse {
 
 message AgentOverview {
   optional string endpoint = 1;
-  optional Resource total = 2;
-  optional Resource assigned = 3;
-  optional int32 pod_count = 4;
-  optional int32 version = 5;
-  optional Resource used = 6;
+  optional Resource resource = 2;
+  optional int32 pod_count = 3;
+  optional int32 version = 4;
 }
 
 message AgentVersion {
