@@ -61,7 +61,11 @@ void InitdImpl::Status(RpcController*,
 }
 
 bool InitdImpl::Launch(const Process& process) {
-  mutex_.AssertHeld(); 
+  mutex_.AssertHeld();
+  if (process.name().empty()) {
+    LOG(WARNING, "process name is empty");
+    return false;
+  }
   bool ok = proc_mgr_->Exec(process);
   if (!ok) {
     LOG(WARNING, "fail to fork process name %s", process.name().c_str());

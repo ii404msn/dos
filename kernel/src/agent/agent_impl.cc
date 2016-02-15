@@ -10,6 +10,10 @@ DECLARE_string(master_port);
 DECLARE_string(agent_endpoint);
 DECLARE_string(ce_port);
 DECLARE_int32(agent_heart_beat_interval);
+DECLARE_int32(agent_port_range_start);
+DECLARE_int32(agent_port_range_end);
+DECLARE_double(agent_memory_rate);
+DECLARE_double(agent_cpu_rate);
 
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
@@ -22,9 +26,11 @@ AgentImpl::AgentImpl():thread_pool_(4),
   rpc_client_(NULL),
   mutex_(),
   c_set_(NULL),
-  engine_(NULL){
+  engine_(NULL),
+  resource_mgr_(NULL){
   rpc_client_ = new RpcClient();
   c_set_ = new ContainerSet();
+  resource_mgr_ = new ResourceMgr();
 }
 
 AgentImpl::~AgentImpl(){}
@@ -48,6 +54,7 @@ void AgentImpl::Poll(RpcController* controller,
     ContainerStatus* status = pod->add_cstatus();
     status->CopyFrom(*pod_name_it->status_);
   }
+  resource_mgr_->Stat(response->mutable_status()->mutable_resource());
   done->Run();
 }
 
@@ -98,6 +105,20 @@ void AgentImpl::Run(RpcController* controller,
 
 bool AgentImpl::Start() {
   ::baidu::common::MutexLock lock(&mutex_);
+  bool load_ok = resource_mgr_->LoadFromLocal(FLAGS_agent_cpu_rate,
+                                              FLAGS_agent_memory_rate);
+  if (!load_ok) {
+    LOG(WARNING, "fail to load memory and cpu");
+    return false;
+  }
+  bool init_port_ok = resource_mgr_->InitPort(FLAGS_agent_port_range_start, 
+                                              FLAGS_agent_port_range_end);
+  if (!init_port_ok) {
+    LOG(WARNING, "fail to init port range[%d, %d]",
+        FLAGS_agent_port_range_start,
+        FLAGS_agent_port_range_end);
+    return false;
+  }
   std::string master_addr = "127.0.0.1:" + FLAGS_master_port;
   bool ok = rpc_client_->GetStub(master_addr, &master_);
   if (!ok) {
@@ -110,6 +131,7 @@ bool AgentImpl::Start() {
     LOG(WARNING, "fail to build engine stub");
     return false;
   }
+  
   thread_pool_.AddTask(boost::bind(&AgentImpl::HeartBeat, this));
   return true;
 }

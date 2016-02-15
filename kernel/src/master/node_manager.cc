@@ -167,9 +167,7 @@ void NodeManager::SyncAgentInfo(const AgentVersionList& versions,
         agent_overview->set_endpoint(endpoint_it->endpoint_);
         agent_overview->set_version(endpoint_it->status_->version());
         agent_overview->set_pod_count(endpoint_it->status_->pstatus_size());
-        agent_overview->mutable_total()->CopyFrom(endpoint_it->status_->meta().resource());
-        agent_overview->mutable_assigned()->CopyFrom(endpoint_it->status_->assigned());
-        agent_overview->mutable_used()->CopyFrom(endpoint_it->status_->used());
+        agent_overview->mutable_resource()->CopyFrom(endpoint_it->status_->resource());
         continue;
       }
     } else {
@@ -180,9 +178,7 @@ void NodeManager::SyncAgentInfo(const AgentVersionList& versions,
       agent_overview->set_endpoint(endpoint_it->endpoint_);
       agent_overview->set_version(endpoint_it->status_->version());
       agent_overview->set_pod_count(endpoint_it->status_->pstatus_size());
-      agent_overview->mutable_total()->CopyFrom(endpoint_it->status_->meta().resource());
-      agent_overview->mutable_assigned()->CopyFrom(endpoint_it->status_->assigned());
-      agent_overview->mutable_used()->CopyFrom(endpoint_it->status_->used());
+      agent_overview->mutable_resource()->CopyFrom(endpoint_it->status_->resource());
     }
   }
 }

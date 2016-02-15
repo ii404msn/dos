@@ -8,6 +8,7 @@
 
 #include "proto/agent.pb.h"
 
+#include "agent/resource_mgr.h"
 #include "thread_pool.h"
 #include "proto/master.pb.h"
 #include "proto/engine.pb.h"
@@ -79,6 +80,7 @@ private:
   ::baidu::common::Mutex mutex_;
   ContainerSet* c_set_;
   Engine_Stub* engine_;
+  ResourceMgr* resource_mgr_;
 };
 
 }// end of dos

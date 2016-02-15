@@ -28,14 +28,17 @@ message Group {
 
 // resource related descriptor
 message Cpu {
-  optional uint32 limit = 1;
-  optional uint32 share = 2;
-  optional uint32 used = 3;
+  // the max cpu cores
+  optional uint64 limit = 1;
+  optional uint64 share = 2;
+  optional uint64 used = 3;
+  optional uint64 assigned = 4;
 }
 
 message Memory {
   optional uint64 limit = 1;
   optional uint64 used = 2;
+  optional uint64 assigned = 3;
 }
 
 message Range {
@@ -44,24 +47,27 @@ message Range {
 }
 
 message Port {
-
-  repeated uint32 ports = 1;
-  // port_name will be assigned real port and inject it into enviroment 
-  // with same name
-  repeated string port_names = 2;
-
-  optional Range range = 3;
+  optional Range range = 1;
+  repeated uint32 assigned = 2; 
 }
 
 message Network {
-  optional uint32 in_bytes_ps = 1;
-  optional uint32 out_bytes_ps = 2;
+  optional uint32 out_bytes_ps_limit = 1;
+  optional uint32 out_bytes_ps_used = 2;
+  optional uint32 out_bytes_ps_assigned = 3;
+  optional uint32 in_bytes_ps_limit = 4;
+  optional uint32 in_bytes_ps_used = 5;
+  optional uint32 in_bytes_ps_assigned = 6;
 }
 
 message DiskIO {
-  optional uint32 read_bytes_ps = 1;
-  optional uint32 write_bytes_ps = 2;
-  optional string device = 3;
+  optional uint32 read_bytes_ps_limit = 1;
+  optional uint32 read_bytes_ps_used = 2 ;
+  optional uint32 read_bytes_ps_assigned = 3;
+  optional uint32 write_bytes_ps_limit = 4;
+  optional uint32 write_bytes_ps_used = 5;
+  optional uint32 write_bytes_ps_assigned = 6;
+  optional string device = 7;
 }
 
 // the resource for service run time
@@ -70,7 +76,7 @@ message Resource {
   optional Memory memory = 2;
   optional Port port = 3;
   optional Network network = 4;
-  optional DiskIO diskio = 5;
+  repeated DiskIO diskio = 5;
 }
 
 message Process {
@@ -249,14 +255,13 @@ message PodStatus {
 }
 
 message NodeStatus {
-  optional Resource used = 1;
+  optional Resource resource = 1;
   repeated PodStatus pstatus = 2;
   optional NodeState state = 3;
   optional NodeMeta meta = 4;
   // check node hearbeat timeout task id
   optional int64 task_id = 5;
   optional int32 version = 6;
-  optional Resource assigned = 7;
 }
 
 enum ContainerState {
@@ -288,7 +293,7 @@ message ContainerLog {
 message ContainerStatus {
   optional string name  = 1;
   optional int64 start_time = 2;
-  optional Resource used = 3;
+  optional Resource resource = 3;
   optional ContainerState state = 4;
   optional int64 boot_time = 6;
   optional Container spec = 7;

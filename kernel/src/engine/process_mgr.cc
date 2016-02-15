@@ -158,10 +158,10 @@ bool ProcessMgr::Exec(const Process& process) {
       assert(0);
     }
     if (!local.pty().empty()) {
-      pid_t sid = setsid();
+      /*pid_t sid = setsid();
       if (sid == -1) {
         assert(0);
-      }
+      }*/
     }
     if (local.use_bash_interceptor()) {
       std::string cmd;
