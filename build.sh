@@ -137,10 +137,10 @@ else
     echo "SNAPPY_DIR=${DEPS_PREFIX}" >> depends.mk
     echo "PREFIX=${DEPS_PREFIX}" >> depends.mk
     cd - 
-    cd sofa-pbrpc/src
+    cd sofa-pbrpc_python/src
     PROTOBUF_DIR=${DEPS_PREFIX} sh compile_proto.sh ${DEPS_PREFIX}/include
     cd -
-    cd sofa-pbrpc/python
+    cd sofa-pbrpc_python/python
     python setup.py install
     cd -
 fi
