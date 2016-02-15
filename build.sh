@@ -122,13 +122,13 @@ else
     echo "install snappy done"
 fi
 
-if [ -d "sofa-pbrpc" ]
+if [ -d "sofa-pbrpc_python" ]
 then
     echo "sofa exist"
 else
     # sofa-pbrpc
-    git clone https://github.com/baidu/sofa-pbrpc.git
-    cd sofa-pbrpc
+    git clone https://github.com/baidu/sofa-pbrpc.git sofa-pbrpc_python
+    cd sofa-pbrpc_python
     sed -i '/BOOST_HEADER_DIR=/ d' depends.mk
     sed -i '/PROTOBUF_DIR=/ d' depends.mk
     sed -i '/SNAPPY_DIR=/ d' depends.mk
@@ -139,13 +139,34 @@ else
     cd - 
     cd sofa-pbrpc/src
     PROTOBUF_DIR=${DEPS_PREFIX} sh compile_proto.sh ${DEPS_PREFIX}/include
-    cd - 
-    cd sofa-pbrpc 
-    make -j2
-    make install
     cd -
     cd sofa-pbrpc/python
     python setup.py install
+    cd -
+fi
+
+if [ -f "sofa-pbrpc-1.0.0.tar.gz" ]
+then
+    echo "sofa exist"
+else
+    # sofa-pbrpc
+    wget --no-check-certificate -O sofa-pbrpc-1.0.0.tar.gz https://github.com/BaiduPS/sofa-pbrpc/archive/v1.0.0.tar.gz
+    tar zxf sofa-pbrpc-1.0.0.tar.gz
+    cd sofa-pbrpc-1.0.0
+    sed -i '/BOOST_HEADER_DIR=/ d' depends.mk
+    sed -i '/PROTOBUF_DIR=/ d' depends.mk
+    sed -i '/SNAPPY_DIR=/ d' depends.mk
+    echo "BOOST_HEADER_DIR=${DEPS_PREFIX}/boost_1_57_0" >> depends.mk
+    echo "PROTOBUF_DIR=${DEPS_PREFIX}" >> depends.mk
+    echo "SNAPPY_DIR=${DEPS_PREFIX}" >> depends.mk
+    echo "PREFIX=${DEPS_PREFIX}" >> depends.mk
+    cd -
+    cd sofa-pbrpc-1.0.0/src
+    PROTOBUF_DIR=${DEPS_PREFIX} sh compile_proto.sh
+    cd -
+    cd sofa-pbrpc-1.0.0
+    make -j4 >/dev/null
+    make install
     cd -
 fi
 

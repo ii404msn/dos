@@ -62,6 +62,7 @@ bool ResourceMgr::InitPort(uint32_t start,
                            uint32_t end) {
   resource_.mutable_port()->mutable_range()->set_start(start);
   resource_.mutable_port()->mutable_range()->set_end(end);
+  LOG(INFO, "init port with range[%d, %d]", start, end);
   return true;
 }
 
