@@ -23,7 +23,7 @@ then
     echo "boost exist"
 else
     echo "start install boost...."
-    wget http://superb-dca2.dl.sourceforge.net/project/boost/boost/1.57.0/boost_1_57_0.tar.gz >/dev/null
+    wget -O boost_1_57_0.tar.gz https://github.com/imotai/common_deps/releases/download/boost/boost_1_57.tar.gz >/dev/null
     tar zxf boost_1_57_0.tar.gz >/dev/null
     rm -rf ${DEPS_PREFIX}/boost_1_57_0
     mv boost_1_57_0 ${DEPS_PREFIX}
@@ -98,9 +98,9 @@ else
     make -j4 >/dev/null
     make install
     cd -
-    cd protobuf-2.6.1/python
-    python setup.py build && python setup.py install
-    cd -
+    #cd protobuf-2.6.1/python
+    #python setup.py build && python setup.py install
+    #cd -
     echo "install protobuf done"
 fi
 
@@ -141,7 +141,7 @@ else
     PROTOBUF_DIR=${DEPS_PREFIX} sh compile_proto.sh ${DEPS_PREFIX}/include
     cd - 
     cd sofa-pbrpc 
-    make -j4 >/dev/null
+    make -j2
     make install
     cd -
     cd sofa-pbrpc/python
@@ -191,18 +191,25 @@ else
     cd -
 fi
 
-
-if [ -d "leveldb" ]
+if [ -d "ins" ]
 then
-    echo "leveldb exist"
+    echo "ins exist"
 else
-
-    # leveldb
-    git clone https://github.com/imotai/leveldb.git
-    cd leveldb
-    make -j8 >/dev/null 
-    cp -rf include/* ${DEPS_PREFIX}/include
-    cp libleveldb.a ${DEPS_PREFIX}/lib
+    # ins
+    git clone https://github.com/fxsjy/ins
+    cd ins
+    sed -i 's/^SNAPPY_PATH=.*/SNAPPY_PATH=..\/..\/thirdparty/' Makefile
+    sed -i 's/^PROTOBUF_PATH=.*/PROTOBUF_PATH=..\/..\/thirdparty/' Makefile
+    sed -i 's/^PROTOC_PATH=.*/PROTOC_PATH=..\/..\/thirdparty\/bin/' Makefile
+    sed -i 's/^PROTOC=.*/PROTOC=..\/..\/thirdparty\/bin\/protoc/' Makefile
+    sed -i 's/^GFLAGS_PATH=.*/GFLAGS_PATH=..\/..\/thirdparty/' Makefile
+    sed -i 's/^GTEST_PATH=.*/GTEST_PATH=..\/..\/thirdparty/' Makefile
+    sed -i 's/^PREFIX=.*/PREFIX=..\/..\/thirdparty/' Makefile
+    export PATH=${DEPS_PREFIX}/bin:$PATH
+    export BOOST_PATH=${DEPS_PREFIX}/boost_1_57_0
+    export PBRPC_PATH=${DEPS_PREFIX}/
+    make -j4 install_sdk >/dev/null  && make python >/dev/null
+    mkdir -p output/bin && cp ins output/bin
     cd -
 fi
 
@@ -217,29 +224,7 @@ else
    cd -
 fi
 
-if [ -d "ins" ]
-then
-    echo "ins exist"
-else
-    # ins
-    git clone https://github.com/imotai/ins.git
-    cd ins
-    sed -i 's/^SNAPPY_PATH=.*/SNAPPY_PATH=..\/..\/thirdparty/' Makefile
-    sed -i 's/^PROTOBUF_PATH=.*/PROTOBUF_PATH=..\/..\/thirdparty/' Makefile
-    sed -i 's/^PROTOC_PATH=.*/PROTOC_PATH=..\/..\/thirdparty\/bin/' Makefile
-    sed -i 's/^PROTOC=.*/PROTOC=..\/..\/thirdparty\/bin\/protoc/' Makefile
-    sed -i 's|^PREFIX=.*|PREFIX=..\/..\/thirdparty|' Makefile
-    sed -i 's|^PROTOC=.*|PROTOC=${PREFIX}/bin/protoc|' Makefile
-    sed -i 's/^GFLAGS_PATH=.*/GFLAGS_PATH=..\/..\/thirdparty/' Makefile
-    sed -i 's/^LEVELDB_PATH=.*/LEVELDB_PATH=..\/..\/thirdparty/' Makefile
-    sed -i 's/^GTEST_PATH=.*/GTEST_PATH=..\/..\/thirdparty/' Makefile
-    export PATH=${DEPS_PREFIX}/bin:$PATH
-    export BOOST_PATH=${DEPS_PREFIX}/boost_1_57_0
-    export PBRPC_PATH=${DEPS_PREFIX}/
-    make -j4 ins >/dev/null && make -j4 install_sdk >/dev/null  && make python >/dev/null
-    mkdir -p output/bin && cp ins output/bin
-    cd -
-fi
+
 
 
 if [ -d "common" ]
