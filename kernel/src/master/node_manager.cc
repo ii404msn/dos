@@ -81,6 +81,7 @@ void NodeManager::KeepAlive(const std::string& hostname,
     index.hostname_ = hostname;
     index.endpoint_ = endpoint; 
     index.status_ = new NodeStatus();
+    index.status_->set_version(0);
     boost::unordered_map<std::string, NodeMeta*>::iterator node_it = node_metas_->find(hostname);
     if (node_it == node_metas_->end()) {
       LOG(WARNING, "node %s has no meta in master", hostname.c_str());
@@ -137,6 +138,10 @@ void NodeManager::PollNodeCallback(const std::string& endpoint,
   if (e_it == endpoint_idx.end()) {
     LOG(WARNING, "agent with endpoint %s does not exist in master", endpoint.c_str());
   } else {
+    // TODO add more propertise
+    if (e_it->status_->resource().cpu().limit() != response->status().resource().cpu().limit() ) {
+      e_it->status_->set_version(1 + e_it->status_->version());
+    }
     e_it->status_->mutable_resource()->CopyFrom(response->status().resource());
     e_it->status_->mutable_pstatus()->CopyFrom(response->status().pstatus());
     node_status_queue_->Push(e_it->status_);
