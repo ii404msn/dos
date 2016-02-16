@@ -5,14 +5,16 @@ namespace dos {
 MasterImpl::MasterImpl():node_manager_(NULL),
   job_manager_(NULL),
   pod_manager_(NULL),
-  node_status_queue_(NULL),
+  node_opqueue_(NULL),
   pod_opqueue_(NULL),
   job_opqueue_(NULL){
-  node_status_queue_ = new FixedBlockingQueue<NodeStatus*>(2 * 10240, "node statue queue");
+  node_opqueue_ = new FixedBlockingQueue<NodeStatus*>(2 * 10240, "node statue queue");
   pod_opqueue_ = new FixedBlockingQueue<PodOperation*>(2 * 10240, "pod operation queue");
   job_opqueue_ = new FixedBlockingQueue<JobOperation*>(2 * 10240, "job operation queue");
-  node_manager_ = new NodeManager(node_status_queue_, pod_opqueue_);
-  pod_manager_ = new PodManager(pod_opqueue_, job_opqueue_);
+  node_manager_ = new NodeManager(node_opqueue_, pod_opqueue_);
+  pod_manager_ = new PodManager(pod_opqueue_, 
+                                job_opqueue_,
+                                node_opqueue_);
   job_manager_ = new JobManager(job_opqueue_);
 }
 

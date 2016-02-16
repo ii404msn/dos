@@ -81,12 +81,10 @@ class PodManager {
 
 public:
   PodManager(FixedBlockingQueue<PodOperation*>* pod_opqueue,
-             FixedBlockingQueue<JobOperation*>* job_opqueue);
+             FixedBlockingQueue<JobOperation*>* job_opqueue,
+             FixedBlockingQueue<NodeStatus*>* node_opqueue);
   ~PodManager();
   void Start();
-  // sync the pods on agent
-  void SyncPodsOnAgent(const std::string& endpoint,
-                       std::map<std::string, PodStatus>& pods);
   // sched pod, the tuple first arg is endpoint, the second is pod name
   void SchedPods(const std::vector<boost::tuple<std::string, std::string> >& pods);
   // get pods that need to be scheduled, the count of pods in single job will
@@ -98,6 +96,10 @@ public:
                   JobStat* stat);
 
 private:
+  // sync the pods on agent
+  void SyncPodsOnAgent(const std::string& endpoint,
+                       std::map<std::string, PodStatus>& pods);
+  void WatchNodeOp();
   void WatchJobOp();
   // create new pods
   bool NewAdd(const std::string& job_name,
@@ -125,6 +127,7 @@ private:
   std::map<std::string, JobSpec>* job_desc_;
   // the thread pool used for watching job_opqueue
   ::baidu::common::ThreadPool tpool_;
+  FixedBlockingQueue<NodeStatus*>* node_opqueue_;
 };
 
 }// namespace dos

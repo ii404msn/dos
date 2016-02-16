@@ -84,10 +84,13 @@ void NodeManager::KeepAlive(const std::string& hostname,
     boost::unordered_map<std::string, NodeMeta*>::iterator node_it = node_metas_->find(hostname);
     if (node_it == node_metas_->end()) {
       LOG(WARNING, "node %s has no meta in master", hostname.c_str());
+      index.status_->mutable_meta()->set_hostname(hostname);
+      index.status_->mutable_meta()->set_endpoint(endpoint);
     }else {
       index.status_->mutable_meta()->CopyFrom(*node_it->second);
     }
-    int64_t task_id = thread_pool_->DelayTask(FLAGS_agent_heart_beat_timeout, boost::bind(&NodeManager::HandleNodeTimeout,
+    int64_t task_id = thread_pool_->DelayTask(FLAGS_agent_heart_beat_timeout, 
+                                              boost::bind(&NodeManager::HandleNodeTimeout,
                                               this, endpoint));
     index.status_->set_task_id(task_id);
     nodes_->insert(index);
@@ -134,7 +137,9 @@ void NodeManager::PollNodeCallback(const std::string& endpoint,
   if (e_it == endpoint_idx.end()) {
     LOG(WARNING, "agent with endpoint %s does not exist in master", endpoint.c_str());
   } else {
-    e_it->status_->CopyFrom(response->status());
+    e_it->status_->mutable_resource()->CopyFrom(response->status().resource());
+    e_it->status_->mutable_pstatus()->CopyFrom(response->status().pstatus());
+    node_status_queue_->Push(e_it->status_);
   }
   delete request;
   delete response;
