@@ -1,13 +1,13 @@
 #ifndef  KERNEL_RPC_CLIENT_H
 #define  KERNEL_RPC_CLIENT_H
 
+#include <sofa/pbrpc/pbrpc.h>
 #include <assert.h>
 #include <boost/function.hpp>
 #include <boost/bind.hpp>
-#include <sofa/pbrpc/pbrpc.h>
 #include <mutex.h>
 #include <thread_pool.h>
-#include <logging.h>
+#include "logging.h"
 
 using ::baidu::common::INFO;
 using ::baidu::common::DEBUG;

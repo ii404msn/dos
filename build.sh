@@ -139,7 +139,11 @@ else
     cd - 
     cd sofa-pbrpc_python/src
     PROTOBUF_DIR=${DEPS_PREFIX} sh compile_proto.sh ${DEPS_PREFIX}/include
-    cd -
+    cd - 
+    #cd sofa-pbrpc_python
+   # make -j4 >/dev/null
+    #make install
+    #cd -
     cd sofa-pbrpc_python/python
     python setup.py install
     cd -

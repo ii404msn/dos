@@ -1,11 +1,11 @@
 #ifndef KERNEL_MASTER_IMPL_H
 #define KERNEL_MASTER_IMPL_H
-#include "proto/master.pb.h"
 
-#include "common/blocking_queue.h"
 #include "master/node_manager.h"
-#include "master/job_manager.h"
 #include "master/pod_manager.h"
+#include "proto/master.pb.h"
+#include "common/blocking_queue.h"
+#include "master/job_manager.h"
 #include "master/master_internal_types.h"
 
 using ::google::protobuf::RpcController;
