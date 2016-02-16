@@ -7,6 +7,7 @@
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/unordered_map.hpp>
 
+#include "rpc/rpc_client.h"
 #include "common/blocking_queue.h"
 #include "master/master_internal_types.h"
 #include "master/idx_tag.h"
@@ -16,7 +17,6 @@
 #include "proto/dos.pb.h"
 #include "proto/agent.pb.h"
 #include "proto/master.pb.h"
-#include "rpc/rpc_client.h"
 
 namespace dos {
 
