@@ -12,7 +12,8 @@ using ::baidu::common::DEBUG;
 namespace dos {
 
 PodManager::PodManager(FixedBlockingQueue<PodOperation*>* pod_opqueue,
-                       FixedBlockingQueue<JobOperation*>* job_opqueue):pods_(NULL),
+                       FixedBlockingQueue<JobOperation*>* job_opqueue,
+                       FixedBlockingQueue<NodeStatus*>* node_opqueue):pods_(NULL),
   scale_up_jobs_(NULL),
   scale_down_jobs_(NULL),
   fsm_(NULL),
@@ -20,7 +21,8 @@ PodManager::PodManager(FixedBlockingQueue<PodOperation*>* pod_opqueue,
   pod_opqueue_(pod_opqueue),
   job_opqueue_(job_opqueue),
   job_desc_(NULL),
-  tpool_(4){
+  tpool_(4),
+  node_opqueue_(node_opqueue){
   pods_ = new PodSet();
   scale_up_jobs_ = new std::set<std::string>();
   scale_down_jobs_ = new std::set<std::string>();
@@ -30,12 +32,27 @@ PodManager::PodManager(FixedBlockingQueue<PodOperation*>* pod_opqueue,
   fsm_->insert(std::make_pair(kPodSchedStageRunning, 
                               boost::bind(&PodManager::HandleStageRunningChanged, this, _1)));
   job_desc_ = new std::map<std::string, JobSpec>();
+  state_to_stage_.insert(std::make_pair(kPodRunning, kPodSchedStageRunning));
+  state_to_stage_.insert(std::make_pair(kPodDeploying, kPodSchedStageRunning));
+  state_to_stage_.insert(std::make_pair(kPodDeath, kPodSchedStageDeath));
 }
 
 PodManager::~PodManager(){}
 
 void PodManager::Start() {
   tpool_.AddTask(boost::bind(&PodManager::WatchJobOp, this));
+  tpool_.AddTask(boost::bind(&PodManager::WatchNodeOp, this));
+}
+
+void PodManager::WatchNodeOp() {
+  NodeStatus* node_status = node_opqueue_->Pop();
+  std::map<std::string, PodStatus> pods;
+  for (int32_t index = 0; index < node_status->pstatus_size(); ++index) {
+    pods.insert(std::make_pair(node_status->pstatus(index).name(), 
+                node_status->pstatus(index)));
+  }
+  SyncPodsOnAgent(node_status->meta().endpoint(), pods);
+  tpool_.AddTask(boost::bind(&PodManager::WatchNodeOp, this));
 }
 
 void PodManager::WatchJobOp() {
@@ -327,8 +344,7 @@ void PodManager::SyncPodsOnAgent(const std::string& endpoint,
   for (; endpoint_it != endpoint_index.end(); ++endpoint_it) {
     std::map<std::string, PodStatus>::iterator pod_it = pods.find(endpoint_it->name_);
     if (pod_it == pods.end()) {
-      LOG(WARNING, "pod %s lost from agent %s", endpoint_it->name_.c_str(),
-          endpoint.c_str());
+      LOG(WARNING, "pod %s lost from agent %s", endpoint_it->name_.c_str(), endpoint.c_str());
       // change pods that are lost to kPodSchedStagePending
       events.push_back(boost::make_tuple(endpoint_it->name_, 
                                          endpoint_it->pod_->stage(),
@@ -370,6 +386,19 @@ void PodManager::DispatchEvent(const Event& e) {
     return;
   }
   it->second(e);
+}
+
+void PodManager::MergePodStatus(const PodStatus& pod_on_agent,
+                                 PodStatus* pod_on_master) {
+  mutex_.AssertHeld();
+  if (pod_on_master == NULL) {
+    LOG(WARNING, "pod_on_master is NULL");
+    return;
+  }
+  pod_on_master->set_boot_time(pod_on_agent.boot_time());
+  pod_on_master->set_endpoint(pod_on_agent.endpoint());
+  pod_on_master->set_state(pod_on_agent.state());
+  pod_on_master->mutable_cstatus()->CopyFrom(pod_on_agent.cstatus());
 }
 
 }// namespace dos

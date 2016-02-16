@@ -84,10 +84,13 @@ void NodeManager::KeepAlive(const std::string& hostname,
     boost::unordered_map<std::string, NodeMeta*>::iterator node_it = node_metas_->find(hostname);
     if (node_it == node_metas_->end()) {
       LOG(WARNING, "node %s has no meta in master", hostname.c_str());
+      index.status_->mutable_meta()->set_hostname(hostname);
+      index.status_->mutable_meta()->set_endpoint(endpoint);
     }else {
       index.status_->mutable_meta()->CopyFrom(*node_it->second);
     }
-    int64_t task_id = thread_pool_->DelayTask(FLAGS_agent_heart_beat_timeout, boost::bind(&NodeManager::HandleNodeTimeout,
+    int64_t task_id = thread_pool_->DelayTask(FLAGS_agent_heart_beat_timeout, 
+                                              boost::bind(&NodeManager::HandleNodeTimeout,
                                               this, endpoint));
     index.status_->set_task_id(task_id);
     nodes_->insert(index);
@@ -128,15 +131,18 @@ void NodeManager::PollNode(const std::string& endpoint) {
 void NodeManager::PollNodeCallback(const std::string& endpoint,
     const PollAgentRequest* request, PollAgentResponse* response,
     bool failed, int) {
-  for (int32_t index = 0; index < response->status().pstatus_size(); ++index) {
-    const PodStatus& pod = response->status().pstatus(index);
-    LOG(INFO, "pod %s state %s from agent %s", pod.name().c_str(), 
-        PodState_Name(pod.state()).c_str(),
-        endpoint.c_str());
+  ::baidu::common::MutexLock lock(&mutex_);
+  const NodeEndpointIndex& endpoint_idx = nodes_->get<endpoint_tag>();
+  NodeEndpointIndex::const_iterator e_it = endpoint_idx.find(endpoint);
+  if (e_it == endpoint_idx.end()) {
+    LOG(WARNING, "agent with endpoint %s does not exist in master", endpoint.c_str());
+  } else {
+    e_it->status_->mutable_resource()->CopyFrom(response->status().resource());
+    e_it->status_->mutable_pstatus()->CopyFrom(response->status().pstatus());
+    node_status_queue_->Push(e_it->status_);
   }
   delete request;
   delete response;
-  ::baidu::common::MutexLock lock(&mutex_);
   agent_under_polling_.erase(endpoint);
   ScheduleNextPoll();
 }
@@ -230,8 +236,8 @@ void NodeManager::RunPod(const std::string& pod_name,
   boost::function<void (const RunPodRequest*, RunPodResponse*, bool, int)> call_back;
   call_back = boost::bind(&NodeManager::RunPodCallback, this, _1, _2, _3, _4);
   rpc_client_->AsyncRequest(agent_stub, &Agent_Stub::Run,
-                           request, response, call_back,
-                           5, 0);
+                            request, response, call_back,
+                            5, 0);
 }
 
 void NodeManager::ScheduleNextPoll() {

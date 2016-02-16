@@ -48,7 +48,7 @@ private:
   NodeManager* node_manager_;
   JobManager* job_manager_;
   PodManager* pod_manager_;
-  FixedBlockingQueue<NodeStatus*>* node_status_queue_;
+  FixedBlockingQueue<NodeStatus*>* node_opqueue_;
   FixedBlockingQueue<PodOperation*>* pod_opqueue_;
   FixedBlockingQueue<JobOperation*>* job_opqueue_;
 };
