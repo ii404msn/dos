@@ -1,0 +1,14 @@
+service :
+  name : chushila
+  stack :
+    - name : nginx.chushila
+      cpu : 1
+      memory : 1G
+      replca : 2
+      image : nginx:prod
+    - name : mysql.chushila
+      cpu : 1
+      memory : 1G
+      replca : 1
+      volume : /data
+      image : mysql:prod
