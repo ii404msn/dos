@@ -163,15 +163,17 @@ message Container {
 }
 
 enum PodType {
-  kPodBatch = 0;
-  kPodLongrun = 1;
-  kPodSystem = 2;
+  kPodBesteffort = 0;
+  kPodBatch = 30;
+  kPodLongrun = 60;
+  kPodSystem = 80;
 }
 
 message PodSpec {
   repeated Container containers = 1;
   // the max log count that stored on agent
   optional int32 log_size = 2;
+  optional PodType type = 3;
 }
 
 message JobSpec {
