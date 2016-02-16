@@ -1,7 +1,10 @@
+sudo: required
 language: cpp
 compiler: gcc
+before_install:
+    - apt-get install cmake
 env:
     - PROTOBUF_VERSION=2.6.0
 script: 
-    - sh build.sh && cd sandbox && sh start_all.sh
+    - sh quick_build.sh
 
