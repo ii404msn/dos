@@ -2,6 +2,7 @@
 
 #include <gflags/gflags.h>
 #include "logging.h"
+#include "string_util.h"
 
 DECLARE_int32(scheduler_sync_agent_info_interval);
 
@@ -59,13 +60,19 @@ void Scheduler::SyncAgentInfo() {
       const AgentOverview& new_agent = response.diff_mod(mod_index);
       agent_it = agents_->find(new_agent.endpoint());
       if (agent_it == agents_->end()) {
-        LOG(INFO, "newly added agent %s", new_agent.endpoint().c_str());
         AgentOverview* copied_agent = new AgentOverview();
         copied_agent->CopyFrom(new_agent);
+        LOG(INFO, "newly added agent %s with resource cpu %ld mem %s",
+            new_agent.endpoint().c_str(),
+            new_agent.resource().cpu().limit(),
+            ::baidu::common::HumanReadableString(new_agent.resource().memory().limit()).c_str());
         agents_->insert(std::make_pair(new_agent.endpoint(), copied_agent));
       } else {
-        LOG(INFO, "update agent %s", new_agent.endpoint().c_str());
         agent_it->second->CopyFrom(new_agent);
+        LOG(INFO, "update agent %s with resource cpu %ld mem %s",
+            new_agent.endpoint().c_str(),
+            new_agent.resource().cpu().limit(),
+            ::baidu::common::HumanReadableString(new_agent.resource().memory().limit()).c_str());
       }
 
     }
