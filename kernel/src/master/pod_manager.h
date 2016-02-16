@@ -109,6 +109,9 @@ private:
   void HandleStagePendingChanged(const Event& e);
   bool GetJobStatForInternal(const std::string& job_name,
                              JobStat* stat);
+  // merge PodStatus in agent and master
+  void MergePodStatus(const PodStatus& pod_on_agent,
+                      PodStatus* pod_on_master);
 private:
   PodSet* pods_;
   std::set<std::string>* scale_up_jobs_;

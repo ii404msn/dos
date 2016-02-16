@@ -372,4 +372,17 @@ void PodManager::DispatchEvent(const Event& e) {
   it->second(e);
 }
 
+void PodManager::MergePodStatus(const PodStatus& pod_on_agent,
+                                 PodStatus* pod_on_master) {
+  mutex_.AssertHeld();
+  if (pod_on_master == NULL) {
+    LOG(WARNING, "pod_on_master is NULL");
+    return;
+  }
+  pod_on_master->set_boot_time(pod_on_agent.boot_time());
+  pod_on_master->set_endpoint(pod_on_agent.endpoint());
+  pod_on_master->set_state(pod_on_agent.state());
+  pod_on_master->mutable_cstatus()->CopyFrom(pod_on_agent.cstatus());
+}
+
 }// namespace dos

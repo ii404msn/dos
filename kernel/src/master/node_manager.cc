@@ -128,15 +128,16 @@ void NodeManager::PollNode(const std::string& endpoint) {
 void NodeManager::PollNodeCallback(const std::string& endpoint,
     const PollAgentRequest* request, PollAgentResponse* response,
     bool failed, int) {
-  for (int32_t index = 0; index < response->status().pstatus_size(); ++index) {
-    const PodStatus& pod = response->status().pstatus(index);
-    LOG(INFO, "pod %s state %s from agent %s", pod.name().c_str(), 
-        PodState_Name(pod.state()).c_str(),
-        endpoint.c_str());
+  ::baidu::common::MutexLock lock(&mutex_);
+  const NodeEndpointIndex& endpoint_idx = nodes_->get<endpoint_tag>();
+  NodeEndpointIndex::const_iterator e_it = endpoint_idx.find(endpoint);
+  if (e_it == endpoint_idx.end()) {
+    LOG(WARNING, "agent with endpoint %s does not exist in master", endpoint.c_str());
+  } else {
+    e_it->status_->CopyFrom(response->status());
   }
   delete request;
   delete response;
-  ::baidu::common::MutexLock lock(&mutex_);
   agent_under_polling_.erase(endpoint);
   ScheduleNextPoll();
 }
@@ -230,8 +231,8 @@ void NodeManager::RunPod(const std::string& pod_name,
   boost::function<void (const RunPodRequest*, RunPodResponse*, bool, int)> call_back;
   call_back = boost::bind(&NodeManager::RunPodCallback, this, _1, _2, _3, _4);
   rpc_client_->AsyncRequest(agent_stub, &Agent_Stub::Run,
-                           request, response, call_back,
-                           5, 0);
+                            request, response, call_back,
+                            5, 0);
 }
 
 void NodeManager::ScheduleNextPoll() {
