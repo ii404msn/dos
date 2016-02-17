@@ -101,7 +101,7 @@ SdkStatus EngineSdkImpl::ShowAll(std::vector<CInfo>& containers) {
     CInfo info;
     info.name = response.containers(i).name();
     info.state = ContainerState_Name(response.containers(i).state());
-    info.rtime = response.containers(i).rtime();
+    info.rtime = response.containers(i).start_time();
     info.btime = response.containers(i).boot_time();
     info.type = ContainerType_Name(response.containers(i).type());
     containers.push_back(info);

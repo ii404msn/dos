@@ -69,7 +69,7 @@ bool EngineImpl::Init() {
     LOG(INFO, "start system container %s", name.c_str());
     ContainerInfo* info = new ContainerInfo();
     info->container.set_type(kSystem);
-    info->container.set_reserved(true);
+    info->container.set_reserve_time(0);
     info->status.set_name(name);
     info->status.set_start_time(0);
     info->status.set_state(kContainerPending);
@@ -125,11 +125,21 @@ void EngineImpl::ShowContainer(RpcController* controller,
                                ShowContainerResponse* response,
                                Closure* done) {
   ::baidu::common::MutexLock lock(&mutex_);
+  std::set<std::string> names;
+  for (int32_t index = 0; index < request->names_size(); ++index) {
+    names.insert(request->names(index));
+    LOG(DEBUG, "show container %s request", request->names(index).c_str());
+  }
   Containers::iterator it = containers_->begin();
   for (; it != containers_->end(); ++it) {
+    if (names.size() != 0 
+        && names.find(it->second->status.name()) == names.end()) {
+      LOG(DEBUG, "container %s is not in request ", it->second->status.name().c_str());
+      continue;
+    }
     ContainerOverview* container = response->add_containers();
     container->set_name(it->second->status.name());
-    container->set_rtime(it->second->status.start_time());
+    container->set_start_time(it->second->status.start_time());
     container->set_state(it->second->status.state());
     container->set_type(it->second->container.type());
     container->set_boot_time(it->second->status.boot_time());
@@ -545,7 +555,7 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
       }
       bool rpc_ok = false;
       // handle reserved container which only has initd
-      if (info->container.reserved()) {
+      if (info->container.reserve_time() <= 0) {
         StatusRequest request;
         StatusResponse response;
         rpc_ok = rpc_client_->SendRequest(info->initd_stub, 
@@ -598,7 +608,7 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
         target_state = kContainerRunning;
       }
     } else if (pre_state == kContainerRunning) {
-      if (info->container.reserved()) {
+      if (info->container.reserve_time() <=0) {
         StatusRequest request;
         StatusResponse response;
         bool rpc_ok = rpc_client_->SendRequest(info->initd_stub, 
