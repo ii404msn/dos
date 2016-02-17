@@ -46,7 +46,6 @@ private:
                int32_t* uid,
                int32_t* gid);
   static int LaunchProcess(void* args);
-
 private:
   std::map<std::string, Process>* processes_;
 };

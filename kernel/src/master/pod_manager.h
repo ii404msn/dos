@@ -89,7 +89,8 @@ public:
   void SchedPods(const std::vector<boost::tuple<std::string, std::string> >& pods);
   // get pods that need to be scheduled, the count of pods in single job will
   // be limited by job deploy size
-  void GetScaleUpPods(PodOverviewList* pods);
+  void GetScaleUpPods(const Condition& condition,
+                      PodOverviewList* pods);
   // get jod stat, eg running count, deploying count
   // death count
   bool GetJobStat(const std::string& job_name,

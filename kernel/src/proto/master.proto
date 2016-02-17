@@ -24,7 +24,7 @@ message Condition {
   // the type must match the types, empty ignore this property
   repeated PodType types = 1;
   // job containes some key words, empty ignore this property
-  optional string job_name_containe = 2;
+  optional string job_name_contain = 2;
 }
 
 message GetScaleUpPodRequest {

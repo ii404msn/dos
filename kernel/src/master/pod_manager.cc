@@ -79,12 +79,18 @@ void PodManager::WatchJobOp() {
   tpool_.AddTask(boost::bind(&PodManager::WatchJobOp, this));
 }
 
-void PodManager::GetScaleUpPods(PodOverviewList* pods) {
+void PodManager::GetScaleUpPods(const Condition& condition,
+                                PodOverviewList* pods) {
   ::baidu::common::MutexLock lock(&mutex_);
   LOG(DEBUG, "get scale up pods, scale_up_jobs size %u", scale_up_jobs_->size());
   const PodJobNameIndex& job_name_index = pods_->get<job_name_tag>();
   std::set<std::string> job_to_remove;
   std::set<std::string>::iterator it = scale_up_jobs_->begin();
+  std::set<PodType> require_types;
+  for (int32_t index = 0; index < condition.types_size(); ++index) {
+    require_types.insert(condition.types(index));
+  }
+
   for (; it != scale_up_jobs_->end(); ++it) {
     std::string job_name = *it;
     JobStat stat;
@@ -103,6 +109,12 @@ void PodManager::GetScaleUpPods(PodOverviewList* pods) {
     if (job_it == job_desc_->end()) {
       LOG(WARNING, "fail to get job desc for job %s", job_name.c_str());
       continue;
+    }
+    if (!condition.job_name_contain().empty()) {
+      if (job_name.find(condition.job_name_contain()) == std::string::npos) {
+        LOG(DEBUG, "job name %s does not contain %s", job_name.c_str(), condition.job_name_contain().c_str());
+        continue;
+      }
     }
     deploy_step_size = job_it->second.deploy_step_size();
     LOG(DEBUG, "job %s deploy step size %d stat: pending %d,deploying %d, running %d, death %d", 
@@ -124,6 +136,13 @@ void PodManager::GetScaleUpPods(PodOverviewList* pods) {
       }
       if (job_name_it->pod_->stage() != kPodSchedStagePending) {
         continue;
+      }
+      if (require_types.size() > 0) {
+        if (require_types.find(job_name_it->pod_->desc().type()) 
+            == require_types.end()) {
+          // 
+          break;
+        }
       }
       LOG(DEBUG, "return pod %s to scheduler", job_name_it->pod_->name().c_str());
       has_been_scheduled_count ++;
