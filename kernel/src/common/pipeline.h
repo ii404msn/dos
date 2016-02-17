@@ -5,7 +5,6 @@ namespace dos {
 
 class Pipleline {
 
-
 };
 
 } // end of namespace dos

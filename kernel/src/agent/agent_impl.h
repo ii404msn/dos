@@ -72,7 +72,9 @@ private:
   void HeartBeatCallback(const HeartBeatRequest* request,
                          HeartBeatResponse* response,
                          bool failed, int);
-  void HandleRunContainer(const std::string& c_name);
+  void KeepContainer(const std::string& c_name);
+  bool RunContainer(const ContainerStatus* status);
+  bool SyncContainerStat(ContainerStatus* status);
 private:
   ::baidu::common::ThreadPool thread_pool_;
   Master_Stub* master_;

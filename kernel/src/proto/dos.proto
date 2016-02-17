@@ -158,8 +158,10 @@ message Container {
   optional string uri = 4;
   optional ContainerType type = 5;
   optional bool enable_ns = 6;
-  // no process related with it
-  optional bool reserved = 7;
+  // when container main process exists for error
+  // reserve container for debug
+  // reserve_time = -1 
+  optional int32 reserve_time = 7;
 }
 
 enum PodType {
@@ -299,6 +301,7 @@ message ContainerStatus {
   optional ContainerState state = 4;
   optional int64 boot_time = 6;
   optional Container spec = 7;
+  optional int64 last_update = 8;
 }
 
 

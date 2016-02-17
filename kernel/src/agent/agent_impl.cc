@@ -11,6 +11,7 @@ DECLARE_string(agent_endpoint);
 DECLARE_string(ce_port);
 DECLARE_int32(agent_heart_beat_interval);
 DECLARE_int32(agent_port_range_start);
+DECLARE_int32(agent_sync_container_stat_interval);
 DECLARE_int32(agent_port_range_end);
 DECLARE_double(agent_memory_rate);
 DECLARE_double(agent_cpu_rate);
@@ -18,6 +19,7 @@ DECLARE_double(agent_cpu_rate);
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
 using ::baidu::common::FATAL;
+using ::baidu::common::DEBUG;
 
 namespace dos {
 
@@ -97,7 +99,7 @@ void AgentImpl::Run(RpcController* controller,
     idx.status_->mutable_spec()->CopyFrom(request->pod().containers(index));
     idx.logs_ = new std::deque<PodLog>();
     c_set_->insert(idx);
-    thread_pool_.AddTask(boost::bind(&AgentImpl::HandleRunContainer, this, c_name));
+    thread_pool_.AddTask(boost::bind(&AgentImpl::KeepContainer, this, c_name));
   }
   response->set_status(kRpcOk);
   done->Run();
@@ -152,7 +154,7 @@ void AgentImpl::HeartBeat() {
                             2, 0);
 }
 
-void AgentImpl::HandleRunContainer(const std::string& c_name) {
+void AgentImpl::KeepContainer(const std::string& c_name) {
   ::baidu::common::MutexLock lock(&mutex_);
   const ContainerNameIdx& c_name_idx = c_set_->get<c_name_tag>();
   ContainerNameIdx::const_iterator c_name_it = c_name_idx.find(c_name);
@@ -162,22 +164,84 @@ void AgentImpl::HandleRunContainer(const std::string& c_name) {
   }
   ContainerState current_state = c_name_it->status_->state();
   if (current_state == kContainerPending) {
-    RunContainerRequest request;
-    request.mutable_container()->CopyFrom(c_name_it->status_->spec());
-    request.set_name(c_name);
-    RunContainerResponse response;
-    bool ok = rpc_client_->SendRequest(engine_, &Engine_Stub::RunContainer,
-                                       &request, &response,
-                                       5, 1);
-    if (!ok) {
-      LOG(WARNING, "fail to run container %s", c_name.c_str());
+    bool run_ok = RunContainer(c_name_it->status_);
+    if (!run_ok) {
       c_name_it->status_->set_state(kContainerError);
     }else {
-      LOG(WARNING, "run container %s successfully", c_name.c_str());
       c_name_it->status_->set_state(kContainerRunning);
     }
-  } else { 
+  } else if (current_state == kContainerRunning
+             || current_state == kContainerBooting
+             || current_state == kContainerPulling) {
+    SyncContainerStat(c_name_it->status_);
+  } else {
+    LOG(WARNING, "no handle for container %s with state %s",
+        c_name.c_str(), 
+        ContainerState_Name(current_state).c_str());
   }
+  if (c_name_it->status_->state() != kContainerError) {
+    thread_pool_.DelayTask(FLAGS_agent_sync_container_stat_interval,
+        boost::bind(&AgentImpl::KeepContainer, this, c_name));
+  }
+}
+
+bool AgentImpl::RunContainer(const ContainerStatus* status) {
+  mutex_.AssertHeld();
+  RunContainerRequest request;
+  request.mutable_container()->CopyFrom(status->spec());
+  request.set_name(status->name());
+  RunContainerResponse response;
+  bool ok = rpc_client_->SendRequest(engine_, &Engine_Stub::RunContainer,
+                                     &request, &response,
+                                     5, 1);
+  if (!ok) {
+    LOG(WARNING, "fail to send request to engine to run container %s for rpc err", status->name().c_str());
+    return false;
+  }
+  if (response.status() != kRpcOk) {
+    LOG(WARNING, "fail to send request to engine to run container %s for %s",
+        status->name().c_str(),
+        RpcStatus_Name(response.status()).c_str());
+    return false;
+  }
+  LOG(DEBUG, "send request to engine to run container %s successfully",
+      status->name().c_str());
+  return true;
+}
+
+bool AgentImpl::SyncContainerStat(ContainerStatus* status) {
+  mutex_.AssertHeld();
+  ShowContainerRequest request;
+  request.add_names(status->name());
+  ShowContainerResponse response;
+  bool ok = rpc_client_->SendRequest(engine_, &Engine_Stub::ShowContainer,
+                                     &request, &response,
+                                     5, 1);
+  if (!ok) {
+    LOG(WARNING, "fail to sync container %s stat from engine for rpc err",
+        status->name().c_str());
+    status->set_state(kContainerError);
+    return true;
+  }
+  if (response.status() != kRpcOk) {
+    LOG(WARNING, "fail to sync container %s stat from engine for %s",
+        status->name().c_str(),
+        RpcStatus_Name(response.status()).c_str());
+    status->set_state(kContainerError);
+    return true;
+  }
+  if (response.containers_size() == 0) {
+    LOG(WARNING, "container %s does not exist in engine",
+        status->name().c_str());
+    status->set_state(kContainerError);
+    return true;
+  }
+  const ContainerOverview& overview = response.containers(0);
+  status->set_state(overview.state());
+  status->set_start_time(overview.start_time());
+  status->set_boot_time(overview.boot_time());
+  LOG(DEBUG, "sync container %s successfully", status->name().c_str());
+  return true;
 }
 
 void AgentImpl::HeartBeatCallback(const HeartBeatRequest* request,
