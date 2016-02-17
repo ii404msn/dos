@@ -32,7 +32,8 @@ void MasterImpl::GetScaleUpPod(RpcController* controller,
                                GetScaleUpPodResponse* response,
                                Closure* done) {
   // get pods that need to be scheduled
-  pod_manager_->GetScaleUpPods(response->mutable_pods());
+  pod_manager_->GetScaleUpPods(request.condition(),
+                               response->mutable_pods());
   response->set_status(kRpcOk);
   done->Run();
 }
