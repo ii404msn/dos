@@ -348,6 +348,7 @@ bool PodManager::NewAdd(const std::string& job_name,
     pod->set_name(*pod_name_it);
     pod->set_stage(kPodSchedStagePending);
     pod->set_state(kPodPending);
+    pod->set_job_name(job_name);
     pod->set_sched_time(::baidu::common::timer::get_micros());
     PodIndex pod_index;
     pod_index.name_ = pod->name();
