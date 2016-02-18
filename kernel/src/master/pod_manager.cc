@@ -140,22 +140,30 @@ void PodManager::GetScaleUpPods(const Condition& condition,
       if (require_types.size() > 0) {
         if (require_types.find(job_name_it->pod_->desc().type()) 
             == require_types.end()) {
-          // 
           break;
         }
+      }
+      Resource total;
+      bool plus_ok = true;
+      for (int index = 0; index < job_name_it->pod_->desc().containers_size(); index ++) {
+        plus_ok = ResourceUtil::Plus(job_it->second.pod().containers(index).requirement(), &total);
+        if (!plus_ok) {
+          LOG(WARNING, "fail to calc resource for job %s", job_name_it->name_.c_str());
+          break;
+        }
+      }
+      if (!plus_ok) {
+        continue;
       }
       LOG(DEBUG, "return pod %s to scheduler", job_name_it->pod_->name().c_str());
       has_been_scheduled_count ++;
       PodOverview* pod_overview = pods->Add();
       pod_overview->set_name(job_name_it->name_);
-      Resource total;
-      for (int index = 0; index < job_name_it->pod_->desc().containers_size(); index ++) {
-        bool plus_ok = ResourceUtil::Plus(job_it->second.pod().containers(index).requirement(), &total);
-        if (!plus_ok) {
-          LOG(WARNING, "fail to calc resource for job %s", job_name_it->name_.c_str());
-        }
-      }
-      pod_overview->mutable_requirement()->CopyFrom(total);
+      pod_overview->set_job_name(job_name);
+      pod_overview->set_type(job_name_it->pod_->desc().type());
+      // assign sched time
+      job_name_it->pod_->set_sched_time(::baidu::common::timer::get_micros());
+            pod_overview->mutable_requirement()->CopyFrom(total);
     }
   }
   std::set<std::string>::iterator job_to_remove_it = job_to_remove.begin();
@@ -340,6 +348,7 @@ bool PodManager::NewAdd(const std::string& job_name,
     pod->set_name(*pod_name_it);
     pod->set_stage(kPodSchedStagePending);
     pod->set_state(kPodPending);
+    pod->set_job_name(job_name);
     pod->set_sched_time(::baidu::common::timer::get_micros());
     PodIndex pod_index;
     pod_index.name_ = pod->name();

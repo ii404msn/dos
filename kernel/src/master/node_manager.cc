@@ -4,6 +4,7 @@
 #include <gflags/gflags.h>
 #include "logging.h"
 #include "timer.h"
+#include "common/resource_util.h"
 
 DECLARE_string(nexus_servers);
 DECLARE_string(master_root_path);
@@ -177,8 +178,8 @@ void NodeManager::SyncAgentInfo(const AgentVersionList& versions,
         AgentOverview* agent_overview = agents->Add();
         agent_overview->set_endpoint(endpoint_it->endpoint_);
         agent_overview->set_version(endpoint_it->status_->version());
-        agent_overview->set_pod_count(endpoint_it->status_->pstatus_size());
         agent_overview->mutable_resource()->CopyFrom(endpoint_it->status_->resource());
+        FillPodsToAgentOverview(endpoint_it->status_, agent_overview);
         continue;
       }
     } else {
@@ -188,9 +189,27 @@ void NodeManager::SyncAgentInfo(const AgentVersionList& versions,
       AgentOverview* agent_overview = agents->Add();
       agent_overview->set_endpoint(endpoint_it->endpoint_);
       agent_overview->set_version(endpoint_it->status_->version());
-      agent_overview->set_pod_count(endpoint_it->status_->pstatus_size());
       agent_overview->mutable_resource()->CopyFrom(endpoint_it->status_->resource());
+      FillPodsToAgentOverview(endpoint_it->status_, agent_overview);
     }
+  }
+}
+
+void NodeManager::FillPodsToAgentOverview(const NodeStatus* status,
+                                          AgentOverview* agent) {
+  for (int32_t index = 0; index < status->pstatus_size(); index++) {
+    PodOverview* pod = agent->add_pods();
+    pod->set_name(status->pstatus(index).name());
+    pod->set_job_name(status->pstatus(index).job_name());
+    pod->set_type(status->pstatus(index).desc().type());
+    Resource total;
+    for (int32_t cindex = 0; cindex < status->pstatus(index).cstatus_size(); cindex ++) {
+      bool plus_ok = ResourceUtil::Plus(status->pstatus(index).cstatus(cindex).resource(), &total);
+      if (!plus_ok) {
+        LOG(WARNING, "fail to calc resource for job %s", status->pstatus(index).job_name().c_str());
+      }
+    }
+    pod->mutable_requirement()->CopyFrom(total);
   }
 }
 

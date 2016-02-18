@@ -60,6 +60,7 @@ public:
                      AgentOverviewList* agents,
                      StringList* del_list);
 private:
+  void FillPodsToAgentOverview(const NodeStatus* status, AgentOverview* agent);
   bool LoadNodeMeta();
   void PollNode(const std::string& endpoint);
   void HandleNodeTimeout(const std::string& endpoint);
