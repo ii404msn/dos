@@ -3,13 +3,30 @@
 #include <gflags/gflags.h>
 #include "logging.h"
 #include "string_util.h"
+#include "timer.h"
+#include "common/resource_util.h"
 
 DECLARE_int32(scheduler_sync_agent_info_interval);
+DECLARE_int32(scheduler_feasibility_factor);
+DECLARE_int32(scheduler_max_pod_count);
+DECLARE_double(scheduler_score_longrun_pod_factor);
+DECLARE_double(scheduler_score_pod_factor);
+DECLARE_double(scheduler_score_cpu_factor);
+DECLARE_double(scheduler_score_memory_factor);
 
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
+using ::baidu::common::DEBUG;
 
 namespace dos {
+
+static bool SchedCellDesc(const SchedCell& left, const SchedCell& right) {
+  return left.priority > right.priority;
+}
+
+static bool AgentScoreAsc(const ProposeCell& left, const ProposeCell& right) {
+  return left.score > right.score;
+}
 
 Scheduler::Scheduler(const std::string& master_addr):rpc_client_(NULL),
   master_(NULL), master_addr_(master_addr), pool_(5),
@@ -86,17 +103,158 @@ void Scheduler::GetScaleUpPods() {
   GetScaleUpPodRequest request;
   GetScaleUpPodResponse response;
   bool ok = rpc_client_->SendRequest(master_, &Master_Stub::GetScaleUpPod,
-                           &request, &response, 5, 1);
+                                     &request, &response, 5, 1);
   if (!ok || response.status() != kRpcOk) {
     LOG(WARNING, "fail to get scale up pods");
     pool_.DelayTask(1000, boost::bind(&Scheduler::GetScaleUpPods, this));
   } else {
-    for (int i = 0; i < response.pods_size(); i++) {
-      const PodOverview& pod = response.pods(i);
-      LOG(INFO, "get scale up pod %s", pod.name().c_str());
-    }
+    std::map<std::string, SchedCell> cells;
+    BuildScaleUpSchedCell(response, cells);
+    std::vector<SchedCell> sorted_cells;
+    SortSchedCell(cells, sorted_cells);
+    ProcessScaleUpCell(sorted_cells);
   }
   pool_.DelayTask(1000, boost::bind(&Scheduler::GetScaleUpPods, this));
+}
+
+void Scheduler::BuildScaleUpSchedCell(const GetScaleUpPodResponse& response,
+                                      std::map<std::string, SchedCell>& cells) {
+  for (int32_t index = 0; index < response.pods_size(); ++index) {
+    const PodOverview& pod = response.pods(index);
+    SchedCell& cell = cells[pod.job_name()];
+    cell.priority = pod.type();
+    cell.type = pod.type();
+    cell.job_name = pod.job_name();
+    cell.pods.push_back(pod.name());
+    cell.resource = pod.requirement();
+    cell.action = ScaleUp;
+    cell.feasibile_count = cell.pods.size() * FLAGS_scheduler_feasibility_factor;
+  }
+}
+
+void Scheduler::SortSchedCell(const std::map<std::string, SchedCell>& cells,
+                              std::vector<SchedCell>& sorted_cells) {
+  std::map<std::string, SchedCell>::const_iterator cell_it = cells.begin();
+  for (; cell_it != cells.end(); ++cell_it) {
+    sorted_cells.push_back(cell_it->second);
+  }
+  std::sort(sorted_cells.begin(), sorted_cells.end(), SchedCellDesc);
+}
+
+void Scheduler::ProcessScaleUpCell(std::vector<SchedCell>& cells) {
+  ::baidu::common::MutexLock lock(&mutex_);
+  int64_t feasibile_check_start = ::baidu::common::timer::get_micros();
+  std::vector<std::string> endpoints;
+  boost::unordered_map<std::string, AgentOverview*>::iterator a_it = agents_->begin();
+  for (; a_it != agents_->end(); ++a_it) {
+    endpoints.push_back(a_it->first);
+  }
+  Shuffle(endpoints);
+  std::vector<std::string>::iterator e_it = endpoints.begin();
+  int32_t check_count = 0;
+  for (; e_it !=  endpoints.end(); ++e_it) {
+    a_it = agents_->find(*e_it);
+    AgentOverview* agent = a_it->second;
+    Resource total = agent->resource();
+    std::vector<SchedCell>::iterator cell_it = cells.begin();
+    bool all_fit = true;
+    for (; cell_it != cells.end(); ++cell_it) {
+      if (cell_it->agents.size() >= (size_t)cell_it->feasibile_count) {
+        break;
+      }
+      check_count++;
+      all_fit = false;
+      bool alloc_ok = ResourceUtil::Alloc(cell_it->resource,
+                                          &total);
+      if (alloc_ok) {
+        LOG(DEBUG, "agent %s fit pod of job %s resource requirement",
+            a_it->second->endpoint().c_str(),
+            cell_it->job_name.c_str());
+        ProposeCell p_cell;
+        p_cell.overview = *agent;
+        cell_it->agents.push_back(p_cell);
+      }
+    }
+    if (all_fit) {
+      break;
+    }
+  }
+  int64_t consumed = (::baidu::common::timer::get_micros() - feasibile_check_start)/1000;
+  LOG(INFO, "checking feasibility consumes %ld ms with %d time calculation ",
+      consumed, check_count);
+  for (size_t cindex = 0; cindex < cells.size(); ++cindex) {
+    if (cells[cindex].agents.size() <=0) {
+      continue;
+    }
+    pool_.AddTask(boost::bind(&Scheduler::ProcessScaleUpPropose, this, cells[cindex]));
+  }
+}
+
+void Scheduler::ProcessScaleUpPropose(SchedCell cell) {
+  cell.Score();
+  ScaleUpProposeRequest request;
+  ScaleUpProposeResponse response;
+  size_t agent_cursor = 0;
+  for (size_t index = 0; index < cell.pods.size(); ++index) {
+    if (agent_cursor >= cell.agents.size()){
+      break;
+    }
+    Propose* propose = request.add_proposes();
+    propose->set_pod_name(cell.pods[index]);
+    propose->set_endpoint(cell.agents[agent_cursor].overview.endpoint());
+    agent_cursor++;
+  }
+  if (agent_cursor >0) {
+    bool ok = rpc_client_->SendRequest(master_, &Master_Stub::ScaleUpPropose,
+                                      &request, &response, 5, 1);
+    if (ok && response.status() == kRpcOk) {
+      LOG(INFO, "propose job %s successfully", cell.job_name.c_str());
+    }else { 
+      LOG(WARNING, "fail to propose job %s ", cell.job_name.c_str());
+    }
+  }
+}
+
+void SchedCell::Score() {
+  int64_t score_start = ::baidu::common::timer::get_micros();
+  std::vector<ProposeCell>::iterator a_it = agents.begin();
+  for (; a_it != agents.end(); ++a_it) {
+    a_it->score = score_func_map.find(type)->second(a_it->overview);
+  }
+  std::sort(agents.begin(), agents.end(), AgentScoreAsc);
+  int64_t consumed = (::baidu::common::timer::get_micros() - score_start)/1000;
+  LOG(INFO, "scoring agent for job %s consumes %ld ms",
+      job_name.c_str(), consumed);
+}
+
+double SchedCell::ScoreForLongrunPod(const AgentOverview& agent) {
+  double cpu_load = agent.resource().cpu().assigned() * FLAGS_scheduler_score_cpu_factor/
+    agent.resource().cpu().limit();
+  double mem_load = agent.resource().memory().assigned() * FLAGS_scheduler_score_memory_factor/
+    agent.resource().memory().limit();
+  int32_t long_run_count = 0;
+  for (int32_t index = 0; index < agent.pods_size(); ++index) {
+    const PodOverview& pod = agent.pods(index);
+    if (pod.type() == kPodLongrun
+        || pod.type() == kPodSystem) {
+      long_run_count++;
+    }
+  }
+  double long_run_load = long_run_count * FLAGS_scheduler_score_longrun_pod_factor/
+    FLAGS_scheduler_max_pod_count ;
+  double pod_load = (agent.pods_size() - long_run_count) * FLAGS_scheduler_score_pod_factor /
+    FLAGS_scheduler_max_pod_count;
+  return exp(cpu_load) + exp(mem_load) + exp(long_run_load) + exp(pod_load);
+}
+
+double SchedCell::ScoreForBatchPod(const AgentOverview& agent) {
+  double cpu_load = agent.resource().cpu().assigned() * FLAGS_scheduler_score_cpu_factor/
+    agent.resource().cpu().limit();
+  double mem_load = agent.resource().memory().assigned() * FLAGS_scheduler_score_memory_factor/
+    agent.resource().memory().limit();
+  double pod_load = agent.pods_size() * FLAGS_scheduler_score_pod_factor /
+    FLAGS_scheduler_max_pod_count;
+  return exp(cpu_load) + exp(mem_load) + exp(pod_load);
 }
 
 } // namespace dos

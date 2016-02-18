@@ -36,6 +36,7 @@ message PodOverview {
   optional string name = 1;
   optional Resource requirement = 2;
   optional PodType type = 3;
+  optional string job_name = 4;
 }
 
 // get pods that need to be scheduled 
@@ -49,7 +50,7 @@ message GetScaleUpPodResponse {
 message AgentOverview {
   optional string endpoint = 1;
   optional Resource resource = 2;
-  optional int32 pod_count = 3;
+  repeated PodOverview pods = 3;
   optional int32 version = 4;
 }
 

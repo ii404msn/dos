@@ -256,6 +256,7 @@ message PodStatus {
   optional int64 start_pending_time = 8;
   // the endpoint where pod runs on
   optional string endpoint = 9;
+  optional string job_name = 10;
 }
 
 message NodeStatus {

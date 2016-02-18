@@ -17,7 +17,14 @@ DEFINE_double(agent_memory_rate, 0.7, "the memory rate for sharing agent memory"
 DEFINE_int32(agent_port_range_start, 4000, "the port start range for agent");
 DEFINE_int32(agent_port_range_end, 6000, "the port end range for agent");
 DEFINE_int32(agent_sync_container_stat_interval, 1000, "the interval for agent sync container stat");
+
 DEFINE_int32(scheduler_sync_agent_info_interval, 2000, "the interval of scheduler sync agent info from master");
+DEFINE_int32(scheduler_feasibility_factor, 3, "the factor of scheduler choosing feasibile agent count");
+DEFINE_int32(scheduler_max_pod_count, 20, "the max pod count on agent");
+DEFINE_double(scheduler_score_longrun_pod_factor, 20.0, "the long run pod factor for scoring agent");
+DEFINE_double(scheduler_score_pod_factor, 10.0, "the pod factor for scoring agent");
+DEFINE_double(scheduler_score_cpu_factor, 10.0, "the cpu factor for scoring agent");
+DEFINE_double(scheduler_score_memory_factor, 10.0, "the memory factor for scoring agent");
 
 DEFINE_string(ce_process_default_user, "dos", "launch process with default user");
 DEFINE_string(ce_port, "7676", "dos container engine listen port");
