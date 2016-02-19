@@ -494,6 +494,14 @@ void EngineImpl::HandleError(const ContainerState& pre_state,
   info->status.set_state(kContainerError);
   info->status.set_start_time(0);
   LOG(WARNING, "container %s go to %s state", name.c_str(), ContainerState_Name(info->status.state()).c_str());
+  if (info->container.reserve_time() > 0 && pre_state != kContainerReserving) {
+    info->status.set_state(kContainerReserving);
+    AppendLog(kContainerError, kContainerReserving, "enter reserving state", info);
+    ProcessHandleResult(kContainerError, kContainerReserving,
+                        name, info->container.reserve_time());
+  } else {
+    LOG(INFO, "container %s enter error", name.c_str());
+  }
 }
 
 void EngineImpl::HandleCompleteContainer(const ContainerState& pre_state,
@@ -577,6 +585,8 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
         ForkRequest request;
         config.process.set_name(name);
         request.mutable_process()->CopyFrom(config.process);
+        // use bash interceptor to exec command
+        request.mutable_process()->set_use_bash_interceptor(true);
         bool process_user_ok = HandleProcessUser(request.mutable_process());
         if (!process_user_ok) {
           LOG(WARNING, "fail to process user %s", request.process().user().name().c_str());

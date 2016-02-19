@@ -175,6 +175,7 @@ SdkStatus DosSdkImpl::Submit(const JobDescriptor& job) {
       return kSdkInvalidateEnum;
     }
     container->set_type(c_type);
+    container->set_reserve_time(10000);
   }
   SubmitJobResponse response;
   bool rpc_ok = rpc_client_->SendRequest(master_, &Master_Stub::SubmitJob, 
