@@ -220,6 +220,8 @@ void SchedCell::Score() {
   std::vector<ProposeCell>::iterator a_it = agents.begin();
   for (; a_it != agents.end(); ++a_it) {
     a_it->score = score_func_map.find(type)->second(a_it->overview);
+    LOG(INFO, "score agent %s with score %f", a_it->overview.endpoint().c_str(),
+        a_it->score);
   }
   std::sort(agents.begin(), agents.end(), AgentScoreAsc);
   int64_t consumed = (::baidu::common::timer::get_micros() - score_start)/1000;
