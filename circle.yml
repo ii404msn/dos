@@ -5,5 +5,5 @@ machine:
     - sudo apt-get install cmake
 test:
   pre:
-    - sh quick_build.sh && cd sandbox && sh start_all.sh 
+    - sh quick_build.sh  
 
