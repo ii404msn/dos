@@ -171,6 +171,7 @@ bool ProcessMgr::Exec(const Process& process) {
         }
         cmd += local.args(index);
       }
+      printf("use bash to exec cmd %s", cmd.c_str());
       char* argv[] = {
               const_cast<char*>("bash"),
               const_cast<char*>("-c"),
@@ -190,6 +191,7 @@ bool ProcessMgr::Exec(const Process& process) {
       for (int32_t index = 0; index < local.args_size(); ++index) {
         argv[index] = const_cast<char*>(local.args(index).c_str());
       }
+      printf("use self to exec cmd %s", cmd.c_str());
       argv[local.args_size()] = NULL;
       char* env[local.envs_size() + 1];
       int32_t env_index = 0;
