@@ -185,6 +185,7 @@ message JobSpec {
   optional uint32 update_step_size = 4;
   optional PodSpec pod = 5;
   optional string version = 6;
+  optional bytes raw = 7;
 }
 
 enum JobState {
@@ -303,6 +304,7 @@ message ContainerStatus {
   optional int64 boot_time = 6;
   optional Container spec = 7;
   optional int64 last_update = 8;
+  optional int64 restart_count = 9;
 }
 
 

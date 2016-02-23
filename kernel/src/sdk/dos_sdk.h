@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <stdint.h>
+#include <set>
 
 namespace dos {
 
@@ -19,6 +20,7 @@ struct CDescriptor {
   // kOci , kDocker
   std::string type;
   std::string uri;
+  std::set<uint32_t> ports;
 };
 
 struct CInfo {
@@ -46,6 +48,7 @@ struct JobDescriptor {
   PodDescritpor pod;
   uint32_t replica;
   uint32_t deploy_step_size;
+  std::string raw;
 };
 
 struct JailProcess {

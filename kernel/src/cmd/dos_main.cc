@@ -21,6 +21,7 @@
 #include "scheduler/scheduler.h"
 #include "agent/agent_impl.h"
 #include "sdk/dos_sdk.h"
+#include "yaml-cpp/yaml.h"
 #include "cmd/pty.h"
 #include "version.h"
 
@@ -36,9 +37,11 @@ DECLARE_string(master_port);
 DEFINE_string(n, "", "specify container name");
 DEFINE_bool(v, true, "show version");
 DEFINE_string(u, "", "specify uri for rootfs");
+DEFINE_string(f, "job.yml", "specify job.yml to submit");
 DEFINE_int32(r, 1,  "specify replica for job");
 DEFINE_int32(c, 1,  "specify cpu for pod instance");
 DEFINE_int32(d, 1,  "specify deploy step size for job");
+DEFINE_int32(p, 0,  "specify port for job instance");
 DEFINE_string(ce_endpoint, "127.0.0.1:7676", "specify container engine endpoint");
 
 DEFINE_int32(terminal_lines, 90, "specify the terminal lines");
@@ -57,7 +60,7 @@ const std::string kDosCeUsage = "dos help message.\n"
                                 "    dos scheduler \n" 
                                 "    dos let \n" 
                                 "    dos run -u <uri>  -n <name>\n" 
-                                "    dos submit -u <uri>  -n <name> -r <replica> -c <cpu> -m <memory> -d <deploy_step_size>\n"
+                                "    dos submit -f <job.yml>\n"
                                 "    dos ps -j <job name> | -e <agent endpoint>\n"
                                 "    dos log -n <name> \n"
                                 "    dos jail -n <name> \n"
@@ -70,6 +73,7 @@ const std::string kDosCeUsage = "dos help message.\n"
                                 "    -c     Specify cpu for single pod instance\n"
                                 "    -m     Specify memory for single pod instance\n"
                                 "    -d     Specify deploy step size for job \n"
+                                "    -p     Specify port for job port \n"
                                 "    -e     Specify endpoint for agent\n";
 
 static volatile bool s_quit = false;
@@ -346,22 +350,45 @@ void Show() {
 }
 
 void SubmitJob() {
-  if (FLAGS_n.empty()) {
-    fprintf(stderr, "-n is required \n");
-    exit(1);
-  }
-  if (FLAGS_u.empty()) {
-    fprintf(stderr, "-u is required \n");
-    exit(1);
+  if (FLAGS_f.empty()){
+    fprintf(stderr, "-f option is required \n ");
+    return;
+  } 
+  YAML::Node node = YAML::LoadFile(FLAGS_f);
+  if (!node["job"]) {
+    fprintf(stderr, "job field is required in config file");
+    return;
   }
   ::dos::JobDescriptor job;
-  job.name= FLAGS_n;
-  job.deploy_step_size = FLAGS_d;
+  if (!node["job"]["name"]) {
+    fprintf(stderr, "name is required in job \n");
+    return;
+  }
+  job.name= node["job"]["name"].as<std::string>();
+  job.deploy_step_size = node["job"]["deploy_step"].as<uint32_t>(); 
   ::dos::CDescriptor container;
-  container.type = "kOci";
-  container.uri = FLAGS_u;
+  if (!node["job"]["type"]){
+    fprintf(stderr, "type is required in job\n");
+    return;
+  }
+  container.type = node["job"]["type"].as<std::string>();
+  if (!node["job"]["url"]) {
+    fprintf(stderr, "url is required is job\n");
+    return;
+  }
+  container.uri = node["job"]["url"].as<std::string>();
+  if (node["job"]["ports"]) {
+    for (size_t index = 0; index < node["job"]["ports"].size(); index++) {
+      container.ports.insert(node["job"]["ports"][index].as<uint32_t>());
+    }
+  }
   job.pod.containers.push_back(container);
-  job.replica = FLAGS_r;
+  if (!node["job"]["replica"]) {
+    fprintf(stderr, "replica is required\n");
+    return;
+  }
+  job.replica = node["job"]["replica"].as<uint32_t>();
+  fprintf(stderr, "type %s", container.type.c_str());
   std::string master_endpoint = "127.0.0.1:" + FLAGS_master_port;
   ::dos::DosSdk* dos_sdk = ::dos::DosSdk::Connect(master_endpoint);
   if (dos_sdk == NULL) {
@@ -373,7 +400,7 @@ void SubmitJob() {
     fprintf(stdout, "submit job successfully\n");
     return;
   }
-  fprintf(stderr, "fail to submit job\n");
+  fprintf(stderr, "fail to submit job for %d\n", status);
 }
 
 int main(int argc, char * args[]) {
