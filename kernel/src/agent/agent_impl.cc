@@ -5,6 +5,7 @@
 #include <boost/lexical_cast.hpp>
 #include <gflags/gflags.h>
 #include "util.h"
+#include "common/resource_util.h"
 
 DECLARE_string(master_port);
 DECLARE_string(agent_endpoint);
@@ -65,6 +66,23 @@ void AgentImpl::Run(RpcController* controller,
                     RunPodResponse* response,
                     Closure* done) {
   ::baidu::common::MutexLock lock(&mutex_);
+  Resource pod_require;
+  for (int32_t cindex = 0; cindex < request->pod().containers_size(); cindex ++) {
+    bool plus_ok = ResourceUtil::Plus(request->pod().containers(cindex).requirement(), 
+                                        &pod_require);
+    if (!plus_ok) {
+      LOG(WARNING, "fail to calc total requirement for pod %s", request->pod_name().c_str());
+      response->set_status(kRpcError);
+      done->Run();
+      return;
+    }
+  }
+  bool alloc_ok = resource_mgr_->Alloc(pod_require);
+  if (!alloc_ok) {
+    response->set_status(kRpcNoResource);
+    done->Run();
+    return;
+  }
   const ContainerPodNameIdx& pod_name_idx = c_set_->get<p_name_tag>();
   const ContainerNameIdx& c_name_idx = c_set_->get<c_name_tag>();
   ContainerPodNameIdx::const_iterator pod_name_it = pod_name_idx.find(request->pod_name());
@@ -85,7 +103,6 @@ void AgentImpl::Run(RpcController* controller,
     }
     avilable_name.push_back(c_name);
   }
-
   for (int32_t index = 0; index < request->pod().containers_size(); ++index) {
     std::string c_name = avilable_name.front();
     avilable_name.pop_front();

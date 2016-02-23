@@ -10,6 +10,7 @@ enum RpcStatus {
   kRpcNameExist = 2;
   kRpcError = 3;
   kRpcNotFound = 4;
+  kRpcNoResource = 5;
 }
 
 message User {

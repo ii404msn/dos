@@ -21,6 +21,7 @@ struct CloneContext {
   int stdin_fd;
   int stderr_fd;
   std::string name;
+  int flags;
 };
 
 class ProcessMgr {
