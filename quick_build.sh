@@ -148,7 +148,7 @@ else
   wget -O yaml-cpp-release-0.5.3.tar.gz https://github.com/jbeder/yaml-cpp/archive/release-0.5.3.tar.gz
   tar -zxvf yaml-cpp-release-0.5.3.tar.gz >/dev/null
   cd yaml-cpp-release-0.5.3
-  cmake -DCMAKE_INSTALL_PREFIX=${DEPS_PREFIX}  -DBUILD_SHARED_LIBS=OFF >/dev/null
+  cmake -DBOOST_INCLUDEDIR=${DEPS_PREFIX}/boost_1_57_0 -DCMAKE_INSTALL_PREFIX=${DEPS_PREFIX}  -DBUILD_SHARED_LIBS=OFF >/dev/null
   make -j8 >/dev/null && make install
   cd -
 fi
