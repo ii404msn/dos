@@ -10,18 +10,7 @@
 #include "engine/utils.h"
 #include "timer.h"
 
-#ifndef CLONE_NEWPID
-#define CLONE_NEWPID 0x02000000
-#endif
-
-#ifndef CLONE_NEWUTS
-#define CLONE_NEWUTS 0x04000000
-#endif
-
-#ifndef CLONE_NEWNS
-#define CLONE_NEWNS 0x00020000
-#endif
-
+const static int CLONE_FLAGS = CLONE_NEWPID | CLONE_NEWUTS | CLONE_NEWNS;
 
 DECLARE_string(ce_bin_path);
 DECLARE_string(ce_image_fetcher_name);
@@ -427,9 +416,9 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
         break;
       }
       //TODO read from runtime.json 
-      int flag = CLONE_NEWNS | CLONE_NEWPID | CLONE_NEWUTS | SIGCHLD;
+      int flag = CLONE_FLAGS;
       if (info->container.type() == kSystem) {
-        flag = SIGCHLD;
+        flag = 0;
       }
       bool ok = info->initd_proc.Clone(initd, flag);
       if (!ok) {

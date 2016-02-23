@@ -221,15 +221,20 @@ bool ProcessMgr::Exec(const Process& process) {
   }
 }
 
-bool ProcessMgr::Clone(const Process& process, int flag) { 
+bool ProcessMgr::Clone(const Process& process, int flag) {
+  int unshare_ok = unshare(flag);
+  if (unshare_ok != 0) {
+    LOG(WARNING, "fail to unshare namespace for %s", strerror(errno));
+    return false;
+  }
   CloneContext* context = new CloneContext();
   context->process = process;
   context->stdout_fd = -1;
   context->stderr_fd = -1;
   context->stdin_fd = -1;
   bool ok = ResetIo(process, context->stdout_fd,
-               context->stderr_fd, 
-               context->stdin_fd);
+                    context->stderr_fd, 
+                    context->stdin_fd);
   if (!ok) {
     LOG(WARNING, "fail to reset io for process %s", process.name().c_str());
     return false;

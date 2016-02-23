@@ -108,6 +108,12 @@ void NodeManager::KeepAlive(const std::string& hostname,
 
 void NodeManager::PollNode(const std::string& endpoint) {
   mutex_.AssertHeld();
+  const NodeEndpointIndex& endpoint_idx = nodes_->get<endpoint_tag>();
+  NodeEndpointIndex::const_iterator e_it = endpoint_idx.find(endpoint);
+  if (e_it == endpoint_idx.end()) {
+    LOG(WARNING, "fail to find node with endpoint %s", endpoint.c_str());
+    return;
+  }
   boost::unordered_map<std::string, Agent_Stub*>::iterator agent_it = 
     agent_conns_->find(endpoint);
   if (agent_it == agent_conns_->end()) {
@@ -124,7 +130,8 @@ void NodeManager::PollNode(const std::string& endpoint) {
   PollAgentRequest* request = new PollAgentRequest();
   PollAgentResponse* response = new PollAgentResponse();
   boost::function<void (const PollAgentRequest*, PollAgentResponse*, bool, int)> callback;
-  callback = boost::bind(&NodeManager::PollNodeCallback, this, endpoint, _1, _2, _3, _4);
+  callback = boost::bind(&NodeManager::PollNodeCallback, this, endpoint, _1, _2, _3, _4, 
+      e_it->status_->version());
   rpc_client_->AsyncRequest(agent, &Agent_Stub::Poll,
                             request, response,
                             callback, 5, 1);
@@ -132,20 +139,24 @@ void NodeManager::PollNode(const std::string& endpoint) {
 
 void NodeManager::PollNodeCallback(const std::string& endpoint,
     const PollAgentRequest* request, PollAgentResponse* response,
-    bool failed, int) {
+    bool failed, int, int32_t version) {
   ::baidu::common::MutexLock lock(&mutex_);
   const NodeEndpointIndex& endpoint_idx = nodes_->get<endpoint_tag>();
   NodeEndpointIndex::const_iterator e_it = endpoint_idx.find(endpoint);
   if (e_it == endpoint_idx.end()) {
     LOG(WARNING, "agent with endpoint %s does not exist in master", endpoint.c_str());
   } else {
-    // TODO add more propertise
-    if (e_it->status_->resource().cpu().limit() != response->status().resource().cpu().limit() ) {
-      e_it->status_->set_version(1 + e_it->status_->version());
+    // if version changes when bind function , ignore changes from agent
+    if (e_it->status_->version() == version) {
+      // TODO add more propertise
+      if (e_it->status_->resource().cpu().limit() != response->status().resource().cpu().limit() ) {
+        e_it->status_->set_version(1 + e_it->status_->version());
+      }
+      e_it->status_->mutable_resource()->CopyFrom(response->status().resource());
+      e_it->status_->mutable_pstatus()->CopyFrom(response->status().pstatus());
+      node_status_queue_->Push(e_it->status_);
+
     }
-    e_it->status_->mutable_resource()->CopyFrom(response->status().resource());
-    e_it->status_->mutable_pstatus()->CopyFrom(response->status().pstatus());
-    node_status_queue_->Push(e_it->status_);
   }
   delete request;
   delete response;
@@ -240,6 +251,30 @@ void NodeManager::RunPod(const std::string& pod_name,
                          const PodSpec& desc) {
   ::baidu::common::MutexLock lock(&mutex_);
   LOG(INFO, "run pod %s on agent %s", pod_name.c_str(), endpoint.c_str());
+  const NodeEndpointIndex& endpoint_idx = nodes_->get<endpoint_tag>();
+  NodeEndpointIndex::const_iterator endpoint_it = endpoint_idx.find(endpoint);
+  if (endpoint_it == endpoint_idx.end()) {
+    LOG(WARNING, "agent with endpoint %s does not exist", endpoint.c_str());
+    return;
+  }
+  Resource pod_require;
+  for (int32_t cindex = 0; cindex < desc.containers_size(); cindex ++) {
+      bool plus_ok = ResourceUtil::Plus(desc.containers(cindex).requirement(), 
+                                        &pod_require);
+      if (!plus_ok) {
+        LOG(WARNING, "fail to calc total requirement for pod %s", pod_name.c_str());
+        return;
+      }
+  }
+  bool alloc_ok = ResourceUtil::Alloc(pod_require, 
+                                      endpoint_it->status_->mutable_resource());
+  if (!alloc_ok) {
+    LOG(WARNING, "fail to alloc pod %s requirement on agent %s",
+        pod_name.c_str(),
+        endpoint.c_str());
+    return;
+  }
+  endpoint_it->status_->set_version(endpoint_it->status_->version() + 1);
   Agent_Stub* agent_stub = NULL;
   boost::unordered_map<std::string, Agent_Stub*>::iterator agent_it = agent_conns_->find(endpoint);
   if (agent_it ==  agent_conns_->end()) {

@@ -74,7 +74,8 @@ private:
   void PollNodeCallback(const std::string& endpoint,
                         const PollAgentRequest* request,
                         PollAgentResponse* response,
-                        bool failed, int);
+                        bool failed, int,
+                        int32_t version);
   void StartPoll();
   void ScheduleNextPoll();
 private:
