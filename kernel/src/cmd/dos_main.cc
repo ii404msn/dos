@@ -388,7 +388,6 @@ void SubmitJob() {
     return;
   }
   job.replica = node["job"]["replica"].as<uint32_t>();
-  fprintf(stderr, "type %s", container.type.c_str());
   std::string master_endpoint = "127.0.0.1:" + FLAGS_master_port;
   ::dos::DosSdk* dos_sdk = ::dos::DosSdk::Connect(master_endpoint);
   if (dos_sdk == NULL) {
