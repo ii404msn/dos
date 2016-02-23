@@ -81,6 +81,39 @@ static void SignalIntHandler(int /*sig*/){
     s_quit = true;
 }
 
+int ReadableStringToInt(const std::string& input, int64_t* output) {
+  if (output == NULL) {
+      return -1;
+  }
+  std::map<char, int32_t> subfix_table;
+  subfix_table['K'] = 1;
+  subfix_table['M'] = 2;
+  subfix_table['G'] = 3;
+  subfix_table['T'] = 4;
+  subfix_table['B'] = 5;
+  subfix_table['Z'] = 6;
+  int64_t num = 0;
+  char subfix = 0;
+  int32_t shift = 0;
+  int32_t matched = sscanf(input.c_str(), "%ld%c", &num, &subfix);
+  if (matched <= 0) {
+      return -1;
+  }
+  if (matched == 2) {
+      std::map<char, int32_t>::iterator it = subfix_table.find(subfix);
+      if (it == subfix_table.end()) {
+          return -1;
+      }
+      shift = it->second;
+  } 
+  while (shift > 0) {
+      num *= 1024;
+      shift--;
+  }
+  *output = num;
+  return 0;
+}
+
 std::string FormatDate(int64_t datetime) {
   if (datetime < 100) {
     return "-";
@@ -382,11 +415,26 @@ void SubmitJob() {
       container.ports.insert(node["job"]["ports"][index].as<uint32_t>());
     }
   }
+  if (!node["job"]["cpu"]) {
+    fprintf(stderr, "cpu is required\n");
+    return;
+  }
+  container.millicores = node["job"]["cpu"].as<int32_t>();
+  if (!node["job"]["memory"]) {
+    fprintf(stderr, "memory is required\n");
+    return;
+  }
+  int convert_ok = ReadableStringToInt(node["job"]["memory"].as<std::string>(), 
+                                        &container.memory);
+  if (convert_ok != 0) {
+    fprintf(stderr, "fail to convert memory string\n");
+    return;
+  }
   job.pod.containers.push_back(container);
   if (!node["job"]["replica"]) {
     fprintf(stderr, "replica is required\n");
     return;
-  }
+  } 
   job.replica = node["job"]["replica"].as<uint32_t>();
   std::string master_endpoint = "127.0.0.1:" + FLAGS_master_port;
   ::dos::DosSdk* dos_sdk = ::dos::DosSdk::Connect(master_endpoint);

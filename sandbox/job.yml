@@ -3,7 +3,7 @@ job :
   type : kOci
   ports :
     - 6378
-  cpu : 1
+  cpu : 1000
   memory : 1G
   url : http://idcos.io/redis.tar.gz
   replica : 2
