@@ -86,10 +86,12 @@ void Scheduler::SyncAgentInfo() {
         agents_->insert(std::make_pair(new_agent.endpoint(), copied_agent));
       } else {
         agent_it->second->CopyFrom(new_agent);
-        LOG(INFO, "update agent %s with resource cpu %ld mem %s",
+        LOG(INFO, "update agent %s with resource cpu total:%ld assigned:%ld  mem total:%s assigned:%s",
             new_agent.endpoint().c_str(),
             new_agent.resource().cpu().limit(),
-            ::baidu::common::HumanReadableString(new_agent.resource().memory().limit()).c_str());
+            new_agent.resource().cpu().assigned(),
+            ::baidu::common::HumanReadableString(new_agent.resource().memory().limit()).c_str(),
+            ::baidu::common::HumanReadableString(new_agent.resource().memory().assigned()).c_str());
       }
 
     }

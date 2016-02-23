@@ -21,6 +21,8 @@ struct CDescriptor {
   std::string type;
   std::string uri;
   std::set<uint32_t> ports;
+  int32_t millicores;
+  int64_t memory;
 };
 
 struct CInfo {

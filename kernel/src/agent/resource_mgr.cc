@@ -76,6 +76,12 @@ bool ResourceMgr::Release(const Resource& require) {
 
 void ResourceMgr::Stat(Resource* resource) {
   resource->CopyFrom(resource_);
+  LOG(DEBUG, "current resource cpu total:%ld assigned:%ld  mem total:%s assigned:%s",
+            resource->cpu().limit(),
+            resource->cpu().assigned(),
+            ::baidu::common::HumanReadableString(resource->memory().limit()).c_str(),
+            ::baidu::common::HumanReadableString(resource->memory().assigned()).c_str());
+
 }
 
 } // end of namespace dos
