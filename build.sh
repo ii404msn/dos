@@ -249,8 +249,17 @@ else
    cd -
 fi
 
-
-
+if [ -f "yaml-cpp-release-0.5.3.tar.gz"]
+then
+  echo "yaml cpp exists"
+else
+  wget -O yaml-cpp-release-0.5.3.tar.gz https://github.com/jbeder/yaml-cpp/archive/release-0.5.3.tar.gz
+  tar -zxvf yaml-cpp-release-0.5.3.tar.gz >/dev/null
+  cd yaml-cpp-release-0.5.3
+  cmake -DCMAKE_INSTALL_PREFIX=${DEPS_PREFIX}  -DBUILD_SHARED_LIBS=OFF >/dev/null
+  make -j8 >/dev/null && make install
+  cd -
+fi
 
 if [ -d "common" ]
 then 

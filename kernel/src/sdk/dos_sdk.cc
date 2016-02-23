@@ -175,6 +175,10 @@ SdkStatus DosSdkImpl::Submit(const JobDescriptor& job) {
       return kSdkInvalidateEnum;
     }
     container->set_type(c_type);
+    std::set<uint32_t>::iterator p_it = job.pod.containers[i].ports.begin();
+    for (; p_it != job.pod.containers[i].ports.end(); ++p_it) {
+      container->mutable_requirement()->mutable_port()->add_assigned(*p_it);
+    }
     container->set_reserve_time(10000);
   }
   SubmitJobResponse response;
