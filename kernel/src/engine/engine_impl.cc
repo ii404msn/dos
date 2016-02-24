@@ -695,6 +695,7 @@ void EngineImpl::JailContainer(RpcController* controller,
                                JailContainerResponse* response,
                                Closure* done) {
   ::baidu::common::MutexLock lock(&mutex_);
+  LOG(DEBUG, "jail container %s", request->c_name().c_str());
   Containers::iterator it = containers_->find(request->c_name());
   if (it == containers_->end()) {
     LOG(INFO, "container with name %s has been deleted", request->c_name().c_str());
@@ -706,6 +707,7 @@ void EngineImpl::JailContainer(RpcController* controller,
   ForkRequest fork_request;
   fork_request.mutable_process()->CopyFrom(request->process());
   fork_request.mutable_process()->set_use_bash_interceptor(false);
+  fork_request.mutable_process()->set_name("jail_" + request->c_name());
   bool process_user_ok = HandleProcessUser(fork_request.mutable_process());
   if (!process_user_ok) {
     LOG(WARNING, "process user %s failed", fork_request.process().user().name().c_str());
