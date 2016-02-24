@@ -141,7 +141,7 @@ else
     cd -
 fi
 
-if [ -f "yaml-cpp-release-0.5.3.tar.gz"]
+if [ -f "yaml-cpp-release-0.5.3.tar.gz" ]
 then
   echo "yaml cpp exists"
 else
