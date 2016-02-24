@@ -11,6 +11,7 @@
 #include <sys/wait.h>
 #include <sys/mount.h>
 #include <pwd.h>
+#include <sys/ioctl.h>
 #include <sstream>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
@@ -45,13 +46,11 @@ int ProcessMgr::LaunchProcess(void* args) {
     }
     ::close(fd);
   }
-/*  int set_hostname_ok = sethostname(context->process.name().c_str(),
-                                      context->process.name().length());
+  int set_hostname_ok = sethostname(context->process.name().c_str(),
+                                    context->process.name().length());
   if (set_hostname_ok != 0) {
-    fprintf(stderr, "fail to set hostname %s", 
-            context->process.name().c_str());
-    exit(1);
-  }*/
+    assert(0);
+  }
   pid_t self_pid = ::getpid();
   int ret = ::setpgid(self_pid, self_pid);
   if (ret != 0) {
@@ -137,9 +136,19 @@ bool ProcessMgr::Exec(const Process& process) {
         continue;
       }
       close(fd);
-    } 
-    pid_t self_pid = getpid();
-    int ret = setpgid(self_pid, self_pid);
+    }
+    if (!local.pty().empty()) {
+      pid_t sid = setsid();
+      if (sid == -1) {
+        assert(0);
+      }
+      ioctl(0, TIOCSCTTY, 1);
+    }
+    int ret = setuid(local.user().uid());
+    if (ret != 0) {
+      assert(0);
+    }
+    ret = setgid(local.user().gid());
     if (ret != 0) {
       assert(0);
     }
@@ -149,20 +158,6 @@ bool ProcessMgr::Exec(const Process& process) {
         assert(0);
       }
     } 
-    ret = setuid(local.user().uid());
-    if (ret != 0) {
-      assert(0);
-    }
-    ret = setgid(local.user().gid());
-    if (ret != 0) {
-      assert(0);
-    }
-    if (!local.pty().empty()) {
-      /*pid_t sid = setsid();
-      if (sid == -1) {
-        assert(0);
-      }*/
-    }
     if (local.use_bash_interceptor()) {
       std::string cmd;
       for (int32_t index = 0; index < local.args_size(); ++index) {
@@ -171,7 +166,6 @@ bool ProcessMgr::Exec(const Process& process) {
         }
         cmd += local.args(index);
       }
-      printf("use bash to exec cmd %s", cmd.c_str());
       char* argv[] = {
               const_cast<char*>("bash"),
               const_cast<char*>("-c"),
@@ -191,7 +185,6 @@ bool ProcessMgr::Exec(const Process& process) {
       for (int32_t index = 0; index < local.args_size(); ++index) {
         argv[index] = const_cast<char*>(local.args(index).c_str());
       }
-      printf("use self to exec cmd %s", cmd.c_str());
       argv[local.args_size()] = NULL;
       char* env[local.envs_size() + 1];
       int32_t env_index = 0;

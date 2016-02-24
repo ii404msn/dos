@@ -42,6 +42,8 @@ struct ContainerInfo {
   std::string fetcher_name;
   std::deque<ContainerLog> logs;
   int64_t start_pull_time;
+  // some batch or temp process
+  std::set<std::string> batch_process;
   ContainerInfo():container(), status(),
   work_dir(), gc_dir(), initd_endpoint(),
   initd_proc(), initd_config(NULL),
@@ -127,6 +129,7 @@ private:
 
   void HandleCompleteContainer(const ContainerState& pre_state,
                                const std::string& name);
+  std::string CurrentDatetimeStr();
 private:
   ::baidu::common::Mutex mutex_;
   typedef std::map<std::string, ContainerInfo*> Containers;

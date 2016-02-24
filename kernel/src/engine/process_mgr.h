@@ -31,7 +31,6 @@ public:
   ~ProcessMgr();
   // after exec a process , kill method must be invoked for free process data 
   bool Exec(const Process& process);
-  // 
   bool Clone(const Process& process, int flag);
   bool Wait(const std::string& name, Process* process);
   // kill process and clean data
