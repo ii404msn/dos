@@ -419,7 +419,7 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
       //TODO read from runtime.json 
       int flag = CLONE_FLAGS;
       if (info->container.type() == kSystem) {
-        flag = 0;
+        flag = CLONE_NEWUTS;
       }
       bool ok = info->initd_proc.Clone(initd, flag);
       if (!ok) {
