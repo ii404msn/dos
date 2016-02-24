@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 #include <sched.h>
+#include <time.h>
 #include <sys/wait.h>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/lexical_cast.hpp>
@@ -607,6 +608,7 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
         target_state = kContainerRunning;
       }
     } else if (pre_state == kContainerRunning) {
+      // forever reserve initd
       if (info->container.reserve_time() <=0) {
         StatusRequest request;
         StatusResponse response;
@@ -630,6 +632,10 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
       // check container process status
       WaitRequest request;
       request.add_names(name);
+      std::set<std::string>::iterator name_it = info->batch_process.begin();
+      for (; name_it != info->batch_process.end(); ++name_it) {
+        request.add_names(*name_it);
+      }
       WaitResponse response;
       if (info->initd_stub == NULL) {
         rpc_client_->GetStub(info->initd_endpoint, &info->initd_stub);
@@ -645,24 +651,33 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
         AppendLog(kContainerRunning, kContainerError, "fail to connect to initd", info);
         break;
       } else {
-        const Process& status = response.processes(0);
-        if (status.running()) {
-          target_state = kContainerRunning;
-          LOG(DEBUG, "container %s is under running", name.c_str());
-          exec_task_interval = FLAGS_ce_process_status_check_interval;
-          info->status.set_state(kContainerRunning);
-        }else if (status.exit_code() == 0) {
-          LOG(INFO, "container %s exit with 0", name.c_str());
-          target_state = kContainerCompleted;
-          AppendLog(kContainerRunning, kContainerCompleted, "container completed", info);
-          exec_task_interval = 0;
-          info->status.set_state(kContainerCompleted);
-        } else {
-          LOG(WARNING, "fail to check container %s status", name.c_str());
-          target_state = kContainerError;
-          exec_task_interval = 0;
-          info->status.set_state(kContainerError);
-          AppendLog(kContainerRunning, kContainerError, "fail to check container status", info);
+        for (int32_t p_index = 0; p_index < response.processes_size(); ++p_index) {
+          const Process& status = response.processes(p_index);
+          if (status.name() == name) {
+            if (status.running()) {
+              target_state = kContainerRunning;
+              LOG(DEBUG, "container %s is under running", name.c_str());
+              exec_task_interval = FLAGS_ce_process_status_check_interval;
+              info->status.set_state(kContainerRunning);
+            }else if (status.exit_code() == 0) {
+              LOG(INFO, "container %s exit with 0", name.c_str());
+              target_state = kContainerCompleted;
+              AppendLog(kContainerRunning, kContainerCompleted, "container completed", info);
+              exec_task_interval = 0;
+              info->status.set_state(kContainerCompleted);
+            } else {
+              LOG(WARNING, "fail to check container %s status", name.c_str());
+              target_state = kContainerError;
+              exec_task_interval = 0;
+              info->status.set_state(kContainerError);
+              AppendLog(kContainerRunning, kContainerError, "fail to check container status", info);
+            }
+          } else {
+            if (!status.running()) {
+              LOG(DEBUG, "clean process %s in pod %s", status.name().c_str(), name.c_str());
+              CleanProcessInInitd(status.name(), info);
+            }
+          }
         }
       }
     }
@@ -707,7 +722,8 @@ void EngineImpl::JailContainer(RpcController* controller,
   ForkRequest fork_request;
   fork_request.mutable_process()->CopyFrom(request->process());
   fork_request.mutable_process()->set_use_bash_interceptor(false);
-  fork_request.mutable_process()->set_name("jail_" + request->c_name());
+  std::string name = "jail_" + request->c_name() + CurrentDatetimeStr();
+  fork_request.mutable_process()->set_name(name);
   bool process_user_ok = HandleProcessUser(fork_request.mutable_process());
   if (!process_user_ok) {
     LOG(WARNING, "process user %s failed", fork_request.process().user().name().c_str());
@@ -715,6 +731,7 @@ void EngineImpl::JailContainer(RpcController* controller,
     done->Run();
     return;
   }
+  info->batch_process.insert(name);
   ForkResponse fork_response;
   bool fork_ok = rpc_client_->SendRequest(info->initd_stub, 
                                           &Initd_Stub::Fork,
@@ -730,6 +747,17 @@ void EngineImpl::JailContainer(RpcController* controller,
     response->set_status(kRpcError);
   }
   done->Run();
+}
+
+std::string EngineImpl::CurrentDatetimeStr() {
+  int64_t now = ::baidu::common::timer::get_micros();
+  char buffer[100];
+  time_t time = now / 1000000;
+  struct tm *tmp;
+  tmp = localtime(&time);
+  strftime(buffer, 100, "%F %X", tmp);
+  std::string ret(buffer);
+  return ret;
 }
 
 } // namespace dos
