@@ -396,7 +396,6 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
       Process initd;
       initd.set_cwd(info->work_dir);
       initd.add_args(FLAGS_ce_bin_path);
-      initd.add_args("initd");
       if (info->container.type() == kSystem) {
         initd.add_args("--ce_enable_ns=false");
       } else {

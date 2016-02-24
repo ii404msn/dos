@@ -12,6 +12,8 @@
 #include <gflags/gflags.h>
 #include <boost/lexical_cast.hpp>
 #include "engine/oc.h"
+#include <boost/bind.hpp>
+#include <boost/function.hpp>
 #include "engine/initd.h"
 #include "tprinter.h"
 #include "string_util.h"
@@ -52,13 +54,10 @@ using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
 using ::baidu::common::DEBUG;
 
+typedef boost::function<void ()> Handle;
+
 const std::string kDosCeUsage = "dos help message.\n"
                                 "Usage:\n"
-                                "    dos initd \n" 
-                                "    dos engine \n" 
-                                "    dos master \n" 
-                                "    dos scheduler \n" 
-                                "    dos let \n" 
                                 "    dos run -u <uri>  -n <name>\n" 
                                 "    dos submit -f <job.yml>\n"
                                 "    dos ps -j <job name> | -e <agent endpoint>\n"
@@ -449,26 +448,41 @@ void SubmitJob() {
   }
   fprintf(stderr, "fail to submit job for %d\n", status);
 }
+bool EndWiths(const std::string& str,
+              const std::string& suffix) {
+  if (str.length() >= suffix.length()) {
+     return (0 == str.compare (str.length() - suffix.length(), suffix.length(), suffix));
+  } else {
+     return false;
+  }
+}
 
 int main(int argc, char * args[]) {
   ::baidu::common::SetLogLevel(DEBUG);
   ::google::SetUsageMessage(kDosCeUsage);
-  if(argc < 2){
-    fprintf(stderr,"%s", kDosCeUsage.c_str());
-    return -1;
-  }
+  std::string bin(args[0]);
+  std::map<std::string, Handle> daemon_map;
+  daemon_map.insert(std::make_pair("initd", boost::bind(&StartInitd)));
+  daemon_map.insert(std::make_pair("engine", boost::bind(&StartEngine)));
+  daemon_map.insert(std::make_pair("master", boost::bind(&StartMaster)));
+  daemon_map.insert(std::make_pair("scheduler", boost::bind(&StartScheduler)));
+  daemon_map.insert(std::make_pair("let", boost::bind(&StartAgent)));
   ::google::ParseCommandLineFlags(&argc, &args, true);
+  std::map<std::string, Handle>::iterator h_it = daemon_map.begin();
+  bool find_daemon = false;
+  for (; h_it != daemon_map.end(); ++h_it) {
+    if (EndWiths(bin, h_it->first)) {
+      fprintf(stdout, "start daemon %s\n", h_it->first.c_str());
+      h_it->second();
+      find_daemon = true;
+    } 
+  }
+  if (find_daemon) {
+    return 0;
+  }
 	if (strcmp(args[1], "version") == 0 ) {
     PrintVersion();
     exit(0);
-  } else if (strcmp(args[1], "initd") == 0) {
-    StartInitd();
-  } else if (strcmp(args[1], "engine") == 0) {
-    StartEngine();
-  } else if (strcmp(args[1], "master") == 0) {
-    StartMaster();
-  } else if (strcmp(args[1], "let") == 0) {
-    StartAgent();
   } else if (strcmp(args[1], "run") == 0) {
     Run();
   } else if (strcmp(args[1], "ps") == 0) {
@@ -477,8 +491,6 @@ int main(int argc, char * args[]) {
     ShowLog();
   } else if (strcmp(args[1], "submit") == 0) {
     SubmitJob();
-  } else if (strcmp(args[1], "scheduler") == 0) {
-    StartScheduler();
   } else if (strcmp(args[1], "jail") == 0) {
     JailContainer();
   } else {
