@@ -19,7 +19,6 @@ using ::google::protobuf::Closure;
 namespace dos {
 
 struct ContainerInfo {
-  Container container;
   ContainerStatus status;
   // the work_dir layout 
   //  work_dir
@@ -38,7 +37,7 @@ struct ContainerInfo {
   int64_t start_pull_time;
   // some batch or temp process
   std::set<std::string> batch_process;
-  ContainerInfo():container(), status(),
+  ContainerInfo():status(),
   work_dir(), gc_dir(), initd_endpoint(),
   initd_proc(),
   initd_stub(NULL),

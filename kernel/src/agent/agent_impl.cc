@@ -5,6 +5,7 @@
 #include <boost/lexical_cast.hpp>
 #include <gflags/gflags.h>
 #include "util.h"
+#include "string_util.h"
 #include "common/resource_util.h"
 
 DECLARE_string(master_port);
@@ -106,14 +107,19 @@ void AgentImpl::Run(RpcController* controller,
   for (int32_t index = 0; index < request->pod().containers_size(); ++index) {
     std::string c_name = avilable_name.front();
     avilable_name.pop_front();
-    LOG(INFO, "add container %s", c_name.c_str());
+    const Container& spec = request->pod().containers(index);
+    LOG(INFO, "add container %s with cpu %d memory %s restart strategy %s",
+        c_name.c_str(),
+        spec.requirement().cpu().limit(),
+        ::baidu::common::HumanReadableString(spec.requirement().memory().limit()).c_str(),
+        RestartStrategy_Name(spec.restart_strategy()).c_str());
     ContainerIdx idx;
     idx.name_ = c_name;
     idx.pod_name_ = request->pod_name();
     idx.status_ = new ContainerStatus();
     idx.status_->set_name(c_name);
     idx.status_->set_state(kContainerPending);
-    idx.status_->mutable_spec()->CopyFrom(request->pod().containers(index));
+    idx.status_->mutable_spec()->CopyFrom(spec);
     idx.logs_ = new std::deque<PodLog>();
     c_set_->insert(idx);
     thread_pool_.AddTask(boost::bind(&AgentImpl::KeepContainer, this, c_name));
