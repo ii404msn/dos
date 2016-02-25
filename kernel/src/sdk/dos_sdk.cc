@@ -182,6 +182,7 @@ SdkStatus DosSdkImpl::Submit(const JobDescriptor& job) {
     container->set_reserve_time(10000);
     container->mutable_requirement()->mutable_cpu()->set_limit(job.pod.containers[i].millicores);
     container->mutable_requirement()->mutable_memory()->set_limit(job.pod.containers[i].memory);
+    container->set_restart_strategy(kAlways);
   }
   SubmitJobResponse response;
   bool rpc_ok = rpc_client_->SendRequest(master_, &Master_Stub::SubmitJob, 
