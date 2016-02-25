@@ -16,6 +16,7 @@
 DECLARE_int32(ce_initd_process_wait_interval);
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
+using ::baidu::common::DEBUG;
 
 namespace dos {
 
@@ -110,6 +111,7 @@ void InitdImpl::Wait(RpcController* controller,
                      WaitResponse* response,
                      Closure* done) {
   ::baidu::common::MutexLock lock(&mutex_);
+  LOG(DEBUG, "check initd process status");
   for (int i = 0; i < request->names_size(); i++) {
     std::map<std::string, Process>::iterator it = tasks_->find(request->names(i));
     if (it == tasks_->end()) {
@@ -128,6 +130,7 @@ void InitdImpl::Kill(RpcController* controller,
                      KillResponse* response,
                      Closure* done) {
   ::baidu::common::MutexLock lock(&mutex_);
+  LOG(DEBUG, "kill process in initd");
   std::set<std::string> will_be_removed;
   for (int i = 0; i < request->names_size(); i++) {
     std::string name = request->names(i);
@@ -141,8 +144,8 @@ void InitdImpl::Kill(RpcController* controller,
       LOG(INFO, "kill task with name %s successfully", name.c_str());
       will_be_removed.insert(name);
       continue;
-    }
-    LOG(WARNING, "killing task with name %s fails", name.c_str());
+    } 
+    LOG(WARNING, "kill task with name %s fails", name.c_str());
   }
   response->set_status(kRpcOk);
   done->Run();

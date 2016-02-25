@@ -48,3 +48,7 @@ initd 与托管进程维持父子关系，维持父子关系的好处就是，do
 #### 系统任务
 
 image fetcher 用于处理拉包解包 ，并且能够控制并发为了避免拉包解包风暴
+
+#### rootfs文件系统
+
+rootfs文件采用overlayfs

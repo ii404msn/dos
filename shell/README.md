@@ -54,5 +54,9 @@ log -a 1_container.3_pod.redis
 ```
 数据是造假出来的~，只是为了方便展示相关功能，从日志看起，容器在运行过程中出现过 *oom* *coredump*
 
+### 进入容器排查问题
 
+```
+jail -n 1_container.3_pod.redis
+```
 

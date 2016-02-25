@@ -18,13 +18,7 @@ using ::google::protobuf::Closure;
 
 namespace dos {
 
-struct InitdConfig {
-  std::string work_dir;
-  std::string port;
-};
-
 struct ContainerInfo {
-  Container container;
   ContainerStatus status;
   // the work_dir layout 
   //  work_dir
@@ -36,7 +30,6 @@ struct ContainerInfo {
   std::string gc_dir;
   std::string initd_endpoint;
   ProcessMgr initd_proc; 
-  InitdConfig* initd_config;
   Initd_Stub* initd_stub;
   int32_t initd_status_check_times;
   std::string fetcher_name;
@@ -44,16 +37,15 @@ struct ContainerInfo {
   int64_t start_pull_time;
   // some batch or temp process
   std::set<std::string> batch_process;
-  ContainerInfo():container(), status(),
+  ContainerInfo():status(),
   work_dir(), gc_dir(), initd_endpoint(),
-  initd_proc(), initd_config(NULL),
+  initd_proc(),
   initd_stub(NULL),
   initd_status_check_times(0),
   fetcher_name(),
   logs(),
   start_pull_time(0){}
   ~ContainerInfo() {
-    delete initd_config;
     delete initd_stub; 
   }
 };
@@ -119,8 +111,6 @@ private:
                  const std::string& msg,
                  ContainerInfo* info);
   void CleanProcessInInitd(const std::string& name, ContainerInfo* info);
-  void KillProcessCallback(const KillRequest* request, KillResponse* response,
-                           bool failed, int);
   // add user info to process
   bool HandleProcessUser(Process* process);
 
@@ -130,6 +120,8 @@ private:
   void HandleCompleteContainer(const ContainerState& pre_state,
                                const std::string& name);
   std::string CurrentDatetimeStr();
+
+  bool DoStartProcess(const std::string& name, ContainerInfo* info);
 private:
   ::baidu::common::Mutex mutex_;
   typedef std::map<std::string, ContainerInfo*> Containers;

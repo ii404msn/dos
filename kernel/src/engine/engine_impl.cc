@@ -58,8 +58,8 @@ bool EngineImpl::Init() {
     ::baidu::common::MutexLock lock(&mutex_);
     LOG(INFO, "start system container %s", name.c_str());
     ContainerInfo* info = new ContainerInfo();
-    info->container.set_type(kSystem);
-    info->container.set_reserve_time(0);
+    info->status.mutable_spec()->set_type(kSystem);
+    info->status.mutable_spec()->set_reserve_time(0);
     info->status.set_name(name);
     info->status.set_start_time(0);
     info->status.set_state(kContainerPending);
@@ -100,10 +100,12 @@ void EngineImpl::RunContainer(RpcController* controller,
   }
   //TODO container validate
   ContainerInfo* info = new ContainerInfo();
-  info->container = request->container();
   info->status.set_name(request->name());
   info->status.set_start_time(0);
+  info->status.set_boot_time(0);
+  info->status.set_health_state(kUnCalculated);
   info->status.set_state(kContainerPending);
+  info->status.mutable_spec()->CopyFrom(request->container());
   containers_->insert(std::make_pair(request->name(), info));
   response->set_status(kRpcOk);
   thread_pool_->AddTask(boost::bind(&EngineImpl::StartContainerFSM, this, request->name())); 
@@ -131,7 +133,7 @@ void EngineImpl::ShowContainer(RpcController* controller,
     container->set_name(it->second->status.name());
     container->set_start_time(it->second->status.start_time());
     container->set_state(it->second->status.state());
-    container->set_type(it->second->container.type());
+    container->set_type(it->second->status.spec().type());
     container->set_boot_time(it->second->status.boot_time());
   }
   response->set_status(kRpcOk);
@@ -139,9 +141,9 @@ void EngineImpl::ShowContainer(RpcController* controller,
 }
 
 void EngineImpl::ShowCLog(RpcController* controller,
-               const ShowCLogRequest* request,
-               ShowCLogResponse* response,
-               Closure* done) {
+                          const ShowCLogRequest* request,
+                          ShowCLogResponse* response,
+                          Closure* done) {
 
   ::baidu::common::MutexLock lock(&mutex_);
   Containers::iterator it = containers_->find(request->name());
@@ -225,17 +227,17 @@ void EngineImpl::HandlePullImage(const ContainerState& pre_state,
         AppendLog(pre_state, kContainerPulling, "fail to create work dir", info);
         break;
       }
-      if (info->container.type() == kSystem) {
+      if (info->status.spec().type() == kSystem) {
         // no need pull image when type is kSystem
         // eg image fetcher helper, monitor
         target_state = kContainerBooting;
         exec_task_interval = 0;
         AppendLog(kContainerPulling, kContainerBooting, "pull image ok", info);
         break;
-      } else if (info->container.type() == kOci) {
+      } else if (info->status.spec().type() == kOci) {
         // fetch oci rootfs by wget
         LOG(INFO, "start to pull image for container %s from uri %s", 
-            name.c_str(), info->container.uri().c_str());
+            name.c_str(), info->status.spec().uri().c_str());
         it = containers_->find(FLAGS_ce_image_fetcher_name);
         ContainerInfo* fetcher = it->second;
         if (fetcher->status.state() != kContainerRunning) {
@@ -254,7 +256,7 @@ void EngineImpl::HandlePullImage(const ContainerState& pre_state,
         //TODO optimalize fetch cmd builder 
         // add limit and retry
         std::string cmd = "cd " + info->work_dir;
-        cmd += " && wget -O rootfs.tar.gz " + info->container.uri();
+        cmd += " && wget -O rootfs.tar.gz " + info->status.spec().uri();
         cmd += " && tar -zxvf rootfs.tar.gz";
         ForkRequest request;
         ForkResponse response;
@@ -297,7 +299,7 @@ void EngineImpl::HandlePullImage(const ContainerState& pre_state,
   } else if (pre_state == kContainerPulling) {
     do {
       info->status.set_state(kContainerPulling);
-      if (info->container.type() == kOci) {
+      if (info->status.spec().type() == kOci) {
         it = containers_->find(FLAGS_ce_image_fetcher_name);
         ContainerInfo* fetcher = it->second;
         if (fetcher->status.state() != kContainerRunning) {
@@ -390,13 +392,13 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
       int32_t port = ports_->front();
       ports_->pop();
       LOG(INFO, "boot container %s with type %s initd in work dir %s with port %d", name.c_str(),
-          ContainerType_Name(info->container.type()).c_str(),
+          ContainerType_Name(info->status.spec().type()).c_str(),
           info->work_dir.c_str(), port);
       info->initd_endpoint = "127.0.0.1:" + boost::lexical_cast<std::string>(port);
       Process initd;
       initd.set_cwd(info->work_dir);
       initd.add_args(FLAGS_ce_bin_path);
-      if (info->container.type() == kSystem) {
+      if (info->status.spec().type() == kSystem) {
         initd.add_args("--ce_enable_ns=false");
       } else {
         initd.add_args("--ce_initd_conf_path=./runtime.json");
@@ -417,7 +419,7 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
       }
       //TODO read from runtime.json 
       int flag = CLONE_FLAGS;
-      if (info->container.type() == kSystem) {
+      if (info->status.spec().type() == kSystem) {
         flag = CLONE_NEWUTS;
       }
       bool ok = info->initd_proc.Clone(initd, flag);
@@ -483,11 +485,11 @@ void EngineImpl::HandleError(const ContainerState& pre_state,
   info->status.set_state(kContainerError);
   info->status.set_start_time(0);
   LOG(WARNING, "container %s go to %s state", name.c_str(), ContainerState_Name(info->status.state()).c_str());
-  if (info->container.reserve_time() > 0 && pre_state != kContainerReserving) {
+  if (info->status.spec().reserve_time() > 0 && pre_state != kContainerReserving) {
     info->status.set_state(kContainerReserving);
     AppendLog(kContainerError, kContainerReserving, "enter reserving state", info);
     ProcessHandleResult(kContainerError, kContainerReserving,
-                        name, info->container.reserve_time());
+                        name, info->status.spec().reserve_time());
   } else {
     LOG(INFO, "container %s enter error", name.c_str());
   }
@@ -509,26 +511,59 @@ void EngineImpl::HandleCompleteContainer(const ContainerState& pre_state,
 
 void EngineImpl::CleanProcessInInitd(const std::string& name, ContainerInfo* info) {
   mutex_.AssertHeld();
-  LOG(INFO, "clean process %s", name.c_str());
-  KillRequest* request = new KillRequest();
-  request->add_names(name);
-  KillResponse* response = new KillResponse();
-  boost::function< void (const KillRequest*, KillResponse*, bool, int)> callback;
-  callback = boost::bind(&EngineImpl::KillProcessCallback, this, _1, _2, _3, _4);
-  rpc_client_->AsyncRequest(info->initd_stub, 
-                            &Initd_Stub::Kill,
-                            request, 
-                            response, 
-                            callback, 
-                            5,0);
+  KillRequest request;
+  request.add_names(name);
+  KillResponse response;
+  bool ok = rpc_client_->SendRequest(info->initd_stub, 
+                                     &Initd_Stub::Kill,
+                                     &request, 
+                                     &response, 
+                                     5,1);
+  if (!ok || response.status() != kRpcOk) {
+    LOG(WARNING, "fail to clean process %s for %s", 
+        name.c_str(),
+        RpcStatus_Name(response.status()).c_str());
+  } else {
+    LOG(INFO, "clean process %s successfully", name.c_str());
+  }
 }
 
-void EngineImpl::KillProcessCallback(const KillRequest* request,
-                                     KillResponse* response,
-                                     bool failed,
-                                     int) {
-  delete response;
-  delete request;
+
+bool EngineImpl::DoStartProcess(const std::string& name,
+                                ContainerInfo* info) {
+  mutex_.AssertHeld();
+  std::string config_path = info->work_dir + "/config.json";
+  dos::Config config;
+  bool load_ok = dos::LoadConfig(config_path, &config);
+  if (!load_ok) {
+    LOG(WARNING, "fail to load config.json");
+    info->status.set_state(kContainerError);
+    AppendLog(info->status.state(), kContainerError, "fail to load config.json", info);
+    return false;
+  }
+  ForkRequest request;
+  config.process.set_name(name);
+  request.mutable_process()->CopyFrom(config.process);
+  // use bash interceptor to exec command
+  request.mutable_process()->set_use_bash_interceptor(true);
+  bool process_user_ok = HandleProcessUser(request.mutable_process());
+  if (!process_user_ok) {
+    LOG(WARNING, "fail to process user %s", request.process().user().name().c_str());
+    AppendLog(info->status.state(), kContainerError, "fail to process user ", info);
+    return false;
+  }
+  ForkResponse response;
+  bool rpc_ok = rpc_client_->SendRequest(info->initd_stub, 
+                         &Initd_Stub::Fork,
+                         &request, &response, 5, 1);
+  rpc_ok = rpc_ok && response.status() == kRpcOk;
+  if (!rpc_ok) {
+    LOG(WARNING, "fail send request to initd %s for container %s",
+        info->initd_endpoint.c_str(),
+        name.c_str());
+    AppendLog(info->status.state(), kContainerError, "fail to process user ", info);
+  }
+  return rpc_ok;
 }
 
 void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
@@ -552,7 +587,7 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
       }
       bool rpc_ok = false;
       // handle reserved container which only has initd
-      if (info->container.reserve_time() <= 0) {
+      if (info->status.spec().reserve_time() <= 0) {
         StatusRequest request;
         StatusResponse response;
         rpc_ok = rpc_client_->SendRequest(info->initd_stub, 
@@ -560,36 +595,7 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
                                           &request, &response, 5, 1);
         rpc_ok = rpc_ok && response.status() == kRpcOk;
       } else {
-        std::string config_path = info->work_dir + "/config.json";
-        dos::Config config;
-        bool load_ok = dos::LoadConfig(config_path, &config);
-        if (!load_ok) {
-          LOG(WARNING, "fail to load config.json");
-          target_state = kContainerError;
-          exec_task_interval = 0;
-          info->status.set_state(kContainerError);
-          AppendLog(kContainerRunning, kContainerError, "fail to load config.json", info);
-          break;
-        }
-        ForkRequest request;
-        config.process.set_name(name);
-        request.mutable_process()->CopyFrom(config.process);
-        // use bash interceptor to exec command
-        request.mutable_process()->set_use_bash_interceptor(true);
-        bool process_user_ok = HandleProcessUser(request.mutable_process());
-        if (!process_user_ok) {
-          LOG(WARNING, "fail to process user %s", request.process().user().name().c_str());
-          target_state = kContainerError;
-          exec_task_interval = 0;
-          AppendLog(kContainerPulling, kContainerError, "fail to process user ",
-              info);
-          break;
-        }
-        ForkResponse response;
-        rpc_ok = rpc_client_->SendRequest(info->initd_stub, 
-                               &Initd_Stub::Fork,
-                               &request, &response, 5, 1);
-        rpc_ok = rpc_ok && response.status() == kRpcOk;
+        rpc_ok = DoStartProcess(name, info);
       }
       if (!rpc_ok) {
         LOG(WARNING, "fail to fork process for container %s", name.c_str());
@@ -608,7 +614,7 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
       }
     } else if (pre_state == kContainerRunning) {
       // forever reserve initd
-      if (info->container.reserve_time() <=0) {
+      if (info->status.spec().reserve_time() <=0) {
         StatusRequest request;
         StatusResponse response;
         bool rpc_ok = rpc_client_->SendRequest(info->initd_stub, 
@@ -670,6 +676,21 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
               exec_task_interval = 0;
               info->status.set_state(kContainerError);
               AppendLog(kContainerRunning, kContainerError, "fail to check container status", info);
+              if (info->status.spec().restart_strategy() == kAlways) {
+                LOG(DEBUG, "process always restart process for container %s", name.c_str());
+                CleanProcessInInitd(status.name(), info);
+                bool restart_ok = DoStartProcess(status.name(), info);
+                target_state = kContainerRunning;
+                exec_task_interval = FLAGS_ce_process_status_check_interval;
+                info->status.set_restart_count(info->status.restart_count() + 1);
+                if (restart_ok) {
+                  LOG(INFO, "restart container %s successfully", status.name().c_str());
+                } else {
+                  LOG(WARNING, "fail to restart container %s", status.name().c_str());
+                }
+              } else  {
+                LOG(DEBUG, "container restart strategy %s", RestartStrategy_Name(info->status.spec().restart_strategy()).c_str());
+              }
             }
           } else {
             if (!status.running()) {
