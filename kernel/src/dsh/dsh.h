@@ -20,6 +20,7 @@ public:
 private:
   bool PrepareStdio(const YAML::Node& config);
   bool PrepareUser(const YAML::Node& config);
+  void Exec(const YAML::Node& config);
 };
 
 } // namespace dos

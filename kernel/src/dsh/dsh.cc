@@ -64,6 +64,7 @@ bool Dsh::LoadYml(const std::string& path) {
     _exit(-1);
   }
 
+
 }
 
 bool Dsh::PrepareUser(const YAML::Node& config) {
@@ -93,6 +94,20 @@ bool Dsh::PrepareUser(const YAML::Node& config) {
         strerror(errno));
     return false;
   }
+  if (config["hostname"]) {
+    std::string hostname = config["hostname"].as<std::string>();
+    if (!hostname.empty()) {
+      int set_hostname_ok = sethostname(hostname.c_str(),
+                                        hostname.length());
+      if (set_hostname_ok != 0) {
+        LOG(WARNING, "fail to set hostname %s for process %s with err %s",
+           hostname.c_str(),
+           name.c_str(),
+           strerror(errno));
+        return false;
+      }
+    }
+  }
   return true;
 }
 
@@ -113,6 +128,7 @@ bool Dsh::PrepareStdio(const YAML::Node& config) {
   int stdout_fd = -1;
   int stderr_fd = -1;
   int stdin_fd = -1;
+  // TODO close fd when return false
   if (pty.empty()) {
     LOG(INFO, "create stdio with stdout and stderr files for process %s",
         name.c_str());
@@ -143,6 +159,12 @@ bool Dsh::PrepareStdio(const YAML::Node& config) {
     stdout_fd = pty_fd;
     stderr_fd = pty_fd;
     stdin_fd = pty_fd;
+    pid_t sid = setsid();
+    if (sid == -1) {
+      LOG(WARNING, "fail to set sid for process %s with err %s",
+          name.c_str(), strerror(error));
+      return false;
+    }
   }
 
   if (stdout_fd != -1) {
@@ -175,6 +197,31 @@ bool Dsh::PrepareStdio(const YAML::Node& config) {
     }
   }
   return true;
+}
+
+
+void Dsh::Exec(const YAML::Node& config) {
+  std::string name = config["name"].as<std::string>();
+  if (!config["args"]) {
+    LOG(WARNING, "args is required for process %s", name.c_str());  
+    return; 
+  }
+  if (!config["interceptor"]) {
+    LOG(WARNING, "interceptor is required for process %s", name.c_str());
+    return;
+  }
+  std::string interceptor = config["intercepor"].as<std::string>();
+  char* args[config["args"].size() + 1];
+  for (int32_t index = 0; index < config["args"].size(); ++index) {
+    args[index] = const_cast<char*>(config["args"][index].as<std::string>().c_str());
+  }
+  args[config["args"].size()] = NULL; 
+  char* envs[config["envs"].size() + 1];
+  for (int32_t index = 0; index < confg["envs"].size(); ++index) {
+    envs[index] = const_cast<char*>(config["envs"][index].as<std::string>().c_str());
+  }
+  envs[config["envs"].size()] = NULL;
+  ::execve(interceptor.c_str(), args, env);
 }
 
 } // namespace dos
