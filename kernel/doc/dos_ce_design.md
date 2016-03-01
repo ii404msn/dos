@@ -52,3 +52,40 @@ image fetcher 用于处理拉包解包 ，并且能够控制并发为了避免�
 #### rootfs文件系统
 
 rootfs文件采用overlayfs
+
+
+#### 启动initd流程
+
+操作步骤
+* 配置主机名，重定向stdout,stdin,stderr,配置账户，等相关操作
+* mount rootfs需要的设备，sysfs procfs , chroot
+* exec initd 进程
+
+从上面可以看出，在启动initd进程前会执行很多系统调用操作, 但是这些操作放到哪个模块执行了
+* 放到clone 与 exec 之间
+* clone后直接exec, 然后initd启动时再进行相关操作
+
+第一种方式，实现很简单，因为clone 和 exec之间能够共享内存，直接使用内存相关变量进行相关系统操作，但是存在一些死锁问题，
+因为engine是一个多线程环境， clone会复制一块内存，如果内存中某些锁没有释放，然后在子进程去获得锁，则会死锁。
+第二章方式，实现略复杂，因为没法使用共享内存，所以需要通过文件把上下文传到子进程里面去，dsh 在单线程环境进行相关操作，然后exec initd
+
+启动initd会使用clone系统调用，但是clone后必须马上进行exec, 如果在clone与exec之间执行一些代码，比如fprintf可能出现死锁情况。
+* 生成initd.yml 放到{rootfs}/etc/initd.yml 
+* 启动dsh, dsh -c {rootfs}/etc/initd.yml
+
+initd.yml 内容
+
+```
+#容器hostname
+hostname: 0_container.0_pod.redis
+stdout:{rootfs}/log/stdout
+stderr:{rootfs}/log/stderr
+cwd:/home/redis
+uid:0
+gid:0
+interceptor:/bin/initd
+args:
+  -initd
+  -"--flagfile="
+```
+
