@@ -1,3 +1,8 @@
+mkdir -p cores
+chmod a+rwx cores
+WORK_DIR=`pwd`
+echo "$WORK_DIR/cores/core.%e.%p.%h.%t" > /proc/sys/kernel/core_pattern
+ulimit -c unlimited
 rm -rf core dos
 cp ../dos dos
 ln -s -f ./dos master
@@ -5,6 +10,8 @@ ln -s -f ./dos scheduler
 ln -s -f ./dos let
 ln -s -f ./dos engine
 ln -s -f ./dos initd
+ln -s -f ./dos dsh
+cp -rf ./dos /bin/dsh
 sh stop_all.sh
 sh clean_work_dir.sh
 echo "start engine"
