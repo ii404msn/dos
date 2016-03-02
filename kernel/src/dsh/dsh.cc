@@ -1,11 +1,11 @@
 #include "dsh/dsh.h"
 
+#include <fstream> 
 #include <sys/ioctl.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include "yaml-cpp/yaml.h"
 #include "logging.h"
 
 using ::baidu::common::INFO;
@@ -13,6 +13,9 @@ using ::baidu::common::WARNING;
 using ::baidu::common::DEBUG;
 
 namespace dos {
+
+const static int STD_FILE_OPEN_FLAG = O_CREAT | O_APPEND | O_WRONLY;
+const static int STD_FILE_OPEN_MODE = S_IRWXU | S_IRWXG | S_IROTH;
 
 Dsh::Dsh() {}
 Dsh::~Dsh () {}
@@ -22,7 +25,7 @@ bool Dsh::GenYml(const Process& process,
                  bool is_leader) {
   YAML::Node node;
   node["process"]["name"] = process.name();
-  node["process"]["hostname"] = process.hostname();
+  node["process"]["hostname"] = process.name();
   node["process"]["uid"] = process.user().uid(); 
   node["process"]["gid"] = process.user().gid(); 
   node["process"]["cwd"] = process.user().home();
@@ -41,7 +44,7 @@ bool Dsh::GenYml(const Process& process,
 }
 
 
-bool Dsh::LoadYml(const std::string& path) {
+bool Dsh::LoadAndRunByYml(const std::string& path) {
   YAML::Node config = YAML::LoadFile(path);
   if (!config["name"]) {
     LOG(WARNING, "name is required in config %s", path.c_str());
@@ -63,12 +66,14 @@ bool Dsh::LoadYml(const std::string& path) {
         path.c_str());
     _exit(-1);
   }
-
-
+  Exec(config);
+  LOG(WARNING, "process %s exit", name.c_str());
+  _exit(-1);
 }
 
 bool Dsh::PrepareUser(const YAML::Node& config) {
   std::string name = config["name"].as<std::string>();
+  LOG(INFO, "set use config for process %s", name.c_str());
   if (!config["uid"]) {
     LOG(WARNING, "uid is required for process %s", name.c_str());
     return false;
@@ -82,7 +87,7 @@ bool Dsh::PrepareUser(const YAML::Node& config) {
   int ret = ::setuid(config["uid"].as<int32_t>());
   if (ret != 0) {
     LOG(WARNING, "fail to set uid %d for process %s with err %s",
-        config["uid"].as<int32_t>(), process.c_str(),
+        config["uid"].as<int32_t>(), name.c_str(),
         strerror(errno));
     return false;
   }
@@ -90,7 +95,7 @@ bool Dsh::PrepareUser(const YAML::Node& config) {
   ret = ::setgid(config["gid"].as<int32_t>());
   if (ret != 0) {
     LOG(WARNING, "fail to set gid %d for process %s with err %s",
-        config["gid"].as<int32_t>(), process.c_str(),
+        config["gid"].as<int32_t>(), name.c_str(),
         strerror(errno));
     return false;
   }
@@ -162,7 +167,7 @@ bool Dsh::PrepareStdio(const YAML::Node& config) {
     pid_t sid = setsid();
     if (sid == -1) {
       LOG(WARNING, "fail to set sid for process %s with err %s",
-          name.c_str(), strerror(error));
+          name.c_str(), strerror(errno));
       return false;
     }
   }
@@ -212,16 +217,16 @@ void Dsh::Exec(const YAML::Node& config) {
   }
   std::string interceptor = config["intercepor"].as<std::string>();
   char* args[config["args"].size() + 1];
-  for (int32_t index = 0; index < config["args"].size(); ++index) {
+  for (uint32_t index = 0; index < config["args"].size(); ++index) {
     args[index] = const_cast<char*>(config["args"][index].as<std::string>().c_str());
   }
   args[config["args"].size()] = NULL; 
   char* envs[config["envs"].size() + 1];
-  for (int32_t index = 0; index < confg["envs"].size(); ++index) {
+  for (uint32_t index = 0; index < config["envs"].size(); ++index) {
     envs[index] = const_cast<char*>(config["envs"][index].as<std::string>().c_str());
   }
   envs[config["envs"].size()] = NULL;
-  ::execve(interceptor.c_str(), args, env);
+  ::execve(interceptor.c_str(), args, envs);
 }
 
 } // namespace dos

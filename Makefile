@@ -9,7 +9,7 @@ CC = gcc
 CXX = g++
 
 SHARED_CFLAGS = -fPIC
-SHARED_LDFLAGS = -shared -Wl,-soname -Wl,
+SHARED_LDFLAGS = -static-libgcc -static-libstdc++  -Wl,-soname -Wl,
 
 INCPATH += -I./kernel/src $(DEPS_INCPATH) 
 CFLAGS += -std=c99 $(OPT) $(SHARED_CFLAGS) $(INCPATH)
@@ -46,6 +46,10 @@ KERNEL_SCHEDULER_SRC = $(wildcard kernel/src/scheduler/*.cc)
 KERNEL_SCHEDULER_OBJ = $(patsubst %.cc, %.o, $(KERNEL_SCHEDULER_SRC))
 KERNEL_SCHEDULER_HEADER = $(wildcard kernel/src/scheduler/*.h)
 
+KERNEL_DSH_SRC = $(wildcard kernel/src/dsh/*.cc)
+KERNEL_DSH_OBJ = $(patsubst %.cc, %.o, $(KERNEL_DSH_SRC))
+KERNEL_DSH_HEADER = $(wildcard kernel/src/dsh/*.h)
+
 
 KERNEL_CMD_SRC = $(wildcard kernel/src/cmd/*.cc)
 KERNEL_CMD_OBJ = $(patsubst %.cc, %.o, $(KERNEL_CMD_SRC))
@@ -63,11 +67,11 @@ $(KERNEL_MASTER_OBJ) $(KERNEL_AGENT_OBJ): $(KERNEL_PROTO_HEADER)
 
 $(KERNEL_ENGINE_OBJ): $(KERNEL_ENGINE_SDK_OBJ)
 
-$(KERNEL_CMD_OBJ) : $(KERNEL_AGENT_OBJ) $(KERNEL_ENGINE_OBJ) $(KERNEL_MASTER_OBJ) $(KERNEL_SCHEDULER_OBJ)
+$(KERNEL_CMD_OBJ) : $(KERNEL_AGENT_OBJ) $(KERNEL_ENGINE_OBJ) $(KERNEL_MASTER_OBJ) $(KERNEL_SCHEDULER_OBJ) $(KERNEL_DSH_OBJ)
 
 # Targets
 dos: $(KERNEL_CMD_OBJ) $(KERNEL_OBJS)
-	$(CXX) $(KERNEL_AGENT_OBJ) $(KERNEL_CMD_OBJ) $(KERNEL_ENGINE_SDK_OBJ) $(KERNEL_ENGINE_OBJ) $(KERNEL_MASTER_OBJ)  $(KERNEL_SCHEDULER_OBJ) $(KERNEL_OBJS) -o $@  $(LDFLAGS)
+	$(CXX) $(KERNEL_AGENT_OBJ) $(KERNEL_CMD_OBJ) $(KERNEL_ENGINE_SDK_OBJ) $(KERNEL_ENGINE_OBJ) $(KERNEL_MASTER_OBJ)  $(KERNEL_DSH_OBJ) $(KERNEL_SCHEDULER_OBJ) $(KERNEL_OBJS) -o $@  $(LDFLAGS)
 
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) $(INCLUDE) -c $< -o $@

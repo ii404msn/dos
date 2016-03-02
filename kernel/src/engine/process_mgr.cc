@@ -107,12 +107,10 @@ bool ProcessMgr::Exec(const Process& process) {
     LOG(WARNING, "fail create workdir %s", local.cwd().c_str());
     return false;
   }
-  int stdout_fd = -1;
-  int stderr_fd = -1;
-  int stdin_fd = -1;
-  ok = ResetIo(local, stdout_fd, stderr_fd, stdin_fd);
+  std::string dproc = "/dproc/" + process.name();
+  ok = MkdirRecur(dproc);
   if (!ok) {
-    LOG(WARNING, "fail to create stdout stderr descriptor for process %s", local.name().c_str());
+    LOG(WARNING, "fail create dproc dir %s", dproc.c_str());
     return false;
   }
   std::set<int> openfds;
@@ -126,8 +124,8 @@ bool ProcessMgr::Exec(const Process& process) {
     LOG(WARNING, "fail to fork process %s", local.name().c_str());
     return false;
   }else if (pid == 0) {
+    // close fds that are copied from parent
     std::set<int>::iterator fd_it = openfds.begin();
-    Dup2(stdout_fd, stderr_fd, stdin_fd);
     for (; fd_it !=  openfds.end(); ++fd_it) {
       int fd = *fd_it;
       if (fd == STDOUT_FILENO
@@ -136,82 +134,16 @@ bool ProcessMgr::Exec(const Process& process) {
         continue;
       }
       close(fd);
-    }
-    if (!local.pty().empty()) {
-      pid_t sid = setsid();
-      if (sid == -1) {
-        assert(0);
-      }
-      ioctl(0, TIOCSCTTY, 1);
-    }
-    int ret = setuid(local.user().uid());
-    if (ret != 0) {
-      assert(0);
-    }
-    ret = setgid(local.user().gid());
-    if (ret != 0) {
-      assert(0);
-    }
-    if (!local.cwd().empty()) { 
-      ret = chdir(local.cwd().c_str());
-      if (ret != 0) {
-        assert(0);
-      }
     } 
-    if (local.use_bash_interceptor()) {
-      std::string cmd;
-      for (int32_t index = 0; index < local.args_size(); ++index) {
-        if (index > 0) {
-          cmd += " ";
-        }
-        cmd += local.args(index);
-      }
-      char* argv[] = {
-              const_cast<char*>("bash"),
-              const_cast<char*>("-c"),
-              const_cast<char*>(cmd.c_str()),
-              NULL};
-      char* env[local.envs_size() + 1];
-      int32_t env_index = 0;
-      for (; env_index < local.envs_size(); env_index ++) { 
-        env[env_index] =const_cast<char*>(local.envs(env_index).c_str());
-      }
-      env[env_index+1] = NULL;
-      ::execve("/bin/bash", argv, env);
-      assert(0);
-    } else {
-      char* argv[local.args_size() + 1];
-      std::string cmd;
-      for (int32_t index = 0; index < local.args_size(); ++index) {
-        argv[index] = const_cast<char*>(local.args(index).c_str());
-      }
-      argv[local.args_size()] = NULL;
-      char* env[local.envs_size() + 1];
-      int32_t env_index = 0;
-      for (; env_index < local.envs_size(); env_index ++) { 
-        env[env_index] = const_cast<char*>(local.envs(env_index).c_str());
-      }
-      env[env_index+1] = NULL;
-      ::execve(argv[0], argv, env);
-      assert(0);
-    }
+    
   }else {
-    if (stdout_fd != -1) {
-      ::close(stdout_fd);
-    }
-    if (stderr_fd != -1) {
-      ::close(stderr_fd);
-    }
-    if (stdin_fd != -1) {
-      ::close(stdin_fd);
-    }
     local.set_pid(pid);
     local.set_gpid(pid);
     local.set_running(true);
     processes_->insert(std::make_pair(local.name(), local));
     LOG(INFO, "create process %s successfully with pid %d", local.name().c_str(), local.pid());
-    return true;
   }
+  return true;
 }
 
 bool ProcessMgr::Clone(const Process& process, int flag) { 

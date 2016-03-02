@@ -257,7 +257,7 @@ void EngineImpl::HandlePullImage(const ContainerState& pre_state,
         // add limit and retry
         std::string cmd = "cd " + info->work_dir;
         cmd += " && wget -O rootfs.tar.gz " + info->status.spec().uri();
-        cmd += " && tar -zxvf rootfs.tar.gz";
+        cmd += " && tar -zxvf rootfs.tar.gz && cp " + FLAGS_ce_bin_path + " ./rootfs/bin/dsh";
         ForkRequest request;
         ForkResponse response;
         Process fetch_process;
@@ -544,8 +544,6 @@ bool EngineImpl::DoStartProcess(const std::string& name,
   ForkRequest request;
   config.process.set_name(name);
   request.mutable_process()->CopyFrom(config.process);
-  // use bash interceptor to exec command
-  request.mutable_process()->set_use_bash_interceptor(true);
   bool process_user_ok = HandleProcessUser(request.mutable_process());
   if (!process_user_ok) {
     LOG(WARNING, "fail to process user %s", request.process().user().name().c_str());
@@ -741,7 +739,6 @@ void EngineImpl::JailContainer(RpcController* controller,
   ContainerInfo* info = it->second;
   ForkRequest fork_request;
   fork_request.mutable_process()->CopyFrom(request->process());
-  fork_request.mutable_process()->set_use_bash_interceptor(false);
   std::string name = "jail_" + request->c_name() + CurrentDatetimeStr();
   fork_request.mutable_process()->set_name(name);
   bool process_user_ok = HandleProcessUser(fork_request.mutable_process());
