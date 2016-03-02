@@ -22,53 +22,54 @@ Dsh::~Dsh () {}
 
 bool Dsh::GenYml(const Process& process, 
                  const std::string& path,
-                 bool is_leader) {
+                 bool is_leader,
+                 const std::string& hostname) {
   YAML::Node node;
-  node["process"]["name"] = process.name();
-  node["process"]["hostname"] = process.name();
-  node["process"]["uid"] = process.user().uid(); 
-  node["process"]["gid"] = process.user().gid(); 
-  node["process"]["cwd"] = process.user().home();
-  node["process"]["interceptor"] = process.interceptor();
+  node["name"] = process.name();
+  node["hostname"] = hostname;
+  node["uid"] = process.user().uid(); 
+  node["gid"] = process.user().gid(); 
+  node["cwd"] = process.user().home();
+  node["interceptor"] = process.interceptor();
   for (int32_t index = 0; index < process.args_size(); ++index) {
-    node["process"]["args"].push_back(process.args(index));
+    node["args"].push_back(process.args(index));
   }
   for (int32_t index = 0; index < process.envs_size(); ++index) {
-    node["process"]["envs"].push_back(process.envs(index));
+    node["envs"].push_back(process.envs(index));
   }
-  node["process"]["is_leader"] = is_leader; 
-  node["process"]["pty"] = process.pty();
+  node["is_leader"] = is_leader; 
+  node["pty"] = process.pty();
   std::ofstream out(path.c_str());
   out << node;
   return true;
 }
 
 
-bool Dsh::LoadAndRunByYml(const std::string& path) {
+void Dsh::LoadAndRunByYml(const std::string& path) {
   YAML::Node config = YAML::LoadFile(path);
   if (!config["name"]) {
     LOG(WARNING, "name is required in config %s", path.c_str());
-    _exit(-1);
+    exit(-1);
   }
   std::string name = config["name"].as<std::string>();
-  LOG(INFO, "start process %s with config %s", name.c_str(), path.c_str());
-  bool user_ok = PrepareUser(config);
-  if (user_ok) {
-    LOG(WARNING, "fail to prepare user for process %s with config %s",
-        name.c_str(),
-        path.c_str());
-    _exit(-1);
-  }
   bool io_ok = PrepareStdio(config);
-  if (io_ok) {
+  if (!io_ok) {
     LOG(WARNING, "fail to prepare stdio for process %s with config %s",
         name.c_str(),
         path.c_str());
-    _exit(-1);
+    exit(-1);
+  }
+  LOG(INFO, "start process %s with config %s", name.c_str(), path.c_str());
+  bool user_ok = PrepareUser(config);
+  if (!user_ok) {
+    LOG(WARNING, "fail to prepare user for process %s with config %s",
+        name.c_str(),
+        path.c_str());
+    exit(-1);
   }
   Exec(config);
   LOG(WARNING, "process %s exit", name.c_str());
-  _exit(-1);
+  exit(-1);
 }
 
 bool Dsh::PrepareUser(const YAML::Node& config) {
@@ -135,8 +136,9 @@ bool Dsh::PrepareStdio(const YAML::Node& config) {
   int stdin_fd = -1;
   // TODO close fd when return false
   if (pty.empty()) {
-    LOG(INFO, "create stdio with stdout and stderr files for process %s",
-        name.c_str());
+    LOG(INFO, "create stdio with stdout and stderr files for process %s in dir %s",
+        name.c_str(),
+        cwd.c_str());
     std::string stdout_path = cwd + "/stdout";
     std::string stderr_path = cwd + "/stderr";
     stdout_fd = open(stdout_path.c_str(), STD_FILE_OPEN_FLAG, STD_FILE_OPEN_MODE);
@@ -170,6 +172,7 @@ bool Dsh::PrepareStdio(const YAML::Node& config) {
           name.c_str(), strerror(errno));
       return false;
     }
+    ioctl(0, TIOCSCTTY, 1);
   }
 
   if (stdout_fd != -1) {
@@ -201,6 +204,7 @@ bool Dsh::PrepareStdio(const YAML::Node& config) {
       return false;
     }
   }
+  LOG(INFO, "prepare stdio for process %s successfully", name.c_str());
   return true;
 }
 
@@ -215,17 +219,29 @@ void Dsh::Exec(const YAML::Node& config) {
     LOG(WARNING, "interceptor is required for process %s", name.c_str());
     return;
   }
-  std::string interceptor = config["intercepor"].as<std::string>();
+  std::string log = "start process with comand [ ";
+  std::string interceptor = config["interceptor"].as<std::string>();
   char* args[config["args"].size() + 1];
   for (uint32_t index = 0; index < config["args"].size(); ++index) {
     args[index] = const_cast<char*>(config["args"][index].as<std::string>().c_str());
+    log += config["args"][index].as<std::string>() + " ";
   }
+  log += "] with envs [ ";
   args[config["args"].size()] = NULL; 
-  char* envs[config["envs"].size() + 1];
-  for (uint32_t index = 0; index < config["envs"].size(); ++index) {
-    envs[index] = const_cast<char*>(config["envs"][index].as<std::string>().c_str());
+  uint32_t envs_size = 0;
+  if (config["envs"]) {
+    envs_size = config["envs"].size();
   }
-  envs[config["envs"].size()] = NULL;
+  char* envs[envs_size + 1];
+  if (config["envs"]) {
+    for (uint32_t index = 0; index < config["envs"].size(); ++index) {
+      envs[index] = const_cast<char*>(config["envs"][index].as<std::string>().c_str());
+      log += config["envs"][index].as<std::string>() + " ";
+    }
+  } 
+  log += "]";
+  LOG(INFO, "%s", log.c_str());
+  envs[envs_size] = NULL;
   ::execve(interceptor.c_str(), args, envs);
 }
 

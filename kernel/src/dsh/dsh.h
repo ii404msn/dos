@@ -15,11 +15,12 @@ public:
   // if is_leader equals true, setsid is invoked 
   bool GenYml(const Process& process,
               const std::string& path,
-              bool is_leader);
+              bool is_leader,
+              const std::string& hostname);
 
   // load yaml from local disk , the path
   // is abusolutly path
-  bool LoadAndRunByYml(const std::string& path);
+  void LoadAndRunByYml(const std::string& path);
 private:
   bool PrepareStdio(const YAML::Node& config);
   bool PrepareUser(const YAML::Node& config);

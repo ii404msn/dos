@@ -261,9 +261,12 @@ void EngineImpl::HandlePullImage(const ContainerState& pre_state,
         ForkRequest request;
         ForkResponse response;
         Process fetch_process;
+        request.mutable_process()->add_args("bash");
+        request.mutable_process()->add_args("-c");
         request.mutable_process()->add_args(cmd);
         request.mutable_process()->set_name(info->fetcher_name);
         request.mutable_process()->set_terminal(false);
+        request.mutable_process()->set_interceptor("/bin/bash");
         // user root for fetcher
         request.mutable_process()->mutable_user()->set_name("root");
         bool process_user_ok = HandleProcessUser(request.mutable_process());

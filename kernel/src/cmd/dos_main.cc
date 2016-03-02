@@ -172,7 +172,7 @@ void JailContainer() {
   process.envs.push_back("LINES="+ boost::lexical_cast<std::string>(FLAGS_terminal_lines));
   process.envs.push_back("COLUMES="+ boost::lexical_cast<std::string>(FLAGS_terminal_columes));
   process.envs.push_back("TERM="+ FLAGS_term);
-  process.cmds = "/bin/bash";
+  process.cmds = "bash";
   process.user = "root";
   process.pty = pty_path;
   dos::EngineSdk* engine = dos::EngineSdk::Connect(FLAGS_ce_endpoint);

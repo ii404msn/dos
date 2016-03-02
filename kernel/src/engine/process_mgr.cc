@@ -87,6 +87,7 @@ int ProcessMgr::LaunchProcess(void* args) {
 
 ProcessMgr::ProcessMgr():processes_(NULL){
   processes_ = new std::map<std::string, Process>();
+  dsh_ = new Dsh();
 }
 
 ProcessMgr::~ProcessMgr(){}
@@ -113,6 +114,16 @@ bool ProcessMgr::Exec(const Process& process) {
     LOG(WARNING, "fail create dproc dir %s", dproc.c_str());
     return false;
   }
+  std::string job_desc = dproc + "/process.yml";
+  bool is_leader = false;
+  if (!process.pty().empty()) {
+    is_leader = true;
+  }
+  bool gen_ok = dsh_->GenYml(local, job_desc, is_leader, "");
+  if (!gen_ok) {
+    LOG(WARNING, "fail to gen yml for process %s", process.name().c_str());
+    return false;
+  }
   std::set<int> openfds;
   ok = GetOpenedFds(openfds);
   if (!ok) {
@@ -134,8 +145,14 @@ bool ProcessMgr::Exec(const Process& process) {
         continue;
       }
       close(fd);
-    } 
-    
+    }
+    char* args[] = {
+      const_cast<char*>("dsh"),
+      const_cast<char*>("-f"),
+      const_cast<char*>(job_desc.c_str()),
+      NULL
+    };
+    ::execv("/bin/dsh", args);
   }else {
     local.set_pid(pid);
     local.set_gpid(pid);

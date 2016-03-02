@@ -11,6 +11,7 @@
 #include <set>
 #include "proto/dos.pb.h"
 #include "engine/user_mgr.h"
+#include "dsh/dsh.h"
 
 namespace dos {
 
@@ -48,6 +49,7 @@ private:
   static int LaunchProcess(void* args);
 private:
   std::map<std::string, Process>* processes_;
+  Dsh* dsh_;
 };
 
 }
