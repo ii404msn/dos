@@ -172,6 +172,7 @@ bool Dsh::PrepareStdio(const YAML::Node& config) {
   }
 
   if (stdout_fd != -1) {
+    close(STDOUT_FILENO);
     int ret = dup2(stdout_fd, STDOUT_FILENO);
     if (ret == -1) {
       LOG(WARNING, "fail to dup %d to stdout for %s",
@@ -182,6 +183,7 @@ bool Dsh::PrepareStdio(const YAML::Node& config) {
   }
 
   if (stderr_fd != -1) {
+    close(STDERR_FILENO);
     int ret = dup2(stderr_fd, STDERR_FILENO);
     if (ret == -1) {
       LOG(WARNING, "fail to dup %d to stderr for %s",
@@ -192,6 +194,7 @@ bool Dsh::PrepareStdio(const YAML::Node& config) {
   }
   
   if (stdin_fd != -1) {
+    close(STDIN_FILENO);
     int ret = dup2(stdin_fd, STDIN_FILENO);
     if (ret == -1) {
       LOG(WARNING, "fail to dup %d to stdin for %s",

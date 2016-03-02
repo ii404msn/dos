@@ -36,11 +36,6 @@ int ProcessMgr::LaunchProcess(void* args) {
   std::set<int>::iterator fd_it = context->fds.begin();
   for (; fd_it != context->fds.end(); ++fd_it) {
     int fd = *fd_it;
-    if (fd == STDOUT_FILENO
-        || fd == STDIN_FILENO
-        || fd == STDERR_FILENO) {
-      continue;
-    }
     ::close(fd);
   }
   char* argv[] = {
@@ -106,11 +101,6 @@ bool ProcessMgr::Exec(const Process& process) {
     std::set<int>::iterator fd_it = openfds.begin();
     for (; fd_it !=  openfds.end(); ++fd_it) {
       int fd = *fd_it;
-      if (fd == STDOUT_FILENO
-          || fd == STDIN_FILENO
-          || fd == STDERR_FILENO) {
-        continue;
-      }
       close(fd);
     }
     char* args[] = {
