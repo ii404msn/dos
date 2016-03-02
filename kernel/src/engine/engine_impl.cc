@@ -400,7 +400,8 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
       info->initd_endpoint = "127.0.0.1:" + boost::lexical_cast<std::string>(port);
       Process initd;
       initd.set_cwd(info->work_dir);
-      initd.add_args(FLAGS_ce_bin_path);
+      initd.set_interceptor(FLAGS_ce_bin_path);
+      initd.add_args("initd");
       if (info->status.spec().type() == kSystem) {
         initd.add_args("--ce_enable_ns=false");
       } else {

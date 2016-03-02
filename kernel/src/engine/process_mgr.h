@@ -17,12 +17,7 @@ namespace dos {
 
 struct CloneContext {
   std::set<int> fds;
-  Process process;
-  int stdout_fd;
-  int stdin_fd;
-  int stderr_fd;
-  std::string name;
-  int flags;
+  std::string job_desc;
 };
 
 class ProcessMgr {
@@ -38,14 +33,9 @@ public:
   bool Kill(const std::string& name, int signal);
 private:
   static bool GetOpenedFds(std::set<int>& fds);
-  static bool ResetIo(const Process& process,
-                      int& stdout_fd,
-                      int& stderr_fd,
-                      int& stdin_fd);
-  static void Dup2(int stdout_fd, int stderr_fd, int stdin_fd);
   static bool GetUser(const std::string& user, 
-               int32_t* uid,
-               int32_t* gid);
+                      int32_t* uid,
+                      int32_t* gid);
   static int LaunchProcess(void* args);
 private:
   std::map<std::string, Process>* processes_;

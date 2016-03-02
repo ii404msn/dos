@@ -29,7 +29,7 @@ bool Dsh::GenYml(const Process& process,
   node["hostname"] = hostname;
   node["uid"] = process.user().uid(); 
   node["gid"] = process.user().gid(); 
-  node["cwd"] = process.user().home();
+  node["cwd"] = process.cwd();
   node["interceptor"] = process.interceptor();
   for (int32_t index = 0; index < process.args_size(); ++index) {
     node["args"].push_back(process.args(index));
@@ -124,13 +124,9 @@ bool Dsh::PrepareStdio(const YAML::Node& config) {
   std::string pty;
   if (config["pty"]) {
     pty = config["pty"].as<std::string>();
-  }
-  if (!config["cwd"]) {
-    LOG(WARNING, "cwd is required for process %s",
-        name.c_str());
-    return false;
-  }
-  std::string cwd = config["cwd"].as<std::string>();
+  } 
+  // TODO use dproc to store stdout and stderr
+  std::string cwd = "/dproc/" + name;
   int stdout_fd = -1;
   int stderr_fd = -1;
   int stdin_fd = -1;
