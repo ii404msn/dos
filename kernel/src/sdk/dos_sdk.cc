@@ -50,7 +50,10 @@ SdkStatus EngineSdkImpl::Jail(const std::string& name,
                               const JailProcess& process) {
   JailContainerRequest request;
   request.set_c_name(name);
-  request.mutable_process()->add_args(process.cmds);
+  request.mutable_process()->add_args("bash");
+  request.mutable_process()->add_args("-c");
+  request.mutable_process()->add_args("bash");
+  request.mutable_process()->set_interceptor("/bin/bash");
   request.mutable_process()->mutable_user()->set_name(process.user);
   for (size_t i = 0; i < process.envs.size(); ++i) {
     request.mutable_process()->add_envs(process.envs[i]);

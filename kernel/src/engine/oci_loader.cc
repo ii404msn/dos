@@ -89,11 +89,19 @@ bool LoadConfig(const std::string& path, Config* config) {
     LOG(WARNING, "args is required");
     return false;
   }
+  // TODO use bash as interceptor
+  config->process.set_interceptor("/bin/bash");
   const rapidjson::Value& args_json = process_json["args"];
+  config->process.add_args("bash");
+  config->process.add_args("-c");
+  std::string cmd;
   for (rapidjson::SizeType i = 0; i < args_json.Size(); i++) {
-    config->process.add_args(args_json[i].GetString());
+    if (i != 0) {
+      cmd += " ";
+    }
+    cmd += args_json[i].GetString();
   }
-
+  config->process.add_args(cmd);
   const rapidjson::Value& envs_json = process_json["env"];
   for (rapidjson::SizeType i = 0; i < envs_json.Size(); i++) {
     config->process.add_envs(envs_json[i].GetString());

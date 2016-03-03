@@ -257,13 +257,16 @@ void EngineImpl::HandlePullImage(const ContainerState& pre_state,
         // add limit and retry
         std::string cmd = "cd " + info->work_dir;
         cmd += " && wget -O rootfs.tar.gz " + info->status.spec().uri();
-        cmd += " && tar -zxvf rootfs.tar.gz";
+        cmd += " && tar -zxvf rootfs.tar.gz && cp " + FLAGS_ce_bin_path + " ./rootfs/bin/dsh";
         ForkRequest request;
         ForkResponse response;
         Process fetch_process;
+        request.mutable_process()->add_args("bash");
+        request.mutable_process()->add_args("-c");
         request.mutable_process()->add_args(cmd);
         request.mutable_process()->set_name(info->fetcher_name);
         request.mutable_process()->set_terminal(false);
+        request.mutable_process()->set_interceptor("/bin/bash");
         // user root for fetcher
         request.mutable_process()->mutable_user()->set_name("root");
         bool process_user_ok = HandleProcessUser(request.mutable_process());
@@ -397,11 +400,13 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
       info->initd_endpoint = "127.0.0.1:" + boost::lexical_cast<std::string>(port);
       Process initd;
       initd.set_cwd(info->work_dir);
-      initd.add_args(FLAGS_ce_bin_path);
+      initd.set_interceptor(FLAGS_ce_bin_path);
+      initd.add_args("initd");
       if (info->status.spec().type() == kSystem) {
         initd.add_args("--ce_enable_ns=false");
       } else {
         initd.add_args("--ce_initd_conf_path=./runtime.json");
+        initd.set_hostname(name);
       }
       initd.add_args("--ce_initd_port=" + boost::lexical_cast<std::string>(port));
       initd.mutable_user()->set_name("root");
@@ -544,8 +549,6 @@ bool EngineImpl::DoStartProcess(const std::string& name,
   ForkRequest request;
   config.process.set_name(name);
   request.mutable_process()->CopyFrom(config.process);
-  // use bash interceptor to exec command
-  request.mutable_process()->set_use_bash_interceptor(true);
   bool process_user_ok = HandleProcessUser(request.mutable_process());
   if (!process_user_ok) {
     LOG(WARNING, "fail to process user %s", request.process().user().name().c_str());
@@ -741,7 +744,6 @@ void EngineImpl::JailContainer(RpcController* controller,
   ContainerInfo* info = it->second;
   ForkRequest fork_request;
   fork_request.mutable_process()->CopyFrom(request->process());
-  fork_request.mutable_process()->set_use_bash_interceptor(false);
   std::string name = "jail_" + request->c_name() + CurrentDatetimeStr();
   fork_request.mutable_process()->set_name(name);
   bool process_user_ok = HandleProcessUser(fork_request.mutable_process());
@@ -756,7 +758,8 @@ void EngineImpl::JailContainer(RpcController* controller,
   bool fork_ok = rpc_client_->SendRequest(info->initd_stub, 
                                           &Initd_Stub::Fork,
                                           &fork_request,
-                                          &fork_response, 5, 1);
+                                          &fork_response,
+                                          5, 1);
   if (fork_ok) {
     LOG(INFO, "jail in container %s with cmds %s successfully", request->c_name().c_str(),
         request->process().args(0).c_str());

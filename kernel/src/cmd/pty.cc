@@ -86,13 +86,9 @@ bool Pty::ConnectMaster(int master) {
           ret = ::read(master, input, sizeof(input)); 
           if (ret > 0) {
             ::write(1, input, ret);
-          } else if (ret == 0) {
-            fprintf(stdout, "terminal exit \n");
-            break; 
-          } else {
-            fprintf(stderr, "read err[%d: %s]\n", errno, strerror(errno)); 
-            break;
-          }
+          }           
+        } else {
+          break;
         }
       }
     }

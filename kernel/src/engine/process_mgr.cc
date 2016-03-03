@@ -25,8 +25,6 @@
 
 #define STACK_SIZE (1024 * 1024)
 static char CLONE_STACK[STACK_SIZE];
-const static int STD_FILE_OPEN_FLAG = O_CREAT | O_APPEND | O_WRONLY;
-const static int STD_FILE_OPEN_MODE = S_IRWXU | S_IRWXG | S_IROTH;
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
 using ::baidu::common::DEBUG;
@@ -35,58 +33,23 @@ namespace dos {
 
 int ProcessMgr::LaunchProcess(void* args) {
   CloneContext* context = reinterpret_cast<CloneContext*>(args);
-  Dup2(context->stdout_fd, context->stderr_fd,context->stdin_fd);
   std::set<int>::iterator fd_it = context->fds.begin();
   for (; fd_it != context->fds.end(); ++fd_it) {
     int fd = *fd_it;
-    if (fd == STDOUT_FILENO
-        || fd == STDIN_FILENO
-        || fd == STDERR_FILENO) {
-      continue;
-    }
     ::close(fd);
   }
-  int set_hostname_ok = sethostname(context->process.name().c_str(),
-                                    context->process.name().length());
-  if (set_hostname_ok != 0) {
-    assert(0);
-  }
-  pid_t self_pid = ::getpid();
-  int ret = ::setpgid(self_pid, self_pid);
-  if (ret != 0) {
-    assert(0);
-  }
-  if (!context->process.cwd().empty()) {
-    ret = ::chdir(context->process.cwd().c_str());
-    if (ret != 0) {
-      assert(0);
-    }
-  }
-  ret = ::setuid(context->process.user().uid());
-  if (ret != 0) {
-    assert(0);
-  }
-  ret = ::setgid(context->process.user().gid());
-  if (ret != 0) {
-    assert(0);
-  }
-  /*ret = ::setsid();
-  if (ret != 0) {
-    fprintf(stderr, "fail to setsid %s", strerror(errno));
-    assert(0);
-  }*/
-  char* argv[context->process.args_size() + 1];
-  int32_t argv_index = 0;
-  for (;argv_index < context->process.args_size(); ++argv_index) {
-    argv[argv_index] = const_cast<char*>(context->process.args(argv_index).c_str());
-  }
-  argv[argv_index + 1] = NULL;
-  ::execv(argv[0], argv);
+  char* argv[] = {
+      const_cast<char*>("dsh"),
+      const_cast<char*>("-f"),
+      const_cast<char*>(context->job_desc.c_str()),
+      NULL};
+  ::execv("/bin/dsh", argv);
   assert(0);
 }
 
 ProcessMgr::ProcessMgr():processes_(NULL){
   processes_ = new std::map<std::string, Process>();
+  dsh_ = new Dsh();
 }
 
 ProcessMgr::~ProcessMgr(){}
@@ -107,12 +70,10 @@ bool ProcessMgr::Exec(const Process& process) {
     LOG(WARNING, "fail create workdir %s", local.cwd().c_str());
     return false;
   }
-  int stdout_fd = -1;
-  int stderr_fd = -1;
-  int stdin_fd = -1;
-  ok = ResetIo(local, stdout_fd, stderr_fd, stdin_fd);
-  if (!ok) {
-    LOG(WARNING, "fail to create stdout stderr descriptor for process %s", local.name().c_str());
+  std::string job_desc = local.cwd() + "/" + process.name() + "_process.yml";
+  bool gen_ok = dsh_->GenYml(local, job_desc);
+  if (!gen_ok) {
+    LOG(WARNING, "fail to gen yml for process %s", process.name().c_str());
     return false;
   }
   std::set<int> openfds;
@@ -126,109 +87,45 @@ bool ProcessMgr::Exec(const Process& process) {
     LOG(WARNING, "fail to fork process %s", local.name().c_str());
     return false;
   }else if (pid == 0) {
+    // close fds that are copied from parent
     std::set<int>::iterator fd_it = openfds.begin();
-    Dup2(stdout_fd, stderr_fd, stdin_fd);
     for (; fd_it !=  openfds.end(); ++fd_it) {
-      int fd = *fd_it;
-      if (fd == STDOUT_FILENO
-          || fd == STDIN_FILENO
-          || fd == STDERR_FILENO) {
-        continue;
-      }
-      close(fd);
+      close(*fd_it);
     }
-    if (!local.pty().empty()) {
-      pid_t sid = setsid();
-      if (sid == -1) {
-        assert(0);
-      }
-      ioctl(0, TIOCSCTTY, 1);
-    }
-    int ret = setuid(local.user().uid());
-    if (ret != 0) {
-      assert(0);
-    }
-    ret = setgid(local.user().gid());
-    if (ret != 0) {
-      assert(0);
-    }
-    if (!local.cwd().empty()) { 
-      ret = chdir(local.cwd().c_str());
-      if (ret != 0) {
-        assert(0);
-      }
-    } 
-    if (local.use_bash_interceptor()) {
-      std::string cmd;
-      for (int32_t index = 0; index < local.args_size(); ++index) {
-        if (index > 0) {
-          cmd += " ";
-        }
-        cmd += local.args(index);
-      }
-      char* argv[] = {
-              const_cast<char*>("bash"),
-              const_cast<char*>("-c"),
-              const_cast<char*>(cmd.c_str()),
-              NULL};
-      char* env[local.envs_size() + 1];
-      int32_t env_index = 0;
-      for (; env_index < local.envs_size(); env_index ++) { 
-        env[env_index] =const_cast<char*>(local.envs(env_index).c_str());
-      }
-      env[env_index+1] = NULL;
-      ::execve("/bin/bash", argv, env);
-      assert(0);
-    } else {
-      char* argv[local.args_size() + 1];
-      std::string cmd;
-      for (int32_t index = 0; index < local.args_size(); ++index) {
-        argv[index] = const_cast<char*>(local.args(index).c_str());
-      }
-      argv[local.args_size()] = NULL;
-      char* env[local.envs_size() + 1];
-      int32_t env_index = 0;
-      for (; env_index < local.envs_size(); env_index ++) { 
-        env[env_index] = const_cast<char*>(local.envs(env_index).c_str());
-      }
-      env[env_index+1] = NULL;
-      ::execve(argv[0], argv, env);
-      assert(0);
-    }
+    char* args[] = {
+      const_cast<char*>("dsh"),
+      const_cast<char*>("-f"),
+      const_cast<char*>(job_desc.c_str()),
+      NULL
+    };
+    ::execv("/bin/dsh", args);
   }else {
-    if (stdout_fd != -1) {
-      ::close(stdout_fd);
-    }
-    if (stderr_fd != -1) {
-      ::close(stderr_fd);
-    }
-    if (stdin_fd != -1) {
-      ::close(stdin_fd);
-    }
     local.set_pid(pid);
     local.set_gpid(pid);
     local.set_running(true);
     processes_->insert(std::make_pair(local.name(), local));
     LOG(INFO, "create process %s successfully with pid %d", local.name().c_str(), local.pid());
-    return true;
   }
+  return true;
 }
 
 bool ProcessMgr::Clone(const Process& process, int flag) { 
-  CloneContext* context = new CloneContext();
-  context->process = process;
-  context->stdout_fd = -1;
-  context->stderr_fd = -1;
-  context->stdin_fd = -1;
-  context->flags = flag;
-  bool ok = ResetIo(process, context->stdout_fd,
-                    context->stderr_fd, 
-                    context->stdin_fd);
-  if (!ok) {
-    LOG(WARNING, "fail to reset io for process %s", process.name().c_str());
+  std::string cwd = process.cwd();
+  bool mk_ok = MkdirRecur(cwd);
+  if (!mk_ok) {
+    LOG(WARNING, "fail create cwd dir %s", cwd.c_str());
     return false;
   }
-  ok = GetOpenedFds(context->fds);
+  std::string job_desc = cwd + "/"+  process.name() + "_process.yml";
+  bool gen_ok = dsh_->GenYml(process,
+                             job_desc);
+  if (!gen_ok) {
+    LOG(WARNING, "fail to gen process.yml for process %s", process.name().c_str());
+    return false;
+  }
+  CloneContext* context = new CloneContext();
+  context->job_desc = job_desc;
+  bool ok = GetOpenedFds(context->fds);
   if (!ok) {
     LOG(WARNING, "fail to get open fds for process %s", process.name().c_str());
     return false;
@@ -237,15 +134,6 @@ bool ProcessMgr::Clone(const Process& process, int flag) {
                          CLONE_STACK + STACK_SIZE,
                          flag,
                          context);
-  if (context->stdout_fd != -1) {
-    close(context->stdout_fd);
-  }
-  if (context->stderr_fd != -1) {
-    close(context->stderr_fd);
-  }
-  if (context->stdin_fd != -1) {
-    close(context->stdin_fd);
-  }
   delete context;
   if (clone_ok == -1) {
     LOG(WARNING, "fail to clone process for process %s", process.name().c_str());
@@ -287,49 +175,6 @@ bool ProcessMgr::GetUser(const std::string& user,
     user_passd_buf = NULL;
   }
   return ok;
-}
-
-bool ProcessMgr::ResetIo(const Process& process,
-                         int& stdout_fd,
-                         int& stderr_fd,
-                         int& stdin_fd) { 
-  if (process.pty().empty()) {
-    std::string stdout_path = process.cwd() + "/stdout";
-    std::string stderr_path = process.cwd() + "/stderr";
-    stdout_fd = open(stdout_path.c_str(), STD_FILE_OPEN_FLAG, STD_FILE_OPEN_MODE);
-    if (stdout_fd == -1) {
-        LOG(WARNING, "fail to create %s for err %s", stdout_path.c_str(), strerror(errno));
-        return false;
-    }
-    stderr_fd = open(stderr_path.c_str(), STD_FILE_OPEN_FLAG, STD_FILE_OPEN_MODE);
-    if (stderr_fd == -1) {
-        LOG(WARNING, "fail to create %s for err %s", stderr_path.c_str(), strerror(errno));
-    }
-    LOG(INFO,"create std file in %s  with stdout %d stderr %d", 
-        process.cwd().c_str(),
-        stdout_fd,
-        stderr_fd);
-  }else {
-    int pty_fd = open(process.pty().c_str(), O_RDWR);
-    stdout_fd = pty_fd;
-    stderr_fd = pty_fd;
-    stdin_fd = pty_fd;
-  } 
-  return true;
-}
-
-void ProcessMgr::Dup2(const int stdout_fd,
-                      const int stderr_fd,
-                      const int stdin_fd) {
-  while (stdout_fd != -1 
-         && ::dup2(stdout_fd, STDOUT_FILENO) == -1
-         && errno == EINTR) {}
-  while (stderr_fd != -1 
-         && ::dup2(stderr_fd, STDERR_FILENO) == -1
-         && errno == EINTR) {} 
-  while (stdin_fd != -1
-         &&::dup2(stdin_fd, STDIN_FILENO) == -1
-         && errno == EINTR) {}
 }
 
 bool ProcessMgr::Wait(const std::string& name, Process* process) {

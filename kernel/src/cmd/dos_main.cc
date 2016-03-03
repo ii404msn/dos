@@ -25,6 +25,7 @@
 #include "sdk/dos_sdk.h"
 #include "yaml-cpp/yaml.h"
 #include "cmd/pty.h"
+#include "dsh/dsh.h"
 #include "version.h"
 
 DECLARE_string(ce_initd_port);
@@ -171,7 +172,7 @@ void JailContainer() {
   process.envs.push_back("LINES="+ boost::lexical_cast<std::string>(FLAGS_terminal_lines));
   process.envs.push_back("COLUMES="+ boost::lexical_cast<std::string>(FLAGS_terminal_columes));
   process.envs.push_back("TERM="+ FLAGS_term);
-  process.cmds = "/bin/bash";
+  process.cmds = "bash";
   process.user = "root";
   process.pty = pty_path;
   dos::EngineSdk* engine = dos::EngineSdk::Connect(FLAGS_ce_endpoint);
@@ -448,6 +449,16 @@ void SubmitJob() {
   }
   fprintf(stderr, "fail to submit job for %d\n", status);
 }
+
+void StartDsh() {
+  if (FLAGS_f.empty()){
+    fprintf(stderr, "-f option is required \n ");
+    exit(1);
+  }
+  ::dos::Dsh dsh;
+  dsh.LoadAndRunByYml(FLAGS_f);
+}
+
 bool EndWiths(const std::string& str,
               const std::string& suffix) {
   if (str.length() >= suffix.length()) {
@@ -467,6 +478,7 @@ int main(int argc, char * args[]) {
   daemon_map.insert(std::make_pair("master", boost::bind(&StartMaster)));
   daemon_map.insert(std::make_pair("scheduler", boost::bind(&StartScheduler)));
   daemon_map.insert(std::make_pair("let", boost::bind(&StartAgent)));
+  daemon_map.insert(std::make_pair("dsh", boost::bind(&StartDsh)));
   ::google::ParseCommandLineFlags(&argc, &args, true);
   std::map<std::string, Handle>::iterator h_it = daemon_map.begin();
   bool find_daemon = false;
@@ -480,7 +492,12 @@ int main(int argc, char * args[]) {
   if (find_daemon) {
     return 0;
   }
-	if (strcmp(args[1], "version") == 0 ) {
+  if (argc < 2) {
+    fprintf(stderr,"%s", kDosCeUsage.c_str());
+    return -1;
+  }
+  std::string sub_cmd(args[1]);
+	if (strcmp(args[1], "version") == 0) {
     PrintVersion();
     exit(0);
   } else if (strcmp(args[1], "run") == 0) {
