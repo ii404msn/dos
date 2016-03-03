@@ -37,7 +37,6 @@ typedef boost::multi_index_container<
 
 typedef boost::multi_index::index<JobSet, name_tag>::type JobNameIndex;
 typedef boost::multi_index::index<JobSet, user_name_tag>::type JobUserNameIndex;
-typedef google::protobuf::RepeatedPtrField<dos::JobOverview> JobList;
 
 class JobManager {
 
@@ -46,7 +45,8 @@ public:
   ~JobManager();
   bool Add(const std::string& user_name,
            const JobSpec& desc);
-  bool GetJobs(JobList* jobs);
+  bool GetJob(const std::string& name,
+              JobOverview* job);
 private:
   JobSet* jobs_;
   ::baidu::common::Mutex mutex_;
