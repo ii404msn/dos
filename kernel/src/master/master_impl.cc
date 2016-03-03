@@ -84,4 +84,31 @@ void MasterImpl::SubmitJob(RpcController* controller,
   done->Run();
 }
 
+void MasterImpl::ShowJob(RpcController* controller,
+                         const ShowJobRequest* request,
+                         ShowJobResponse* response,
+                         Closure* done) {
+  response->set_status(kRpcOk);
+  bool get_ok = job_manager_->GetJobs(response->mutable_jobs());
+  if (!get_ok) {
+    LOG(WARNING, "fail to get jobs");
+    response->set_status(kRpcError);
+    done->Run();
+    return;
+  }
+  for (int32_t index = 0; index < response->jobs_size(); ++index) {
+    JobOverview* job = response->mutable_jobs(index);
+    JobStat stat;
+    bool ok = pod_manager_->GetJobStat(job->name(), &stat);
+    if (!ok) {
+      LOG(WARNING, "fail to get pod stat of %s", job->name().c_str());
+      continue;
+    }
+    job->set_running(stat.running_);
+    job->set_death(stat.death_);
+    job->set_pending(stat.pending_);
+  }
+  done->Run();
+}
+
 } // end of dos
