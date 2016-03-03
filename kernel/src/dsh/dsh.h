@@ -14,9 +14,7 @@ public:
   // generate a process configuration with yaml format
   // if is_leader equals true, setsid is invoked 
   bool GenYml(const Process& process,
-              const std::string& path,
-              bool is_leader,
-              const std::string& hostname);
+              const std::string& path);
 
   // load yaml from local disk , the path
   // is abusolutly path

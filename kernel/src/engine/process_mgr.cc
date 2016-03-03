@@ -70,18 +70,8 @@ bool ProcessMgr::Exec(const Process& process) {
     LOG(WARNING, "fail create workdir %s", local.cwd().c_str());
     return false;
   }
-  std::string dproc = "/dproc/" + process.name();
-  ok = MkdirRecur(dproc);
-  if (!ok) {
-    LOG(WARNING, "fail create dproc dir %s", dproc.c_str());
-    return false;
-  }
-  std::string job_desc = dproc + "/process.yml";
-  bool is_leader = false;
-  if (!process.pty().empty()) {
-    is_leader = true;
-  }
-  bool gen_ok = dsh_->GenYml(local, job_desc, is_leader, "");
+  std::string job_desc = local.cwd() + "/" + process.name() + "_process.yml";
+  bool gen_ok = dsh_->GenYml(local, job_desc);
   if (!gen_ok) {
     LOG(WARNING, "fail to gen yml for process %s", process.name().c_str());
     return false;
@@ -100,8 +90,7 @@ bool ProcessMgr::Exec(const Process& process) {
     // close fds that are copied from parent
     std::set<int>::iterator fd_it = openfds.begin();
     for (; fd_it !=  openfds.end(); ++fd_it) {
-      int fd = *fd_it;
-      close(fd);
+      close(*fd_it);
     }
     char* args[] = {
       const_cast<char*>("dsh"),
@@ -121,17 +110,15 @@ bool ProcessMgr::Exec(const Process& process) {
 }
 
 bool ProcessMgr::Clone(const Process& process, int flag) { 
-  std::string dproc = "/dproc/" + process.name();
-  bool mk_ok = MkdirRecur(dproc);
+  std::string cwd = process.cwd();
+  bool mk_ok = MkdirRecur(cwd);
   if (!mk_ok) {
-    LOG(WARNING, "fail create dproc dir %s", dproc.c_str());
+    LOG(WARNING, "fail create cwd dir %s", cwd.c_str());
     return false;
   }
-  std::string job_desc = dproc + "/process.yml";
+  std::string job_desc = cwd + "/"+  process.name() + "_process.yml";
   bool gen_ok = dsh_->GenYml(process,
-                             job_desc,
-                             false,
-                             process.name());
+                             job_desc);
   if (!gen_ok) {
     LOG(WARNING, "fail to gen process.yml for process %s", process.name().c_str());
     return false;

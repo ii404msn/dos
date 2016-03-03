@@ -406,6 +406,7 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
         initd.add_args("--ce_enable_ns=false");
       } else {
         initd.add_args("--ce_initd_conf_path=./runtime.json");
+        initd.set_hostname(name);
       }
       initd.add_args("--ce_initd_port=" + boost::lexical_cast<std::string>(port));
       initd.mutable_user()->set_name("root");
@@ -757,7 +758,8 @@ void EngineImpl::JailContainer(RpcController* controller,
   bool fork_ok = rpc_client_->SendRequest(info->initd_stub, 
                                           &Initd_Stub::Fork,
                                           &fork_request,
-                                          &fork_response, 5, 1);
+                                          &fork_response,
+                                          5, 1);
   if (fork_ok) {
     LOG(INFO, "jail in container %s with cmds %s successfully", request->c_name().c_str(),
         request->process().args(0).c_str());

@@ -107,6 +107,7 @@ bool Oc::LoadRuntime() {
 
 
 bool Oc::Init() { 
+  LOG(INFO, "change dir to %s", oc_path_.c_str());
   int ok = chdir(oc_path_.c_str());
   if (ok != 0) {
     LOG(WARNING, "fail to chdir to %s", oc_path_.c_str());
@@ -139,7 +140,7 @@ bool Oc::Init() {
       LOG(WARNING, "fail to chroot to %s",rootfs_path.c_str());
       return false;
     }
-    LOG(INFO, "change root successully");
+    LOG(INFO, "change root to %s successully", rootfs_path.c_str());
   }
   return device_ok;
 }

@@ -21,15 +21,28 @@ Dsh::Dsh() {}
 Dsh::~Dsh () {}
 
 bool Dsh::GenYml(const Process& process, 
-                 const std::string& path,
-                 bool is_leader,
-                 const std::string& hostname) {
+                 const std::string& path) {
   YAML::Node node;
+  // name is a required field
+  if (process.name().empty()) {
+    LOG(WARNING, "name is empty");
+    return false;
+  }
   node["name"] = process.name();
-  node["hostname"] = hostname;
+  node["hostname"] = process.hostname();
   node["uid"] = process.user().uid(); 
   node["gid"] = process.user().gid(); 
+  // cwd is a required field
+  if (process.cwd().empty()) {
+    LOG(WARNING, "cwd is empty");
+    return false;
+  }
   node["cwd"] = process.cwd();
+  // interceptor is a required 
+  if (process.interceptor().empty()) {
+    LOG(WARNING, "interceptor is required");
+    return false;
+  }
   node["interceptor"] = process.interceptor();
   for (int32_t index = 0; index < process.args_size(); ++index) {
     node["args"].push_back(process.args(index));
@@ -37,7 +50,6 @@ bool Dsh::GenYml(const Process& process,
   for (int32_t index = 0; index < process.envs_size(); ++index) {
     node["envs"].push_back(process.envs(index));
   }
-  node["is_leader"] = is_leader; 
   node["pty"] = process.pty();
   std::ofstream out(path.c_str());
   out << node;
@@ -126,7 +138,12 @@ bool Dsh::PrepareStdio(const YAML::Node& config) {
     pty = config["pty"].as<std::string>();
   } 
   // TODO use dproc to store stdout and stderr
-  std::string cwd = "/dproc/" + name;
+  std::string cwd = config["cwd"].as<std::string>();
+  int chok = chdir(cwd.c_str());
+  if (chok != 0) {
+    LOG(WARNING, "fail to change dir to %s", cwd.c_str());
+    return false;
+  }
   int stdout_fd = -1;
   int stderr_fd = -1;
   int stdin_fd = -1;

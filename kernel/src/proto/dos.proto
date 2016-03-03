@@ -96,6 +96,7 @@ message Process {
   optional string name = 12;
   optional bool terminal = 13;
   optional string interceptor = 14;
+  optional string hostname = 15;
 }
 
 message Platform {
