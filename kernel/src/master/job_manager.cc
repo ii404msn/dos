@@ -18,6 +18,18 @@ JobManager::~JobManager() {
   delete jobs_;
 }
 
+bool JobManager::GetJobs(JobList* jobs) {
+  const JobNameIndex& name_index = jobs_->get<name_tag>();
+  JobNameIndex::const_iterator name_it = name_index.begin();
+  for (; name_it !=  name_index.end(); ++name_it) {
+    JobOverview* job = jobs->Add();
+    job->set_name(name_it->name_);
+    job->set_replica(name_it->job_->desc().replica());
+    job->set_deploy_step(name_it->job_->desc().deploy_step_size());
+  }
+  return true;
+}
+
 bool JobManager::Add(const std::string& user_name,
                      const JobSpec& desc) {
   ::baidu::common::MutexLock lock(&mutex_); 

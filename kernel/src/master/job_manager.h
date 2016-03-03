@@ -8,6 +8,7 @@
 #include "master/master_internal_types.h"
 #include "common/blocking_queue.h"
 #include "master/idx_tag.h"
+#include "proto/master.pb.h"
 #include "mutex.h"
 
 namespace dos {
@@ -36,6 +37,7 @@ typedef boost::multi_index_container<
 
 typedef boost::multi_index::index<JobSet, name_tag>::type JobNameIndex;
 typedef boost::multi_index::index<JobSet, user_name_tag>::type JobUserNameIndex;
+typedef google::protobuf::RepeatedPtrField<dos::JobOverview> JobList;
 
 class JobManager {
 
@@ -44,6 +46,7 @@ public:
   ~JobManager();
   bool Add(const std::string& user_name,
            const JobSpec& desc);
+  bool GetJobs(JobList* jobs);
 private:
   JobSet* jobs_;
   ::baidu::common::Mutex mutex_;

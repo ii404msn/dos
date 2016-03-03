@@ -84,6 +84,24 @@ message ScaleUpProposeResponse {
   optional RpcStatus status = 1;
 }
 
+message JobOverview {
+  optional string name = 1;
+  optional uint32 running = 2;
+  optional uint32 death = 3;
+  optional uint32 pending = 4;
+  optional string type = 5;
+  optional uint32 replica = 6;
+  optional uint32 deploy_step = 7;
+}
+
+message ShowJobRequest {
+}
+
+message ShowJobResponse {
+  optional RpcStatus status = 1;
+  repeated JobOverview jobs = 2;
+}
+
 service Master {
   // submit a job to master 
   rpc SubmitJob(SubmitJobRequest) returns(SubmitJobResponse);
@@ -95,4 +113,6 @@ service Master {
   rpc SyncAgentInfo(SyncAgentInfoRequest) returns(SyncAgentInfoResponse);
   // scale up propose from scheduler
   rpc ScaleUpPropose(ScaleUpProposeRequest) returns(ScaleUpProposeResponse);
+  // show jobs in master
+  rpc ShowJob(ShowJobRequest) returns(ShowJobResponse);
 }
