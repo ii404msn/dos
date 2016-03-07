@@ -148,6 +148,7 @@ class DosSdkImpl : public DosSdk {
       return get_ok;
     }
     SdkStatus Submit(const JobDescriptor& job);
+    SdkStatus GetJob(const std::string& name, JobInfo* job);
   private:
     RpcClient* rpc_client_;
     Master_Stub* master_;
@@ -161,6 +162,25 @@ DosSdk* DosSdk::Connect(const std::string& dos_addr) {
   }
   delete dos_sdk;
   return NULL;
+}
+
+SdkStatus DosSdkImpl::GetJob(const std::string& name, JobInfo* job) {
+  ShowJobRequest request;
+  request.set_name(name);
+  ShowJobResponse response;
+  bool rpc_ok = rpc_client_->SendRequest(master_, &Master_Stub::ShowJob, 
+                                         &request, &response, 5, 1);
+  if (!rpc_ok || response.status() != kRpcOk) {
+    return kSdkError; 
+  }
+  job->name = response.job().name();
+  job->running = response.job().running();
+  job->death = response.job().death();
+  job->pending = response.job().pending();
+  job->replica = response.job().replica();
+  job->deploy_step = response.job().deploy_step();
+  job->state = response.job().state();
+  return kSdkOk;
 }
 
 SdkStatus DosSdkImpl::Submit(const JobDescriptor& job) {
