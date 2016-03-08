@@ -542,7 +542,7 @@ int main(int argc, char * args[]) {
   } else if (strcmp(args[1], "jail") == 0) {
     JailContainer();
   } else if (strcmp(args[1], "job") == 0) {
-    JailContainer();
+    ShowJob();
   } else {
     fprintf(stderr,"%s", kDosCeUsage.c_str());
     return -1;
