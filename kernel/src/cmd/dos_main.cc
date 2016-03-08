@@ -468,6 +468,37 @@ bool EndWiths(const std::string& str,
   }
 }
 
+void ShowJob() {
+  if (FLAGS_n.empty()) {
+    fprintf(stderr, "-n is required");
+    exit(1);
+  }
+  std::string master_endpoint = "127.0.0.1:" + FLAGS_master_port;
+  ::dos::DosSdk* dos_sdk = ::dos::DosSdk::Connect(master_endpoint);
+  if (!dos_sdk) {
+    fprintf(stderr, "fail to connect to dos");
+    exit(1);
+  }
+  ::dos::JobInfo job;
+  ::dos::SdkStatus status = dos_sdk->GetJob(FLAGS_n, &job);
+  if (status != ::dos::kSdkOk) {
+    fprintf(stderr, "fail to get job \n");
+    exit(1);
+  }
+  ::baidu::common::TPrinter tp(7);
+  tp.AddRow(7, "", "name", "running","death", "pending", "replica", "state");
+  std::vector<std::string> vs;
+  vs.push_back("1");
+  vs.push_back(job.name);
+  vs.push_back(::baidu::common::NumToString(job.running));
+  vs.push_back(::baidu::common::NumToString(job.death));
+  vs.push_back(::baidu::common::NumToString(job.pending));
+  vs.push_back(::baidu::common::NumToString(job.replica));
+  vs.push_back(job.state);
+  tp.AddRow(vs);
+  printf("%s\n", tp.ToString().c_str());
+}
+
 int main(int argc, char * args[]) {
   ::baidu::common::SetLogLevel(DEBUG);
   ::google::SetUsageMessage(kDosCeUsage);
@@ -510,6 +541,8 @@ int main(int argc, char * args[]) {
     SubmitJob();
   } else if (strcmp(args[1], "jail") == 0) {
     JailContainer();
+  } else if (strcmp(args[1], "job") == 0) {
+    ShowJob();
   } else {
     fprintf(stderr,"%s", kDosCeUsage.c_str());
     return -1;

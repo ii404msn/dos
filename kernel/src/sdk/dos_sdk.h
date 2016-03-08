@@ -53,6 +53,16 @@ struct JobDescriptor {
   std::string raw;
 };
 
+struct JobInfo {
+  std::string name;
+  uint32_t running;
+  uint32_t death;
+  uint32_t pending;
+  uint32_t replica;
+  uint32_t deploy_step;
+  std::string state;
+};
+
 struct JailProcess {
   std::string cmds;
   std::vector<std::string> envs;
@@ -79,6 +89,7 @@ class DosSdk {
     static DosSdk* Connect(const std::string& dos_addr);
     // submit a job to dos
     virtual SdkStatus Submit(const JobDescriptor& job) = 0;
+    virtual SdkStatus GetJob(const std::string& name, JobInfo* job) = 0;
 };
 
 }
