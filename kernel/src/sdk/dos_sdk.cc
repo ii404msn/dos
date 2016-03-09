@@ -165,10 +165,10 @@ DosSdk* DosSdk::Connect(const std::string& dos_addr) {
 }
 
 SdkStatus DosSdkImpl::GetJob(const std::string& name, JobInfo* job) {
-  ShowJobRequest request;
+  GetJobRequest request;
   request.set_name(name);
-  ShowJobResponse response;
-  bool rpc_ok = rpc_client_->SendRequest(master_, &Master_Stub::ShowJob, 
+  GetJobResponse response;
+  bool rpc_ok = rpc_client_->SendRequest(master_, &Master_Stub::GetJob, 
                                          &request, &response, 5, 1);
   if (!rpc_ok || response.status() != kRpcOk) {
     return kSdkError; 

@@ -742,6 +742,12 @@ void EngineImpl::JailContainer(RpcController* controller,
     return;
   }
   ContainerInfo* info = it->second;
+  if (info->initd_endpoint.empty()
+      || !info->initd_stub) {
+    response->set_status(kRpcNotFound);
+    done->Run();
+    return;
+  }
   ForkRequest fork_request;
   fork_request.mutable_process()->CopyFrom(request->process());
   std::string name = "jail_" + request->c_name() + CurrentDatetimeStr();

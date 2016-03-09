@@ -84,10 +84,10 @@ void MasterImpl::SubmitJob(RpcController* controller,
   done->Run();
 }
 
-void MasterImpl::ShowJob(RpcController* controller,
-                         const ShowJobRequest* request,
-                         ShowJobResponse* response,
-                         Closure* done) {
+void MasterImpl::GetJob(RpcController* controller,
+                        const GetJobRequest* request,
+                        GetJobResponse* response,
+                        Closure* done) {
   response->set_status(kRpcOk);
   bool get_ok = job_manager_->GetJob(request->name(), response->mutable_job());
   if (!get_ok) {
@@ -96,7 +96,6 @@ void MasterImpl::ShowJob(RpcController* controller,
     done->Run();
     return;
   }
-
   JobStat stat;
   bool ok = pod_manager_->GetJobStat(request->name(), &stat);
   if (!ok) {

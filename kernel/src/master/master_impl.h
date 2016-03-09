@@ -44,9 +44,9 @@ public:
                      ScaleUpProposeResponse* response,
                      Closure* done);
 
-  void ShowJob(RpcController* controller,
-               const ShowJobRequest* request,
-               ShowJobResponse* response,
+  void GetJob(RpcController* controller,
+               const GetJobRequest* request,
+               GetJobResponse* response,
                Closure* done);
 private:
   NodeManager* node_manager_;

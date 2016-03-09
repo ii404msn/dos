@@ -94,11 +94,11 @@ message JobOverview {
   optional string state = 7;
 }
 
-message ShowJobRequest {
+message GetJobRequest {
   optional string name = 1;
 }
 
-message ShowJobResponse {
+message GetJobResponse {
   optional RpcStatus status = 1;
   optional JobOverview job = 2;
 }
@@ -115,5 +115,5 @@ service Master {
   // scale up propose from scheduler
   rpc ScaleUpPropose(ScaleUpProposeRequest) returns(ScaleUpProposeResponse);
   // show jobs in master
-  rpc ShowJob(ShowJobRequest) returns(ShowJobResponse);
+  rpc GetJob(GetJobRequest) returns(GetJobResponse);
 }
