@@ -59,11 +59,9 @@ typedef boost::function<void ()> Handle;
 
 const std::string kDosCeUsage = "dos help message.\n"
                                 "Usage:\n"
-                                "    dos run -u <uri>  -n <name>\n" 
-                                "    dos submit -f <job.yml>\n"
-                                "    dos ps -j <job name> | -e <agent endpoint>\n"
-                                "    dos log -n <name> \n"
-                                "    dos jail -n <name> \n"
+                                "    dos get <job|log> -n name\n" 
+                                "    dos add <job> -f job.yml\n"
+                                "    dos jail container -n name\n"
                                 "    dos version\n"
                                 "Options:\n"
                                 "    -u     Specify uri for download rootfs\n"
@@ -291,7 +289,7 @@ void StartEngine() {
   }
 }
 
-void ShowLog() {
+void GetLog() {
   if (FLAGS_n.empty()) {
     fprintf(stderr, "-n is required \n");
     exit(1);
@@ -346,7 +344,7 @@ void Run() {
   }
 }
 
-void Show() {
+void ListContainer() {
   dos::EngineSdk* engine = dos::EngineSdk::Connect(FLAGS_ce_endpoint);
   if (engine == NULL) {
     fprintf(stderr, "fail to connect %s \n", FLAGS_ce_endpoint.c_str());
@@ -537,6 +535,9 @@ int main(int argc, char * args[]) {
   std::map<std::string, Handle> action_map;
   action_map.insert(std::make_pair("addjob", boost::bind(&AddJob)));
   action_map.insert(std::make_pair("getjob", boost::bind(&GetJob)));
+  action_map.insert(std::make_pair("lscontainer", boost::bind(&ListContainer)));
+  action_map.insert(std::make_pair("getlog", boost::bind(&GetLog)));
+  action_map.insert(std::make_pair("jailcontainer", boost::bind(&JailContainer)));
   std::map<std::string, Handle>::iterator action_it = action_map.find(key);
   if (action_it != action_map.end()) {
     action_it->second();
