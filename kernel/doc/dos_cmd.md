@@ -36,3 +36,9 @@ dos update <object> -n name
 ```
 dos del <object> -n name
 ```
+
+### 获取描述信息
+
+```
+dos describe <objecp> -n name
+```
