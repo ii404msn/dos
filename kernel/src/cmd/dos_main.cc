@@ -382,7 +382,7 @@ void Show() {
   exit(0);
 }
 
-void SubmitJob() {
+void AddJob() {
   if (FLAGS_f.empty()){
     fprintf(stderr, "-f option is required \n ");
     return;
@@ -468,7 +468,7 @@ bool EndWiths(const std::string& str,
   }
 }
 
-void ShowJob() {
+void GetJob() {
   if (FLAGS_n.empty()) {
     fprintf(stderr, "-n is required");
     exit(1);
@@ -503,6 +503,10 @@ int main(int argc, char * args[]) {
   ::baidu::common::SetLogLevel(DEBUG);
   ::google::SetUsageMessage(kDosCeUsage);
   std::string bin(args[0]);
+  if (argc > 1 && strcmp(args[1], "version") ==0) {
+    PrintVersion();
+    return 0;
+  }
   std::map<std::string, Handle> daemon_map;
   daemon_map.insert(std::make_pair("initd", boost::bind(&StartInitd)));
   daemon_map.insert(std::make_pair("engine", boost::bind(&StartEngine)));
@@ -523,15 +527,24 @@ int main(int argc, char * args[]) {
   if (find_daemon) {
     return 0;
   }
-  if (argc < 2) {
+  if (argc < 3) {
     fprintf(stderr,"%s", kDosCeUsage.c_str());
     return -1;
   }
-  std::string sub_cmd(args[1]);
-	if (strcmp(args[1], "version") == 0) {
-    PrintVersion();
-    exit(0);
-  } else if (strcmp(args[1], "run") == 0) {
+  std::string action(args[1]);
+  std::string object(args[2]);
+  std::string key = action + object;
+  std::map<std::string, Handle> action_map;
+  action_map.insert(std::make_pair("addjob", boost::bind(&AddJob)));
+  action_map.insert(std::make_pair("getjob", boost::bind(&GetJob)));
+  std::map<std::string, Handle>::iterator action_it = action_map.find(key);
+  if (action_it != action_map.end()) {
+    action_it->second();
+  } else {
+    fprintf(stderr, "no handle with key %s \n", key.c_str());
+  }
+
+	/*if (strcmp(args[1], "run") == 0) {
     Run();
   } else if (strcmp(args[1], "ps") == 0) {
     Show();
@@ -546,6 +559,6 @@ int main(int argc, char * args[]) {
   } else {
     fprintf(stderr,"%s", kDosCeUsage.c_str());
     return -1;
-  }
+  }*/
   return 0;
 }
