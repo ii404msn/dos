@@ -103,6 +103,14 @@ message GetJobResponse {
   optional JobOverview job = 2;
 }
 
+message KillJobRequest {
+  optional string name = 1;
+}
+
+message KillJobResponse {
+  optional RpcStatus status = 1;
+}
+
 service Master {
   // submit a job to master 
   rpc SubmitJob(SubmitJobRequest) returns(SubmitJobResponse);
@@ -116,4 +124,6 @@ service Master {
   rpc ScaleUpPropose(ScaleUpProposeRequest) returns(ScaleUpProposeResponse);
   // show jobs in master
   rpc GetJob(GetJobRequest) returns(GetJobResponse);
+  // kill job
+  rpc KillJob(KillJobRequest) returns(KillJobResponse);
 }
