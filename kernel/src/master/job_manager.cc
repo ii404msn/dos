@@ -29,6 +29,8 @@ bool JobManager::GetJob(const std::string& name,
   job->set_replica(name_it->job_->desc().replica());
   job->set_deploy_step(name_it->job_->desc().deploy_step_size());
   job->set_state(JobState_Name(name_it->job_->state()));
+  job->set_ctime(name_it->job_->ctime());
+  job->set_utime(name_it->job_->utime());
   return true;
 }
 
