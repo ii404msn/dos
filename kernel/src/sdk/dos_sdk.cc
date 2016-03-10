@@ -179,6 +179,8 @@ SdkStatus DosSdkImpl::GetJob(const std::string& name, JobInfo* job) {
   job->pending = response.job().pending();
   job->replica = response.job().replica();
   job->deploy_step = response.job().deploy_step();
+  job->ctime = response.job().ctime();
+  job->utime = response.job().utime();
   job->state = response.job().state();
   return kSdkOk;
 }
@@ -190,6 +192,7 @@ SdkStatus DosSdkImpl::Submit(const JobDescriptor& job) {
   request.mutable_job()->set_name(job.name);
   request.mutable_job()->set_replica(job.replica);
   request.mutable_job()->set_deploy_step_size(job.deploy_step_size);
+  request.mutable_job()->set_raw(job.raw);
   for (size_t i = 0; i < job.pod.containers.size(); ++i) {
     Container* container = request.mutable_job()->mutable_pod()->add_containers();
     container->set_uri(job.pod.containers[i].uri);
