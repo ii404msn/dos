@@ -13,6 +13,7 @@ public:
   bool AssignQuota(int32_t quota);
   bool AssignLimit(int32_t limit);
 
+  bool Init();
 private:
   std::string path_;
   int32_t quota_;
