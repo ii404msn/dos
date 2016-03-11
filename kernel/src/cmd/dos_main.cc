@@ -158,31 +158,14 @@ void JailContainer() {
   if (FLAGS_n.empty()) {
     fprintf(stderr, "-n is required \n");
     exit(1);
-  }
-  dos::Pty pty;
-  int master;
-  std::string pty_path;
-  bool create_ok = pty.Create(&master, &pty_path);
-  if (!create_ok) {
-    fprintf(stderr, "fail to create pty");
-    exit(1);
-  }
-  ::dos::JailProcess process;
-  process.envs.push_back("LINES="+ boost::lexical_cast<std::string>(FLAGS_terminal_lines));
-  process.envs.push_back("COLUMES="+ boost::lexical_cast<std::string>(FLAGS_terminal_columes));
-  process.envs.push_back("TERM="+ FLAGS_term);
-  process.cmds = "bash";
-  process.user = "root";
-  process.pty = pty_path;
-  dos::EngineSdk* engine = dos::EngineSdk::Connect(FLAGS_ce_endpoint);
-  if (engine == NULL) {
-    fprintf(stderr, "fail to connect %s \n", FLAGS_ce_endpoint.c_str());
-    exit(1);
-  }
-  dos::SdkStatus status = engine->Jail(FLAGS_n, process);
+  
+  } 
+  /*
+  ::dos::InitdInfo initd;
+  dos::SdkStatus status = engine->GetInitd(FLAGS_n, &initd);
   if (status == dos::kSdkOk) {
-    pty.ConnectMaster(master);
   }
+  */
 }
 
 void StartMaster() {

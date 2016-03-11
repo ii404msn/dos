@@ -1,4 +1,5 @@
 #include "engine/isolator.h"
+
 #include "engine/utils.h"
 #include "logging.h"
 
@@ -23,7 +24,7 @@ bool CpuIsolator::Init() {
 }
 
 bool CpuIsolator::Attach(int32_t pid) {
-
+  return false;
 }
 
 
