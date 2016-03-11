@@ -92,6 +92,8 @@ message JobOverview {
   optional uint32 replica = 5;
   optional uint32 deploy_step = 6;
   optional string state = 7;
+  optional int64 ctime = 8;
+  optional int64 utime = 9;
 }
 
 message GetJobRequest {

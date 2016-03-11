@@ -440,6 +440,7 @@ void AddJob() {
     fprintf(stderr, "fail to create dos sdk \n");
     exit(1);
   }
+ // job.raw = node.as<std::string>();
   dos::SdkStatus status = dos_sdk->Submit(job);
   if (status == dos::kSdkOk) {
     fprintf(stdout, "submit job successfully\n");
@@ -483,18 +484,13 @@ void GetJob() {
     fprintf(stderr, "fail to get job \n");
     exit(1);
   }
-  ::baidu::common::TPrinter tp(7);
-  tp.AddRow(7, "", "name", "running","death", "pending", "replica", "state");
-  std::vector<std::string> vs;
-  vs.push_back("1");
-  vs.push_back(job.name);
-  vs.push_back(::baidu::common::NumToString(job.running));
-  vs.push_back(::baidu::common::NumToString(job.death));
-  vs.push_back(::baidu::common::NumToString(job.pending));
-  vs.push_back(::baidu::common::NumToString(job.replica));
-  vs.push_back(job.state);
-  tp.AddRow(vs);
-  printf("%s\n", tp.ToString().c_str());
+  fprintf(stdout, "Name:%s\n", job.name.c_str());
+  fprintf(stdout, "Replica:%d\n", job.replica);
+  fprintf(stdout, "State:%s\n", job.state.c_str());
+  fprintf(stdout, "Stat:running %d, death %d, pending %d\n", 
+         job.running, job.death, job.pending);
+  fprintf(stdout, "CreateTime:%s\n", FormatDate(job.ctime).c_str());
+  fprintf(stdout, "UpdateTime:%s\n", FormatDate(job.utime).c_str());
 }
 
 int main(int argc, char * args[]) {
@@ -545,21 +541,5 @@ int main(int argc, char * args[]) {
     fprintf(stderr, "no handle with key %s \n", key.c_str());
   }
 
-	/*if (strcmp(args[1], "run") == 0) {
-    Run();
-  } else if (strcmp(args[1], "ps") == 0) {
-    Show();
-  } else if (strcmp(args[1], "log") == 0) {
-    ShowLog();
-  } else if (strcmp(args[1], "submit") == 0) {
-    SubmitJob();
-  } else if (strcmp(args[1], "jail") == 0) {
-    JailContainer();
-  } else if (strcmp(args[1], "job") == 0) {
-    ShowJob();
-  } else {
-    fprintf(stderr,"%s", kDosCeUsage.c_str());
-    return -1;
-  }*/
   return 0;
 }

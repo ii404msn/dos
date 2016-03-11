@@ -60,6 +60,8 @@ struct JobInfo {
   uint32_t pending;
   uint32_t replica;
   uint32_t deploy_step;
+  int64_t ctime;
+  int64_t utime;
   std::string state;
 };
 
