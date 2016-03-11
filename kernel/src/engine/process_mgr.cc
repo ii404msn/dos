@@ -54,13 +54,13 @@ ProcessMgr::ProcessMgr():processes_(NULL){
 
 ProcessMgr::~ProcessMgr(){}
 
-bool ProcessMgr::Exec(const Process& process) {
+int32_t ProcessMgr::Exec(const Process& process) {
   Process local;
   local.CopyFrom(process);
   local.set_rtime(::baidu::common::timer::get_micros());
   if (local.user().uid() < 0) {
     LOG(WARNING, "user is required");
-    return false;
+    return -1;
   }
   if (local.cwd().empty()) {
     local.set_cwd("/home/" + process.user().name());
@@ -68,24 +68,24 @@ bool ProcessMgr::Exec(const Process& process) {
   bool ok = MkdirRecur(local.cwd());
   if (!ok) {
     LOG(WARNING, "fail create workdir %s", local.cwd().c_str());
-    return false;
+    return -1;
   }
   std::string job_desc = local.cwd() + "/" + process.name() + "_process.yml";
   bool gen_ok = dsh_->GenYml(local, job_desc);
   if (!gen_ok) {
     LOG(WARNING, "fail to gen yml for process %s", process.name().c_str());
-    return false;
+    return -1;
   }
   std::set<int> openfds;
   ok = GetOpenedFds(openfds);
   if (!ok) {
     LOG(WARNING, "fail to get opened fds  ");
-    return false;
+    return -1;
   }
   pid_t pid = fork();
   if (pid == -1) {
     LOG(WARNING, "fail to fork process %s", local.name().c_str());
-    return false;
+    return -1;
   }else if (pid == 0) {
     // close fds that are copied from parent
     std::set<int>::iterator fd_it = openfds.begin();
@@ -106,29 +106,29 @@ bool ProcessMgr::Exec(const Process& process) {
     processes_->insert(std::make_pair(local.name(), local));
     LOG(INFO, "create process %s successfully with pid %d", local.name().c_str(), local.pid());
   }
-  return true;
+  return pid;
 }
 
-bool ProcessMgr::Clone(const Process& process, int flag) { 
+int32_t ProcessMgr::Clone(const Process& process, int flag) { 
   std::string cwd = process.cwd();
   bool mk_ok = MkdirRecur(cwd);
   if (!mk_ok) {
     LOG(WARNING, "fail create cwd dir %s", cwd.c_str());
-    return false;
+    return -1;
   }
   std::string job_desc = cwd + "/"+  process.name() + "_process.yml";
   bool gen_ok = dsh_->GenYml(process,
                              job_desc);
   if (!gen_ok) {
     LOG(WARNING, "fail to gen process.yml for process %s", process.name().c_str());
-    return false;
+    return -1;
   }
   CloneContext* context = new CloneContext();
   context->job_desc = job_desc;
   bool ok = GetOpenedFds(context->fds);
   if (!ok) {
     LOG(WARNING, "fail to get open fds for process %s", process.name().c_str());
-    return false;
+    return -1;
   }
   int clone_ok = ::clone(&ProcessMgr::LaunchProcess,
                          CLONE_STACK + STACK_SIZE,
@@ -137,9 +137,9 @@ bool ProcessMgr::Clone(const Process& process, int flag) {
   delete context;
   if (clone_ok == -1) {
     LOG(WARNING, "fail to clone process for process %s", process.name().c_str());
-    return false;
+    return -1;
   }
-  return true;
+  return clone_ok;
 }
 
 bool ProcessMgr::GetUser(const std::string& user,

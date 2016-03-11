@@ -1,5 +1,8 @@
 #ifndef KERNEL_ENGINE_ISOLATOR_H
 #define KERNEL_ENGINE_ISOLATOR_H
+#include <string>
+#include <stdint.h>
+
 namespace dos {
 
 // cpu isolator implemented by cgroup
@@ -12,7 +15,7 @@ public:
   bool Attach(int32_t pid);
   bool AssignQuota(int32_t quota);
   bool AssignLimit(int32_t limit);
-
+  bool Init();
 private:
   std::string path_;
   int32_t quota_;

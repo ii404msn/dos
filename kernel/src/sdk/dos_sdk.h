@@ -65,11 +65,9 @@ struct JobInfo {
   std::string state;
 };
 
-struct JailProcess {
-  std::string cmds;
-  std::vector<std::string> envs;
-  std::string user;
-  std::string pty;
+struct InitdInfo {
+  int32_t pid;
+  std::string endpoint;
 };
 
 class EngineSdk {
@@ -82,8 +80,8 @@ public:
   virtual SdkStatus ShowAll(std::vector<CInfo>& containers) = 0;
   virtual SdkStatus ShowCLog(const std::string& name,
                              std::vector<CLog>& logs) = 0;
-  virtual SdkStatus Jail(const std::string& name,
-                         const JailProcess& process) = 0;
+  virtual SdkStatus GetInitd(const std::string& name,
+                             InitdInfo* initd) = 0;
 };
 
 class DosSdk {

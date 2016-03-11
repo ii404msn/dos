@@ -40,21 +40,19 @@ message ShowCLogResponse {
   optional RpcStatus status = 2;
 }
 
-message JailContainerRequest {
-  optional Process process = 1;
-  optional string c_name = 2;
+message GetInitdRequest {
+  optional string name = 1;
 }
 
-message JailContainerResponse {
-  optional RpcStatus status = 1;
+message GetInitdResponse {
+  optional int32 pid = 1; 
+  optional string endpoint = 2;
+  optional RpcStatus status = 3;
 }
-
-message DestroyContainerRequest {}
-message DestroyContainerResponse {}
 
 service Engine {
   rpc RunContainer(RunContainerRequest) returns(RunContainerResponse);
   rpc ShowContainer(ShowContainerRequest) returns(ShowContainerResponse);
   rpc ShowCLog(ShowCLogRequest) returns(ShowCLogResponse);
-  rpc JailContainer(JailContainerRequest) returns(JailContainerResponse);
+  rpc GetInitd(GetInitdRequest) returns(GetInitdResponse);
 }
