@@ -37,6 +37,7 @@ struct ContainerInfo {
   int64_t start_pull_time;
   // some batch or temp process
   std::set<std::string> batch_process;
+  int32_t pid;
   ContainerInfo():status(),
   work_dir(), gc_dir(), initd_endpoint(),
   initd_proc(),
@@ -44,7 +45,8 @@ struct ContainerInfo {
   initd_status_check_times(0),
   fetcher_name(),
   logs(),
-  start_pull_time(0){}
+  start_pull_time(0),
+  pid(-1){}
   ~ContainerInfo() {
     delete initd_stub; 
   }

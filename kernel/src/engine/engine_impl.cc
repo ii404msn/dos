@@ -427,8 +427,8 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
       if (info->status.spec().type() == kSystem) {
         flag = CLONE_NEWUTS;
       }
-      bool ok = info->initd_proc.Clone(initd, flag);
-      if (!ok) {
+      int32_t pid = info->initd_proc.Clone(initd, flag);
+      if (pid == -1) {
         LOG(WARNING, "fail to clone initd from container %s for %s",
             name.c_str(), strerror(errno));
         info->status.set_state(kContainerError);
@@ -437,6 +437,7 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
         AppendLog(kContainerBooting, kContainerError, "fail to clone initd", info);
         break;
       } else {
+        info->pid = pid;
         info->status.set_state(kContainerBooting);
         target_state = kContainerBooting;
         exec_task_interval = FLAGS_ce_initd_boot_check_interval;
@@ -733,14 +734,18 @@ void EngineImpl::GetInitd(RpcController* controller,
                           Closure* done) {
   ::baidu::common::MutexLock lock(&mutex_);
   LOG(DEBUG, "get initd of container %s", request->name().c_str());
-  Containers::iterator it = containers_->find(request->c_name());
+  Containers::iterator it = containers_->find(request->name());
   if (it == containers_->end()) {
-    LOG(INFO, "container with name %s has been deleted", request->c_name().c_str());
+    LOG(INFO, "container with name %s has been deleted", request->name().c_str());
     response->set_status(kRpcNotFound);
     done->Run();
     return;
   }
   ContainerInfo* info = it->second;
+  response->set_pid(info->pid);
+  response->set_endpoint(info->initd_endpoint);
+  response->set_status(kRpcOk);
+  done->Run();
 }
 
 
