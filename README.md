@@ -1,8 +1,8 @@
-### 构建状态
+# 构建状态
 [![Travis CI](https://travis-ci.org/imotai/dos.svg?branch=master)](https://travis-ci.org/imotai/dos)
 [![Circle CI](https://circleci.com/gh/imotai/dos.svg?style=svg)](https://circleci.com/gh/imotai/dos)
 
-#### 构建on centos 
+## 构建on centos 
 
 ```
 git clone https://github.com/imotai/dos.git 
@@ -14,7 +14,7 @@ yum install zlib-static.x86_64
 sh quick_build.sh
 ```
 
-#### 本地运行
+## 本地运行
 
 ```
 # 进入sandbox 启动所有模块
