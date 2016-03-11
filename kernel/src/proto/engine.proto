@@ -49,6 +49,9 @@ message JailContainerResponse {
   optional RpcStatus status = 1;
 }
 
+message DestroyContainerRequest {}
+message DestroyContainerResponse {}
+
 service Engine {
   rpc RunContainer(RunContainerRequest) returns(RunContainerResponse);
   rpc ShowContainer(ShowContainerRequest) returns(ShowContainerResponse);

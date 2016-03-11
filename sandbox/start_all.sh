@@ -2,6 +2,7 @@ mkdir -p cores
 chmod a+rwx cores
 WORK_DIR=`pwd`
 echo "$WORK_DIR/cores/core.%e.%p.%h.%t" > /proc/sys/kernel/core_pattern
+mkdir -p $WORK_DIR/work_dir
 ulimit -c unlimited
 rm -rf core dos
 cp ../dos dos
