@@ -178,18 +178,7 @@ bool Dsh::PrepareStdio(const YAML::Node& config) {
     int pty_fd = open(pty.c_str(), O_RDWR);
     stdout_fd = pty_fd;
     stderr_fd = pty_fd;
-    stdin_fd = pty_fd;
-    pid_t sid = setsid();
-    if (sid == -1) {
-      LOG(WARNING, "fail to set sid for process %s with err %s",
-          name.c_str(), strerror(errno));
-      return false;
-    }
-    int ret = ioctl(0, TIOCSCTTY, 1);
-    if (ret == -1) {
-      LOG(WARNING, "fail to set TIOCSCTTY for %s", strerror(errno));
-      return false;
-    }
+    stdin_fd = pty_fd; 
   }
 
   if (stdout_fd != -1) {

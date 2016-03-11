@@ -727,13 +727,12 @@ bool EngineImpl::HandleProcessUser(Process* process) {
   return true;
 }
 
-// fork a process in container
-void EngineImpl::JailContainer(RpcController* controller,
-                               const JailContainerRequest* request,
-                               JailContainerResponse* response,
-                               Closure* done) {
+void EngineImpl::GetInitd(RpcController* controller,
+                          const GetInitdRequest* request,
+                          GetInitdResponse* response,
+                          Closure* done) {
   ::baidu::common::MutexLock lock(&mutex_);
-  LOG(DEBUG, "jail container %s", request->c_name().c_str());
+  LOG(DEBUG, "get initd of container %s", request->name().c_str());
   Containers::iterator it = containers_->find(request->c_name());
   if (it == containers_->end()) {
     LOG(INFO, "container with name %s has been deleted", request->c_name().c_str());
@@ -742,41 +741,8 @@ void EngineImpl::JailContainer(RpcController* controller,
     return;
   }
   ContainerInfo* info = it->second;
-  if (info->initd_endpoint.empty()
-      || !info->initd_stub) {
-    response->set_status(kRpcNotFound);
-    done->Run();
-    return;
-  }
-  ForkRequest fork_request;
-  fork_request.mutable_process()->CopyFrom(request->process());
-  std::string name = "jail_" + request->c_name() + CurrentDatetimeStr();
-  fork_request.mutable_process()->set_name(name);
-  bool process_user_ok = HandleProcessUser(fork_request.mutable_process());
-  if (!process_user_ok) {
-    LOG(WARNING, "process user %s failed", fork_request.process().user().name().c_str());
-    response->set_status(kRpcError);
-    done->Run();
-    return;
-  }
-  info->batch_process.insert(name);
-  ForkResponse fork_response;
-  bool fork_ok = rpc_client_->SendRequest(info->initd_stub, 
-                                          &Initd_Stub::Fork,
-                                          &fork_request,
-                                          &fork_response,
-                                          5, 1);
-  if (fork_ok) {
-    LOG(INFO, "jail in container %s with cmds %s successfully", request->c_name().c_str(),
-        request->process().args(0).c_str());
-    response->set_status(kRpcOk);
-  }else {
-    LOG(INFO, "jail in container %s with cmds %s fails", request->c_name().c_str(),
-        request->process().args(0).c_str());
-    response->set_status(kRpcError);
-  }
-  done->Run();
 }
+
 
 std::string EngineImpl::CurrentDatetimeStr() {
   int64_t now = ::baidu::common::timer::get_micros();

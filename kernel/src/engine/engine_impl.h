@@ -72,10 +72,10 @@ public:
                const ShowCLogRequest* request,
                ShowCLogResponse* response,
                Closure* done);
-  void JailContainer(RpcController* controller,
-                     const JailContainerRequest* request,
-                     JailContainerResponse* response,
-                     Closure* done);
+  void GetInitd(RpcController* controller,
+                const GetInitdRequest* request,
+                GetInitdResponse* response,
+                Closure* done);
 private:
 
   void StartContainerFSM(const std::string& name);
