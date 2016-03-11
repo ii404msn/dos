@@ -185,7 +185,11 @@ bool Dsh::PrepareStdio(const YAML::Node& config) {
           name.c_str(), strerror(errno));
       return false;
     }
-    ioctl(0, TIOCSCTTY, 1);
+    int ret = ioctl(0, TIOCSCTTY, 1);
+    if (ret == -1) {
+      LOG(WARNING, "fail to set TIOCSCTTY for %s", strerror(errno));
+      return false;
+    }
   }
 
   if (stdout_fd != -1) {
