@@ -78,6 +78,8 @@ message Resource {
   optional Port port = 3;
   optional Network network = 4;
   repeated DiskIO diskio = 5;
+  // the time that generate resource
+  optional uint64 gtime = 6;
 }
 
 message Process {
@@ -333,6 +335,10 @@ message ContainerStatus {
   optional int64 restart_count = 9;
   optional string node_addr = 10;
   optional HealthState health_state = 11;
+  // the lowest resource consume
+  optional Resource lowest = 12;
+  // the highest resource consume
+  optional Resource highest = 13; 
 }
 
 

@@ -38,7 +38,7 @@ public:
                      const SyncAgentInfoRequest* request,
                      SyncAgentInfoResponse* response,
                      Closure* done);
-  
+
   void ScaleUpPropose(RpcController* controller,
                      const ScaleUpProposeRequest* request,
                      ScaleUpProposeResponse* response,
@@ -47,6 +47,11 @@ public:
   void GetJob(RpcController* controller,
                const GetJobRequest* request,
                GetJobResponse* response,
+               Closure* done);
+
+  void KillJob(RpcController* controller,
+               const KillJobRequest* request,
+               KillJobResponse* response,
                Closure* done);
 private:
   NodeManager* node_manager_;

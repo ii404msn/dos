@@ -111,4 +111,11 @@ void MasterImpl::GetJob(RpcController* controller,
   done->Run();
 }
 
+void MasterImpl::KillJob(RpcController* controller,
+                         const KillJobRequest* request,
+                         KillJobResponse* response,
+                         Closure* done) {
+  done->Run();
+}
+
 } // end of dos

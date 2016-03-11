@@ -106,7 +106,7 @@ message GetJobResponse {
 }
 
 message KillJobRequest {
-  optional string name = 1;  
+  optional string name = 1;
 }
 
 message KillJobResponse {
@@ -126,6 +126,6 @@ service Master {
   rpc ScaleUpPropose(ScaleUpProposeRequest) returns(ScaleUpProposeResponse);
   // show jobs in master
   rpc GetJob(GetJobRequest) returns(GetJobResponse);
-  // kill job  
+  // kill job
   rpc KillJob(KillJobRequest) returns(KillJobResponse);
 }
