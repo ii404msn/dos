@@ -115,6 +115,12 @@ void MasterImpl::KillJob(RpcController* controller,
                          const KillJobRequest* request,
                          KillJobResponse* response,
                          Closure* done) {
+  bool del_ok = job_manager_->KillJob(request->name());
+  if (del_ok) {
+    response->set_status(kRpcOk);
+  } else {
+    response->set_status(kRpcError);
+  }
   done->Run();
 }
 
