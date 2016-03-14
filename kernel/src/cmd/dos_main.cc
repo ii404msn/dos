@@ -59,7 +59,7 @@ typedef boost::function<void ()> Handle;
 
 const std::string kDosCeUsage = "dos help message.\n"
                                 "Usage:\n"
-                                "    dos get <job|log> -n name\n" 
+                                "    dos get <job|log|version> -n name\n" 
                                 "    dos add <job> -f job.yml\n"
                                 "    dos jail container -n name\n"
                                 "    dos ls container\n"
@@ -480,11 +480,7 @@ void GetJob() {
 int main(int argc, char * args[]) {
   ::baidu::common::SetLogLevel(DEBUG);
   ::google::SetUsageMessage(kDosCeUsage);
-  std::string bin(args[0]);
-  if (argc > 1 && strcmp(args[1], "version") ==0) {
-    PrintVersion();
-    return 0;
-  }
+  std::string bin(args[0]); 
   std::map<std::string, Handle> daemon_map;
   daemon_map.insert(std::make_pair("initd", boost::bind(&StartInitd)));
   daemon_map.insert(std::make_pair("engine", boost::bind(&StartEngine)));
@@ -518,6 +514,7 @@ int main(int argc, char * args[]) {
   action_map.insert(std::make_pair("lscontainer", boost::bind(&ListContainer)));
   action_map.insert(std::make_pair("getlog", boost::bind(&GetLog)));
   action_map.insert(std::make_pair("jailcontainer", boost::bind(&JailContainer)));
+  action_map.insert(std::make_pair("getversion", boost::bind(&PrintVersion)));
   std::map<std::string, Handle>::iterator action_it = action_map.find(key);
   if (action_it != action_map.end()) {
     action_it->second();
