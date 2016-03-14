@@ -80,6 +80,10 @@ public:
                 const GetInitdRequest* request,
                 GetInitdResponse* response,
                 Closure* done);
+  void DeleteContainer(RpcController* controller,
+                       const DeleteContainerRequest* request,
+                       DeleteContainerResponse* response,
+                       Closure* done);
 private:
 
   void StartContainerFSM(const std::string& name);
@@ -123,6 +127,10 @@ private:
 
   void HandleCompleteContainer(const ContainerState& pre_state,
                                const std::string& name);
+  // delete container 
+  void HandleDeleteContainer(const ContainerState& pre_state,
+                             const std::string& name);
+
   std::string CurrentDatetimeStr();
 
   bool DoStartProcess(const std::string& name, ContainerInfo* info);
@@ -134,6 +142,7 @@ private:
   std::string work_dir_;
   std::string gc_dir_;
   FSM* fsm_;
+  bool fsm_interrupt_;_
   RpcClient* rpc_client_;
   std::queue<int32_t>* ports_;
   UserMgr* user_mgr_;

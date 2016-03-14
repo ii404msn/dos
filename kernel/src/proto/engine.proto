@@ -51,9 +51,23 @@ message GetInitdResponse {
   optional RpcStatus status = 4;
 }
 
+// update container with new configuration
+message UpdateContainerRequest {}
+message UpdateContainerResponse {}
+
+// stop container and move the workspace to gcdir
+message DeleteContainerRequest {
+  optional string name = 1;  
+}
+
+message DeleteContainerResponse {
+  optional RpcStatus status = 2;
+}
+
 service Engine {
   rpc RunContainer(RunContainerRequest) returns(RunContainerResponse);
   rpc ShowContainer(ShowContainerRequest) returns(ShowContainerResponse);
   rpc ShowCLog(ShowCLogRequest) returns(ShowCLogResponse);
   rpc GetInitd(GetInitdRequest) returns(GetInitdResponse);
+  rpc DeleteContainer(DeleteContainerRequest) returns(DeleteContainerResponse);
 }
