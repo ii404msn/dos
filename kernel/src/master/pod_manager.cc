@@ -31,6 +31,8 @@ PodManager::PodManager(FixedBlockingQueue<PodOperation*>* pod_opqueue,
                               boost::bind(&PodManager::HandleStagePendingChanged, this, _1)));
   fsm_->insert(std::make_pair(kPodSchedStageRunning, 
                               boost::bind(&PodManager::HandleStageRunningChanged, this, _1)));
+  fsm_->insert(std::make_pair(kPodSchedStageRemoved, 
+                              boost::bind(&PodManager::HandleStageRemovedChanged, this, _1)));
   job_desc_ = new std::map<std::string, JobSpec>();
   state_to_stage_.insert(std::make_pair(kPodRunning, kPodSchedStageRunning));
   state_to_stage_.insert(std::make_pair(kPodDeploying, kPodSchedStageRunning));
@@ -65,6 +67,7 @@ void PodManager::WatchJobOp() {
       job_desc_->insert(std::make_pair(job_op->job_->name(), job_op->job_->desc()));
       break;
     case kJobRemove:
+      ScaleDownJob(job_op->job_);
       break;
     case kJobUpdate:
       break;
@@ -173,6 +176,31 @@ void PodManager::GetScaleUpPods(const Condition& condition,
     scale_up_jobs_->erase(job_name);
   }
 
+}
+
+void PodManager::HandleStageRemovedChanged(const Event& e) {
+  mutex_.AssertHeld();
+  PodNameIndex& name_index = pods_->get<name_tag>();
+  const std::string pod_name = boost::get<0>(e);
+  const PodSchedStage& to_stage = boost::get<2>(e);
+  PodNameIndex::iterator name_it = name_index.find(pod_name);
+  if (name_it == name_index.end()) {
+    LOG(WARNING, "no pod with name %s in pod manager", pod_name.c_str());
+    return;
+  }
+  if (to_stage == kPodSchedStageDeath
+      || to_stage == kPodSchedStageRunning) {
+    LOG(INFO, "wait pod %s to be killed on agent %s",
+        name_it->pod_->name().c_str(),
+        name_it->pod_->endpoint().c_str());
+    return;
+  }else {
+    LOG(INFO, "delete pod %s from agent %s", 
+        name_it->pod_->name().c_str(),
+        name_it->pod_->endpoint().c_str());
+    delete name_it->pod_;
+    name_index.erase(pod_name);
+  }
 }
 
 void PodManager::HandleStageRunningChanged(const Event& e) {
@@ -290,6 +318,115 @@ bool PodManager::GetJobStatForInternal(const std::string& job_name,
       stat->deploying_, stat->running_,
       stat->death_);
   return true;
+}
+
+bool PodManager::ScaleDownJob(const JobStatus* job) {
+  ::baidu::common::MutexLock lock(&mutex_);
+  JobStat stat;
+  bool get_ok = GetJobStatForInternal(job->name(), &stat);
+  if (!get_ok) {
+    LOG(WARNING, "fail to get job %s stat", job->name().c_str());
+    return false;
+  }
+  uint32_t current_replica = stat.pending_ + stat.deploying_ + stat.running_ + stat.death_;
+  if (current_replica <= job->desc().replica()) {
+    LOG(WARNING, "job %s has no need to make a scaledown", job->name().c_str());
+    return true;
+  }
+  int32_t need_scale_down_count = current_replica - job->desc().replica();
+  // the count of pod that being pending will be scaled down
+  int32_t pending_count = 0;
+  // the count of pod that being death will be scaled down
+  int32_t death_count = 0;
+  // the count of pod that being deploying will be scaled down
+  int32_t deploying_count = 0;
+  // the count of pod that being runing will be scaled down
+  int32_t running_count = 0;
+  do {
+    if (need_scale_down_count <= stat.pending_) {
+      pending_count = need_scale_down_count;
+      break;
+    }
+    pending_count = stat.pending_;
+    need_scale_down_count -= stat.pending_;
+
+    if (need_scale_down_count <= stat.death_) {
+      death_count = need_scale_down_count;
+      break;
+    }
+    death_count = stat.death_;
+    need_scale_down_count -= stat.death_;
+
+    if (need_scale_down_count <= stat.deploying_) {
+      deploying_count = need_scale_down_count;
+      break;
+    }
+    deploying_count = stat.deploying_;
+    need_scale_down_count -= stat.deploying_;
+    if (need_scale_down_count <= stat.running_) {
+      running_count = need_scale_down_count;
+      break;
+    }
+    assert(0);
+  }while(false);
+
+  const PodJobNameIndex& job_name_index = pods_->get<job_name_tag>();
+  PodJobNameIndex::const_iterator it = job_name_index.find(job->name());
+  std::set<std::string> to_be_removed;
+  // scan all pods with the same job name 
+  for (; it != job_name_index.end(); ++it) {
+    if (it->job_name_ != job->name()) {
+      break;
+    } 
+    bool need_send_op = false;
+    PodOperation* pod_op = new PodOperation();
+    pod_op->type_ = kKillPod;
+    pod_op->pod_ = it->pod_;
+    switch (it->pod_->state()) {
+      // the pending is on agent so 
+      case kPodPending:
+        // remove it directly in memory
+        if (pending_count > 0) {
+          to_be_removed.insert(it->pod_->name());
+          // free the memory that podstatus occupied
+          delete it->pod_;
+        }
+        break;
+      case kPodDeploying:
+        if (deploying_count > 0) {
+          it->pod_->set_stage(kPodSchedStageRemoved);
+          need_send_op = true;
+          --deploying_count;
+          need_send_op = true;
+        }
+        break;
+      case kPodRunning:
+        if (running_count > 0) {
+          it->pod_->set_stage(kPodSchedStageRemoved);
+          --running_count;
+          need_send_op = true;
+        }
+        break;
+      case kPodDeath:
+        if (death_count > 0) {
+          it->pod_->set_stage(kPodSchedStageRemoved);
+          --death_count;
+          need_send_op = true;
+        }
+        break;
+    }
+    if (need_send_op) {
+      pod_opqueue_->Push(pod_op);
+    } else {
+      delete pod_op;
+    }
+  }
+  PodNameIndex& name_index = pods_->get<name_tag>();
+  std::set<std::string>::iterator rm_it = to_be_removed.begin();
+  for (; rm_it != to_be_removed.end(); ++rm_it) {
+    name_index.erase(*rm_it);
+  }
+  return false;
 }
 
 bool PodManager::GetJobStat(const std::string& job_name,
