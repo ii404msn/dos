@@ -2,11 +2,13 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-
 #include <signal.h>
 #include <unistd.h>
 #include <sstream>
 #include <string>
+#include <fcntl.h>
+#include <sched.h>
+#include <unistd.h>
 #include <sofa/pbrpc/pbrpc.h>
 #include <logging.h>
 #include <gflags/gflags.h>
@@ -26,6 +28,7 @@
 #include "yaml-cpp/yaml.h"
 #include "cmd/pty.h"
 #include "dsh/dsh.h"
+#include <dirent.h>
 #include "version.h"
 
 DECLARE_string(ce_initd_port);
@@ -154,17 +157,53 @@ void StartScheduler() {
   }
 }
 
-void JailContainer() {
-  if (FLAGS_n.empty()) {
+void Jail() {
+  /*if (FLAGS_n.empty()) {
     fprintf(stderr, "-n is required \n");
     exit(1);
-  
   } 
-  /*
+  dos::EngineSdk* engine = dos::EngineSdk::Connect(FLAGS_ce_endpoint);
+  if (engine == NULL) {
+    fprintf(stderr, "fail to connect %s \n", FLAGS_ce_endpoint.c_str());
+    exit(1);
+  }
   ::dos::InitdInfo initd;
   dos::SdkStatus status = engine->GetInitd(FLAGS_n, &initd);
-  if (status == dos::kSdkOk) {
+  if (status != dos::kSdkOk) {
+    fprintf(stderr, "fail to get initd pid \n");
+    exit(1);
   }
+  std::string proc_path = "/proc/" + boost::lexical_cast<std::string>(initd.pid) + "/ns";
+  DIR* dir;
+  struct dirent* ep;
+  dir = opendir(proc_path.c_str());
+  if (!dir) {
+    fprintf(stderr, "fail to open dir %s", proc_path.c_str());
+    exit(1);
+  }
+  while (ep == readdir(dir)) {
+    int ns_fd = open(ep->d_name, O_RDONLY); 
+    if (ns_fd == -1) {
+      fprintf(stderr, "fail to open ns %s", ep->d_name);
+      exit(1);
+    }
+    int ret = setns(ns_fd, 0);
+    if (ret == -1) {
+      fprintf(stderr, "fail to set ns %s", ep->d_name);
+      exit(1);
+    }
+  }
+  int ch_ok = chroot(initd.rootfs.c_str());
+  if (ch_ok != 0) {
+    fprintf(stderr, "fail to chroot to %s", initd.rootfs.c_str());
+    exit(1);
+  }
+  char* args[] = {
+    const_cast<char*>("bash"),
+    NULL
+  };
+  ::execv("/bin/bash", args);
+  exit(1);
   */
 }
 
@@ -517,7 +556,7 @@ int main(int argc, char * args[]) {
   action_map.insert(std::make_pair("getjob", boost::bind(&GetJob)));
   action_map.insert(std::make_pair("lscontainer", boost::bind(&ListContainer)));
   action_map.insert(std::make_pair("getlog", boost::bind(&GetLog)));
-  action_map.insert(std::make_pair("jailcontainer", boost::bind(&JailContainer)));
+  action_map.insert(std::make_pair("jailcontainer", boost::bind(&Jail)));
   std::map<std::string, Handle>::iterator action_it = action_map.find(key);
   if (action_it != action_map.end()) {
     action_it->second();

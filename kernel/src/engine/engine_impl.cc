@@ -745,6 +745,7 @@ void EngineImpl::GetInitd(RpcController* controller,
   response->set_pid(info->pid);
   response->set_endpoint(info->initd_endpoint);
   response->set_status(kRpcOk);
+  response->set_rootfs(info->work_dir+ "/rootfs");
   done->Run();
 }
 
