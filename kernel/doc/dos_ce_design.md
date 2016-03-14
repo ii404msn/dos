@@ -88,4 +88,5 @@ args:
   -initd
   -"--flagfile="
 ```
-
+#### initd 健康状态check
+添加retry_connect_to_initd count 
