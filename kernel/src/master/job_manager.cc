@@ -64,4 +64,19 @@ bool JobManager::Add(const std::string& user_name,
   return true;
 }
 
+bool JobManager::KillJob(const std::string& name) {
+  const JobNameIndex& name_index = jobs_->get<name_tag>();
+  JobNameIndex::const_iterator name_it = name_index.find(name);
+  if (name_it == name_index.end()) {
+    return false; 
+  }
+  name_it->job_->set_state(kJobRemoved);
+  name_it->job_->mutable_desc()->set_replica(0);
+  JobOperation* op = new JobOperation();
+  op->job_ = name_it->job_;
+  op->type_ = kJobRemove;
+  job_opqueue_->Push(op);
+  return true;
+}
+
 }// namespace dos

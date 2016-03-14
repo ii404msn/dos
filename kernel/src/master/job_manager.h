@@ -47,6 +47,7 @@ public:
            const JobSpec& desc);
   bool GetJob(const std::string& name,
               JobOverview* job);
+  bool KillJob(const std::string& name);
 private:
   JobSet* jobs_;
   ::baidu::common::Mutex mutex_;

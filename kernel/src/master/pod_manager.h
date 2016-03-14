@@ -110,11 +110,13 @@ private:
   void DispatchEvent(const Event& e);
   void HandleStageRunningChanged(const Event& e);
   void HandleStagePendingChanged(const Event& e);
+  void HandleStageRemovedChanged(const Event& e);
   bool GetJobStatForInternal(const std::string& job_name,
                              JobStat* stat);
   // merge PodStatus in agent and master
   void MergePodStatus(const PodStatus& pod_on_agent,
                       PodStatus* pod_on_master);
+  bool ScaleDownJob(const JobStatus* job);
 private:
   PodSet* pods_;
   std::set<std::string>* scale_up_jobs_;

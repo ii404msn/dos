@@ -580,6 +580,7 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
   }
   ContainerInfo* info = it->second;
   ContainerState target_state = kContainerRunning;
+  ContainerState current_state = kContainerRunning;
   int32_t exec_task_interval = 0;
   do {
     // run command in container 
@@ -600,6 +601,15 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
         rpc_ok = rpc_ok && response.status() == kRpcOk;
       } else {
         rpc_ok = DoStartProcess(name, info);
+      }
+      if (!rpc_ok && info->retry_connect_to_initd > 0) {
+        --info->retry_connect_to_initd;
+        LOG(WARNING, "fail to connect to initd %s, retry it", info->initd_endpoint.c_str());
+        target_state = kContainerRunning;
+        current_state = pre_state;
+        AppendLog(kContainerRunning, kContainerError, "fail to connect init", info);
+        exec_task_interval = 1000;
+        break;
       }
       if (!rpc_ok) {
         LOG(WARNING, "fail to fork process for container %s", name.c_str());
@@ -625,6 +635,15 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
                                               &Initd_Stub::Status,
                                               &request, &response, 5, 1);
         rpc_ok = rpc_ok && response.status() == kRpcOk;
+        if (!rpc_ok && info->retry_connect_to_initd > 0) {
+          --info->retry_connect_to_initd;
+          LOG(WARNING, "fail to connect to initd %s, retry it", info->initd_endpoint.c_str());
+          target_state = kContainerRunning;
+          current_state = pre_state;
+          AppendLog(kContainerRunning, kContainerError, "fail to connect init", info);
+          exec_task_interval = 1000;
+          break;
+        }
         if (rpc_ok) {
           target_state = kContainerRunning;
           LOG(DEBUG, "container %s is under running", name.c_str());
@@ -652,6 +671,15 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
       bool rpc_ok = rpc_client_->SendRequest(info->initd_stub, 
                                              &Initd_Stub::Wait,
                                              &request, &response, 5, 1);
+      if (!rpc_ok && info->retry_connect_to_initd > 0) {
+          --info->retry_connect_to_initd;
+          LOG(WARNING, "fail to connect to initd %s, retry it", info->initd_endpoint.c_str());
+          target_state = kContainerRunning;
+          current_state = pre_state;
+          AppendLog(kContainerRunning, kContainerError, "fail to connect init", info);
+          exec_task_interval = 1000;
+          break;
+      }
       if (!rpc_ok || response.status() != kRpcOk) {
         LOG(WARNING, "fail to connect to initd %s", info->initd_endpoint.c_str());
         // TODO add check times that fails reach
@@ -706,7 +734,7 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
       }
     }
   } while(0);
-  ProcessHandleResult(target_state, kContainerRunning, name, exec_task_interval);
+  ProcessHandleResult(target_state, current_state, name, exec_task_interval);
 }
 
 bool EngineImpl::HandleProcessUser(Process* process) {

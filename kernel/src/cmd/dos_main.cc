@@ -62,8 +62,9 @@ typedef boost::function<void ()> Handle;
 
 const std::string kDosCeUsage = "dos help message.\n"
                                 "Usage:\n"
-                                "    dos get <job|log> -n name\n" 
+                                "    dos get <job|log|version> -n name\n" 
                                 "    dos add <job> -f job.yml\n"
+                                "    dos del <job> -n name\n"
                                 "    dos jail container -n name\n"
                                 "    dos ls container\n"
                                 "    dos version\n"
@@ -516,14 +517,29 @@ void GetJob() {
   fprintf(stdout, "UpdateTime:%s\n", FormatDate(job.utime).c_str());
 }
 
+void DelJob() {
+  if (FLAGS_n.empty()) {
+    fprintf(stderr, "-n is required\n");
+    exit(1);
+  }
+  std::string master_endpoint = "127.0.0.1:" + FLAGS_master_port;
+  ::dos::DosSdk* dos_sdk = ::dos::DosSdk::Connect(master_endpoint);
+  if (!dos_sdk) {
+    fprintf(stderr, "fail to connect to dos\n");
+    exit(1);
+  }
+  ::dos::SdkStatus status = dos_sdk->DelJob(FLAGS_n);
+  if (status != ::dos::kSdkOk) {
+    fprintf(stderr, "fail to del job %s \n", FLAGS_n.c_str());
+    exit(1);
+  }
+  fprintf(stdout, "del job %s successfully\n", FLAGS_n.c_str());
+}
+
 int main(int argc, char * args[]) {
   ::baidu::common::SetLogLevel(DEBUG);
   ::google::SetUsageMessage(kDosCeUsage);
-  std::string bin(args[0]);
-  if (argc > 1 && strcmp(args[1], "version") ==0) {
-    PrintVersion();
-    return 0;
-  }
+  std::string bin(args[0]); 
   std::map<std::string, Handle> daemon_map;
   daemon_map.insert(std::make_pair("initd", boost::bind(&StartInitd)));
   daemon_map.insert(std::make_pair("engine", boost::bind(&StartEngine)));
@@ -557,6 +573,8 @@ int main(int argc, char * args[]) {
   action_map.insert(std::make_pair("lscontainer", boost::bind(&ListContainer)));
   action_map.insert(std::make_pair("getlog", boost::bind(&GetLog)));
   action_map.insert(std::make_pair("jailcontainer", boost::bind(&Jail)));
+  action_map.insert(std::make_pair("getversion", boost::bind(&PrintVersion)));
+  action_map.insert(std::make_pair("deljob", boost::bind(&DelJob)));
   std::map<std::string, Handle>::iterator action_it = action_map.find(key);
   if (action_it != action_map.end()) {
     action_it->second();

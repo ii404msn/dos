@@ -144,6 +144,7 @@ class DosSdkImpl : public DosSdk {
     }
     SdkStatus Submit(const JobDescriptor& job);
     SdkStatus GetJob(const std::string& name, JobInfo* job);
+    SdkStatus DelJob(const std::string& name);
   private:
     RpcClient* rpc_client_;
     Master_Stub* master_;
@@ -177,6 +178,18 @@ SdkStatus DosSdkImpl::GetJob(const std::string& name, JobInfo* job) {
   job->ctime = response.job().ctime();
   job->utime = response.job().utime();
   job->state = response.job().state();
+  return kSdkOk;
+}
+
+SdkStatus DosSdkImpl::DelJob(const std::string& name) {
+  KillJobRequest request;
+  request.set_name(name);
+  KillJobResponse response;
+  bool rpc_ok = rpc_client_->SendRequest(master_, &Master_Stub::KillJob,
+                                        &request, &response, 5, 1);
+  if (!rpc_ok || response.status()  != kRpcOk) {
+    return kSdkError;
+  }
   return kSdkOk;
 }
 

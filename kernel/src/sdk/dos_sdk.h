@@ -91,6 +91,7 @@ class DosSdk {
     // submit a job to dos
     virtual SdkStatus Submit(const JobDescriptor& job) = 0;
     virtual SdkStatus GetJob(const std::string& name, JobInfo* job) = 0;
+    virtual SdkStatus DelJob(const std::string& name) = 0;
 };
 
 }
