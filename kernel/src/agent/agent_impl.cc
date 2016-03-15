@@ -174,7 +174,7 @@ void AgentImpl::Delete(RpcController* controller,
     done->Run();
     return;
   }
-  for (; pod_name_it != pod_name_idx.end()) {
+  for (; pod_name_it != pod_name_idx.end(); ++pod_name_it) {
     if (pod_name_it->pod_name_ != request->name()) {
       break;
     }
@@ -186,7 +186,31 @@ void AgentImpl::Delete(RpcController* controller,
 
 void AgentImpl::WaitContainer(const std::string& c_name) {
   ::baidu::common::MutexLock lock(&mutex_);
-
+  ContainerNameIdx& c_name_idx = c_set_->get<c_name_tag>();
+  ContainerNameIdx::iterator c_name_it = c_name_idx.find(c_name);
+  if (c_name_it == c_name_idx.end()) {
+    LOG(WARNING, "container with name %s has been removed", c_name.c_str());
+    return;
+  }
+  ShowContainerRequest request;
+  request.add_names(c_name);
+  ShowContainerResponse response;
+  // only response status equals kRpcNotFound 
+  // dos agent will clean container
+  bool ok = rpc_client_->SendRequest(engine_, &Engine_Stub::ShowContainer,
+                                     &request, &response,
+                                     5, 1);
+  // delete container is pending
+  if (!ok || response.status() != kRpcNotFound) {
+    LOG(INFO, "wait container %s to be deleted from engine", c_name.c_str());
+    thread_pool_.DelayTask(FLAGS_agent_sync_container_stat_interval,
+                             boost::bind(&AgentImpl::WaitContainer, this, c_name));
+  } else {
+    // delete container successfully and clean container in dos agent
+    delete c_name_it->status_;
+    delete c_name_it->desc_;
+    c_set_->erase(c_name);
+  }
 }
 
 void AgentImpl::HeartBeat() {
@@ -226,7 +250,15 @@ void AgentImpl::KeepContainer(const std::string& c_name) {
              || current_state == kContainerPulling) {
     SyncContainerStat(c_name_it->status_);
   } else if (current_state == kContainerKilled) {
-    
+    bool ok = KillContainer(c_name_it->status_);
+    // if kill container successfully , go to wait container to be killed
+    if (ok) {
+      thread_pool_.DelayTask(FLAGS_agent_sync_container_stat_interval,
+                             boost::bind(&AgentImpl::WaitContainer, this, c_name));
+      return;
+    }
+    // retry to kill container
+    // TODO count retry kill
   }
   if (c_name_it->status_->state() != kContainerError) {
     thread_pool_.DelayTask(FLAGS_agent_sync_container_stat_interval,

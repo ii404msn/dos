@@ -21,7 +21,10 @@ message RunPodResponse {
 
 message DeletePodRequest {
   optional string name = 1;
-  optional RpcStatus status = 2;
+}
+
+message DeletePodResponse {
+  optional RpcStatus status = 1;
 }
 
 service Agent {

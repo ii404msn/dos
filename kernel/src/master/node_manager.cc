@@ -164,6 +164,12 @@ void NodeManager::PollNodeCallback(const std::string& endpoint,
   ScheduleNextPoll();
 }
 
+void NodeManager::DeletePod(const std::string& pod_name,
+                            const std::string& endpoint) {
+  ::baidu::common::MutexLock lock(&mutex_);
+
+}
+
 void NodeManager::SyncAgentInfo(const AgentVersionList& versions,
                                 AgentOverviewList* agents,
                                 StringList* del_list) {
