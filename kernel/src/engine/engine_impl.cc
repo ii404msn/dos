@@ -43,6 +43,7 @@ EngineImpl::EngineImpl(const std::string& work_dir,
   fsm_->insert(std::make_pair(kContainerRunning, boost::bind(&EngineImpl::HandleRunContainer, this, _1, _2)));
   fsm_->insert(std::make_pair(kContainerError, boost::bind(&EngineImpl::HandleError, this, _1, _2)));
   fsm_->insert(std::make_pair(kContainerCompleted, boost::bind(&EngineImpl::HandleCompleteContainer, this, _1, _2)));
+  fsm_->insert(std::make_pair(kContainerKilled, boost::bind(&EngineImpl::HandleDeleteContainer, this, _1, _2)));
   rpc_client_ = new RpcClient();
   ports_ = new std::queue<int32_t>();
   for (int32_t i= 9000; i < 10000; i++) {
@@ -218,7 +219,7 @@ void EngineImpl::HandlePullImage(const ContainerState& pre_state,
   // so wo need rechoose the function to execute
   if (fsm_interrupt_) {
     fsm_interrupt_ = false;
-    ContainerState current_state = info->status().state();
+    ContainerState current_state = info->status.state();
     mutex_.Unlock();
     ProcessHandleResult(pre_state, current_state, name, 0);
     return;
@@ -402,7 +403,7 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
   // so wo need rechoose the function to execute
   if (fsm_interrupt_) {
     fsm_interrupt_ = false;
-    ContainerState current_state = info->status().state();
+    ContainerState current_state = info->status.state();
     mutex_.Unlock();
     ProcessHandleResult(pre_state, current_state, name, 0);
     return;
@@ -511,7 +512,7 @@ void EngineImpl::HandleError(const ContainerState& pre_state,
   // so wo need rechoose the function to execute
   if (fsm_interrupt_) {
     fsm_interrupt_ = false;
-    ContainerState current_state = info->status().state();
+    ContainerState current_state = info->status.state();
     mutex_.Unlock();
     ProcessHandleResult(pre_state, current_state, name, 0);
     return;
@@ -542,7 +543,7 @@ void EngineImpl::HandleCompleteContainer(const ContainerState& pre_state,
   // so wo need rechoose the function to execute
   if (fsm_interrupt_) {
     fsm_interrupt_ = false;
-    ContainerState current_state = info->status().state();
+    ContainerState current_state = info->status.state();
     mutex_.Unlock();
     ProcessHandleResult(pre_state, current_state, name, 0);
     return;
@@ -620,7 +621,7 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
   // so wo need rechoose the function to execute
   if (fsm_interrupt_) {
     fsm_interrupt_ = false;
-    ContainerState current_state = info->status().state();
+    ContainerState current_state = info->status.state();
     mutex_.Unlock();
     ProcessHandleResult(pre_state, current_state, name, 0);
     return;

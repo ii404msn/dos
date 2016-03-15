@@ -156,9 +156,37 @@ bool AgentImpl::Start() {
     LOG(WARNING, "fail to build engine stub");
     return false;
   }
-  
   thread_pool_.AddTask(boost::bind(&AgentImpl::HeartBeat, this));
   return true;
+}
+
+void AgentImpl::Delete(RpcController* controller,
+                       const DeletePodRequest* request,
+                       DeletePodResponse* response,
+                       Closure* done) {
+  ::baidu::common::MutexLock lock(&mutex_);
+  LOG(INFO, "delete pod %s", request->name().c_str());
+  const ContainerPodNameIdx& pod_name_idx = c_set_->get<p_name_tag>();
+  ContainerPodNameIdx::const_iterator pod_name_it = pod_name_idx.find(request->name());
+  if (pod_name_it == pod_name_idx.end()) {
+    LOG(WARNING, "pod name %s does not exist on agent", request->name().c_str());
+    response->set_status(kRpcNotFound);
+    done->Run();
+    return;
+  }
+  for (; pod_name_it != pod_name_idx.end()) {
+    if (pod_name_it->pod_name_ != request->name()) {
+      break;
+    }
+    pod_name_it->status_->set_state(kContainerKilled);
+  }
+  response->set_status(kRpcOk);
+  done->Run();
+}
+
+void AgentImpl::WaitContainer(const std::string& c_name) {
+  ::baidu::common::MutexLock lock(&mutex_);
+
 }
 
 void AgentImpl::HeartBeat() {
@@ -197,15 +225,34 @@ void AgentImpl::KeepContainer(const std::string& c_name) {
              || current_state == kContainerBooting
              || current_state == kContainerPulling) {
     SyncContainerStat(c_name_it->status_);
-  } else {
-    LOG(WARNING, "no handle for container %s with state %s",
-        c_name.c_str(), 
-        ContainerState_Name(current_state).c_str());
+  } else if (current_state == kContainerKilled) {
+    
   }
   if (c_name_it->status_->state() != kContainerError) {
     thread_pool_.DelayTask(FLAGS_agent_sync_container_stat_interval,
         boost::bind(&AgentImpl::KeepContainer, this, c_name));
   }
+}
+
+bool AgentImpl::KillContainer(const ContainerStatus* status) {
+  mutex_.AssertHeld();
+  DeleteContainerRequest request;
+  request.set_name(status->name());
+  DeleteContainerResponse response;
+  bool ok = rpc_client_->SendRequest(engine_, &Engine_Stub::DeleteContainer,
+                                     &request, &response,
+                                     5, 1);
+  if (!ok) {
+    LOG(WARNING, "fail to send request to engine to delete container %s for rpc err", status->name().c_str());
+    return false;
+  }
+  if (response.status() != kRpcOk) {
+    LOG(WARNING, "fail to send request to engine to delete container %s for %s",
+        status->name().c_str(),
+        RpcStatus_Name(response.status()).c_str());
+    return false;
+  }
+  return true;
 }
 
 bool AgentImpl::RunContainer(const ContainerStatus* status) {

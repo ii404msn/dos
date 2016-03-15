@@ -66,13 +66,21 @@ public:
            const RunPodRequest* request,
            RunPodResponse* response,
            Closure* done);
+  void Delete(RpcController* controller,
+              const DeletePodRequest* request,
+              DeletePodResponse* response,
+              Closure* done);
   bool Start();
 private:
   void HeartBeat();
   void HeartBeatCallback(const HeartBeatRequest* request,
                          HeartBeatResponse* response,
                          bool failed, int);
+  // keep container running and restart it when it exits
   void KeepContainer(const std::string& c_name);
+  // wait container to be killed
+  void WaitContainer(const std::string& c_name);
+  bool KillContainer(const ContainerStatus* status);
   bool RunContainer(const ContainerStatus* status);
   bool SyncContainerStat(ContainerStatus* status);
 private:
