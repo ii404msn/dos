@@ -175,6 +175,7 @@ void NodeManager::DeletePod(const std::string& pod_name,
     return;
   }
   boost::unordered_map<std::string, Agent_Stub*>::iterator agent_it = agent_conns_->find(endpoint);
+  Agent_Stub* agent_stub = NULL;
   if (agent_it ==  agent_conns_->end()) {
     bool ok = rpc_client_->GetStub(endpoint, &agent_stub);
     if (ok) {
@@ -186,20 +187,25 @@ void NodeManager::DeletePod(const std::string& pod_name,
   } else {
     agent_stub = agent_it->second;
   }
-  Agent_Stub* agent_stub = NULL;
   DeletePodRequest* request = new DeletePodRequest();
   request->set_name(pod_name);
-  DeletePodResponse* response = new DeletePodRespnse();
+  DeletePodResponse* response = new DeletePodResponse();
   boost::function<void (const DeletePodRequest*, DeletePodResponse*, bool, int)> call_back;
-  call_back = boost::bind(&NodeManager::DeletePodCallback, this, _1, _2, _3, _4);
+  call_back = boost::bind(&NodeManager::DeletePodCallback, this, endpoint, _1, _2, _3, _4);
   rpc_client_->AsyncRequest(agent_stub, &Agent_Stub::Delete,
                             request, response, call_back,
                             5, 0);
 }
 
-void NodeManager::DeletePodCallback(const DeletePodRequest* request,
+void NodeManager::DeletePodCallback(const std::string& endpoint,
+                                    const DeletePodRequest* request,
                                     DeletePodResponse* response,
                                     bool failed, int) {
+  if (!failed) {
+    LOG(INFO, "send delete pod %s action to agent %s successfully", request->name().c_str(), endpoint.c_str());
+  } else {
+    LOG(WARNING, "fail to send delete pod %s action to agent %s ", request->name().c_str(), endpoint.c_str());
+  }
   delete request;
   delete response;
 }
@@ -272,7 +278,8 @@ void NodeManager::WatchPodOpQueue() {
   PodOperation* pod_op = pod_opqueue_->Pop();
   switch(pod_op->type_) {
     case kKillPod:
-      //
+      DeletePod(pod_op->pod_->name(),
+                pod_op->pod_->endpoint());
       break;
     case kRunPod:
       RunPod(pod_op->pod_->name(), 

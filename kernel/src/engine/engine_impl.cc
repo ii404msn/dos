@@ -220,7 +220,6 @@ void EngineImpl::HandlePullImage(const ContainerState& pre_state,
   if (fsm_interrupt_) {
     fsm_interrupt_ = false;
     ContainerState current_state = info->status.state();
-    mutex_.Unlock();
     ProcessHandleResult(pre_state, current_state, name, 0);
     return;
   }
@@ -404,7 +403,6 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
   if (fsm_interrupt_) {
     fsm_interrupt_ = false;
     ContainerState current_state = info->status.state();
-    mutex_.Unlock();
     ProcessHandleResult(pre_state, current_state, name, 0);
     return;
   }
@@ -513,7 +511,6 @@ void EngineImpl::HandleError(const ContainerState& pre_state,
   if (fsm_interrupt_) {
     fsm_interrupt_ = false;
     ContainerState current_state = info->status.state();
-    mutex_.Unlock();
     ProcessHandleResult(pre_state, current_state, name, 0);
     return;
   }
@@ -544,7 +541,6 @@ void EngineImpl::HandleCompleteContainer(const ContainerState& pre_state,
   if (fsm_interrupt_) {
     fsm_interrupt_ = false;
     ContainerState current_state = info->status.state();
-    mutex_.Unlock();
     ProcessHandleResult(pre_state, current_state, name, 0);
     return;
   }
@@ -622,7 +618,6 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
   if (fsm_interrupt_) {
     fsm_interrupt_ = false;
     ContainerState current_state = info->status.state();
-    mutex_.Unlock();
     ProcessHandleResult(pre_state, current_state, name, 0);
     return;
   }
