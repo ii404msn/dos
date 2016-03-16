@@ -76,6 +76,14 @@ private:
                         PollAgentResponse* response,
                         bool failed, int,
                         int32_t version);
+
+  void DeletePod(const std::string& pod_name,
+               const std::string& endpoint);
+
+  void DeletePodCallback(const std::string& endpoint,
+                         const DeletePodRequest* request,
+                         DeletePodResponse* response,
+                         bool failed, int);
   void StartPoll();
   void ScheduleNextPoll();
 private:

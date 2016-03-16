@@ -19,7 +19,16 @@ message RunPodResponse {
   optional RpcStatus status = 1;  
 }
 
+message DeletePodRequest {
+  optional string name = 1;
+}
+
+message DeletePodResponse {
+  optional RpcStatus status = 1;
+}
+
 service Agent {
   rpc Poll(PollAgentRequest) returns (PollAgentResponse);
   rpc Run(RunPodRequest) returns (RunPodResponse);
+  rpc Delete(DeletePodRequest) returns (DeletePodResponse);
 }

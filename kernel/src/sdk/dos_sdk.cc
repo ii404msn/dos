@@ -59,6 +59,7 @@ SdkStatus EngineSdkImpl::GetInitd(const std::string& name,
   }
   initd->pid = response.pid();
   initd->endpoint = response.endpoint();
+  initd->rootfs = response.rootfs();
   return kSdkOk;  
 }
 

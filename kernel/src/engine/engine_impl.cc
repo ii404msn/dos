@@ -31,6 +31,7 @@ EngineImpl::EngineImpl(const std::string& work_dir,
   work_dir_(work_dir),
   gc_dir_(gc_dir),
   fsm_(NULL),
+  fsm_interrupt_(false),
   rpc_client_(NULL),
   ports_(NULL),
   user_mgr_(NULL){
@@ -42,6 +43,7 @@ EngineImpl::EngineImpl(const std::string& work_dir,
   fsm_->insert(std::make_pair(kContainerRunning, boost::bind(&EngineImpl::HandleRunContainer, this, _1, _2)));
   fsm_->insert(std::make_pair(kContainerError, boost::bind(&EngineImpl::HandleError, this, _1, _2)));
   fsm_->insert(std::make_pair(kContainerCompleted, boost::bind(&EngineImpl::HandleCompleteContainer, this, _1, _2)));
+  fsm_->insert(std::make_pair(kContainerKilled, boost::bind(&EngineImpl::HandleDeleteContainer, this, _1, _2)));
   rpc_client_ = new RpcClient();
   ports_ = new std::queue<int32_t>();
   for (int32_t i= 9000; i < 10000; i++) {
@@ -213,6 +215,14 @@ void EngineImpl::HandlePullImage(const ContainerState& pre_state,
     return;
   }
   ContainerInfo* info = it->second;
+  // when fsm was interrupted, the container state has changed
+  // so wo need rechoose the function to execute
+  if (fsm_interrupt_) {
+    fsm_interrupt_ = false;
+    ContainerState current_state = info->status.state();
+    ProcessHandleResult(pre_state, current_state, name, 0);
+    return;
+  }
   ContainerState target_state = kContainerPulling;
   int32_t exec_task_interval = 0;
   if (pre_state == kContainerPending) {
@@ -388,6 +398,14 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
     return;
   }
   ContainerInfo* info = it->second;
+  // when fsm was interrupted, the container state has changed
+  // so wo need rechoose the function to execute
+  if (fsm_interrupt_) {
+    fsm_interrupt_ = false;
+    ContainerState current_state = info->status.state();
+    ProcessHandleResult(pre_state, current_state, name, 0);
+    return;
+  }
   info->status.set_state(kContainerBooting);
   do {
     // boot initd
@@ -488,6 +506,14 @@ void EngineImpl::HandleError(const ContainerState& pre_state,
     return;
   }
   ContainerInfo* info = it->second;
+  // when fsm was interrupted, the container state has changed
+  // so wo need rechoose the function to execute
+  if (fsm_interrupt_) {
+    fsm_interrupt_ = false;
+    ContainerState current_state = info->status.state();
+    ProcessHandleResult(pre_state, current_state, name, 0);
+    return;
+  }
   info->status.set_state(kContainerError);
   info->status.set_start_time(0);
   LOG(WARNING, "container %s go to %s state", name.c_str(), ContainerState_Name(info->status.state()).c_str());
@@ -510,6 +536,14 @@ void EngineImpl::HandleCompleteContainer(const ContainerState& pre_state,
     return;
   }
   ContainerInfo* info = it->second;
+  // when fsm was interrupted, the container state has changed
+  // so wo need rechoose the function to execute
+  if (fsm_interrupt_) {
+    fsm_interrupt_ = false;
+    ContainerState current_state = info->status.state();
+    ProcessHandleResult(pre_state, current_state, name, 0);
+    return;
+  }
   info->status.set_start_time(0);
   info->status.set_state(kContainerCompleted);
   LOG(WARNING, "container %s go to %s state", name.c_str(), ContainerState_Name(info->status.state()).c_str());
@@ -579,6 +613,14 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
     return;
   }
   ContainerInfo* info = it->second;
+  // when fsm was interrupted, the container state has changed
+  // so wo need rechoose the function to execute
+  if (fsm_interrupt_) {
+    fsm_interrupt_ = false;
+    ContainerState current_state = info->status.state();
+    ProcessHandleResult(pre_state, current_state, name, 0);
+    return;
+  }
   ContainerState target_state = kContainerRunning;
   ContainerState current_state = kContainerRunning;
   int32_t exec_task_interval = 0;
@@ -773,9 +815,37 @@ void EngineImpl::GetInitd(RpcController* controller,
   response->set_pid(info->pid);
   response->set_endpoint(info->initd_endpoint);
   response->set_status(kRpcOk);
+  response->set_rootfs(info->work_dir+ "/rootfs");
   done->Run();
 }
 
+void EngineImpl::HandleDeleteContainer(const ContainerState& pre_state,
+                                       const std::string& name) {
+  ::baidu::common::MutexLock lock(&mutex_);
+  LOG(DEBUG, "delete container %s , the pre state is %d",
+      name.c_str(), ContainerState_Name(pre_state).c_str());
+
+}
+
+void EngineImpl::DeleteContainer(RpcController* controller,
+                                 const DeleteContainerRequest* request,
+                                 DeleteContainerResponse* response,
+                                 Closure* done) {
+  ::baidu::common::MutexLock lock(&mutex_);
+  LOG(DEBUG, "delete container %s from rpc request", request->name().c_str());
+  Containers::iterator it = containers_->find(request->name());
+  if (it == containers_->end()) {
+    LOG(INFO, "container with name %s has been deleted", request->name().c_str());
+    response->set_status(kRpcNotFound);
+    done->Run();
+    return;
+  }
+  it->second->status.set_state(kContainerKilled);
+  // mark fsm is interrupted
+  fsm_interrupt_ = true;
+  response->set_status(kRpcOk);
+  done->Run();
+}
 
 std::string EngineImpl::CurrentDatetimeStr() {
   int64_t now = ::baidu::common::timer::get_micros();

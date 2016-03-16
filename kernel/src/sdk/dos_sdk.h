@@ -68,6 +68,7 @@ struct JobInfo {
 struct InitdInfo {
   int32_t pid;
   std::string endpoint;
+  std::string rootfs;
 };
 
 class EngineSdk {
