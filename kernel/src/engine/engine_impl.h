@@ -39,6 +39,7 @@ struct ContainerInfo {
   std::set<std::string> batch_process;
   int32_t pid;
   uint32_t retry_connect_to_initd;
+  bool interrupted;
   ContainerInfo():status(),
   work_dir(), gc_dir(), initd_endpoint(),
   initd_proc(),
@@ -48,7 +49,8 @@ struct ContainerInfo {
   logs(),
   start_pull_time(0),
   pid(-1),
-  retry_connect_to_initd(5){}
+  retry_connect_to_initd(5),
+  interrupted(false){}
   ~ContainerInfo() {
     delete initd_stub; 
   }
@@ -130,7 +132,13 @@ private:
   // delete container 
   void HandleDeleteContainer(const ContainerState& pre_state,
                              const std::string& name);
-
+  // process the interrupted of container fsm
+  // if there is a interruption , return true
+  // else return false .
+  // after process interruption, set interrupted flag to false
+  bool ProcessInterruption(const std::string& name,
+                           const ContainerState& pre_state,
+                           ContainerInfo* info);
   std::string CurrentDatetimeStr();
 
   bool DoStartProcess(const std::string& name, ContainerInfo* info);
