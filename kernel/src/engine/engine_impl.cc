@@ -798,7 +798,12 @@ void EngineImpl::HandleDeleteContainer(const ContainerState& pre_state,
   ::baidu::common::MutexLock lock(&mutex_);
   LOG(DEBUG, "delete container %s , the pre state is %d",
       name.c_str(), ContainerState_Name(pre_state).c_str());
-
+  Containers::iterator it = containers_->find(name);
+  if (it == containers_->end()) {
+    LOG(INFO, "container with name %s has been deleted", name.c_str());
+    return;
+  }
+  it->second->status.set_start_time(0);
 }
 
 void EngineImpl::DeleteContainer(RpcController* controller,
