@@ -1,7 +1,9 @@
 #ifndef KERNEL_ENGINE_ISOLATOR_H
 #define KERNEL_ENGINE_ISOLATOR_H
+
 #include <string>
 #include <stdint.h>
+#include <set>
 
 namespace dos {
 
@@ -9,7 +11,10 @@ namespace dos {
 class CpuIsolator {
 
 public:
-  CpuIsolator(const std::string& path);
+  // cpu path is cpu subsystem path
+  // cpu acct path is cpuacct subsystem path
+  CpuIsolator(const std::string& cpu_path,
+              const std::string& cpu_acct_path);
   ~CpuIsolator();
   // attach pid this isolator
   // like echo pid >> path/cgroup.proc
@@ -24,8 +29,13 @@ public:
   bool Init();
   // Get the cpu used in a peroid
   bool GetCpuUsage(int32_t* used);
+  // Get all pids in this subsystem
+  bool GetPids(std::set<int32_t>* pids);
+  // rmdir this subsystem 
+  bool Destroy();
 private:
-  std::string path_;
+  std::string cpu_path_;
+  std::string cpu_acct_path_;
   int32_t quota_;
   int32_t limit_;
 };
