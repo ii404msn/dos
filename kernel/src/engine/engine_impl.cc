@@ -31,7 +31,6 @@ EngineImpl::EngineImpl(const std::string& work_dir,
   work_dir_(work_dir),
   gc_dir_(gc_dir),
   fsm_(NULL),
-  fsm_interrupt_(false),
   rpc_client_(NULL),
   ports_(NULL),
   user_mgr_(NULL){
@@ -215,12 +214,7 @@ void EngineImpl::HandlePullImage(const ContainerState& pre_state,
     return;
   }
   ContainerInfo* info = it->second;
-  // when fsm was interrupted, the container state has changed
-  // so wo need rechoose the function to execute
-  if (fsm_interrupt_) {
-    fsm_interrupt_ = false;
-    ContainerState current_state = info->status.state();
-    ProcessHandleResult(pre_state, current_state, name, 0);
+  if (ProcessInterruption(name, pre_state, info)) {
     return;
   }
   ContainerState target_state = kContainerPulling;
@@ -398,14 +392,9 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
     return;
   }
   ContainerInfo* info = it->second;
-  // when fsm was interrupted, the container state has changed
-  // so wo need rechoose the function to execute
-  if (fsm_interrupt_) {
-    fsm_interrupt_ = false;
-    ContainerState current_state = info->status.state();
-    ProcessHandleResult(pre_state, current_state, name, 0);
+  if (ProcessInterruption(name, pre_state, info)) {
     return;
-  }
+  } 
   info->status.set_state(kContainerBooting);
   do {
     // boot initd
@@ -506,12 +495,7 @@ void EngineImpl::HandleError(const ContainerState& pre_state,
     return;
   }
   ContainerInfo* info = it->second;
-  // when fsm was interrupted, the container state has changed
-  // so wo need rechoose the function to execute
-  if (fsm_interrupt_) {
-    fsm_interrupt_ = false;
-    ContainerState current_state = info->status.state();
-    ProcessHandleResult(pre_state, current_state, name, 0);
+  if (ProcessInterruption(name, pre_state, info)) {
     return;
   }
   info->status.set_state(kContainerError);
@@ -536,12 +520,7 @@ void EngineImpl::HandleCompleteContainer(const ContainerState& pre_state,
     return;
   }
   ContainerInfo* info = it->second;
-  // when fsm was interrupted, the container state has changed
-  // so wo need rechoose the function to execute
-  if (fsm_interrupt_) {
-    fsm_interrupt_ = false;
-    ContainerState current_state = info->status.state();
-    ProcessHandleResult(pre_state, current_state, name, 0);
+  if (ProcessInterruption(name, pre_state, info)) {
     return;
   }
   info->status.set_start_time(0);
@@ -613,12 +592,7 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
     return;
   }
   ContainerInfo* info = it->second;
-  // when fsm was interrupted, the container state has changed
-  // so wo need rechoose the function to execute
-  if (fsm_interrupt_) {
-    fsm_interrupt_ = false;
-    ContainerState current_state = info->status.state();
-    ProcessHandleResult(pre_state, current_state, name, 0);
+  if (ProcessInterruption(name, pre_state, info)) {
     return;
   }
   ContainerState target_state = kContainerRunning;
@@ -840,11 +814,31 @@ void EngineImpl::DeleteContainer(RpcController* controller,
     done->Run();
     return;
   }
+  ContainerState current_state = it->second->status.state();
   it->second->status.set_state(kContainerKilled);
+  AppendLog(current_state, 
+            kContainerKilled,
+            "delete container from rpc",
+            it->second);
   // mark fsm is interrupted
-  fsm_interrupt_ = true;
+  it->second->interrupted = true;
   response->set_status(kRpcOk);
   done->Run();
+}
+
+bool EngineImpl::ProcessInterruption(const std::string& name,
+                                     const ContainerState& pre_state,
+                                     ContainerInfo* info) {
+  mutex_.AssertHeld();
+  if (!info->interrupted) {
+    return false;
+  }
+  LOG(INFO, "process interrupted for container %s in state %s",
+        name.c_str(),
+        ContainerState_Name(pre_state).c_str());
+  ContainerState current_state = info->status.state();
+  ProcessHandleResult(pre_state, current_state, name, 0);
+  return true;
 }
 
 std::string EngineImpl::CurrentDatetimeStr() {
