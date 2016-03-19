@@ -41,7 +41,7 @@ else
    cd gtest-1.7.0
    ./configure --disable-shared --with-pic && make -j4
    cd $GTEST_DIR
-   cp -rf lib/.lib/* $DEPS_PREFIX/lib && cp -a include/gtest $DEPS_PREFIX/include
+   cp -rf lib/.libs/* $DEPS_PREFIX/lib && cp -a include/gtest $DEPS_PREFIX/include
    cd $DEPS_SOURCE 
    echo "install gtest done"
 fi
