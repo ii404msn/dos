@@ -30,6 +30,20 @@ else
     echo "install boost done"
 fi
 
+if [ -f "gtest-1.7.0.zip" ]
+then 
+   echo "gtest exist"
+else
+   echo "install gtest ...."
+   wget -O gtest-1.7.0.zip http://idcos.io/gtest-1.7.0.zip >/dev/null
+   unzip gtest-1.7.0.zip 
+   cd gtest-1.7.0
+   ./configure --disable-shared --with-pic && make -j4
+   cp -rf lib/.lib/* $DEPS_PREFIX/lib && cp -rf include/* $DEPS_PREFIX/include
+   cd -
+   echo "install gtest done"
+fi
+
 if [ -d "rapidjson" ]
 then
     echo "rapid json exist"

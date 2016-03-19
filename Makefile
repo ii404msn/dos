@@ -57,11 +57,11 @@ KERNEL_CMD_OBJ = $(patsubst %.cc, %.o, $(KERNEL_CMD_SRC))
 
 KERNEL_FLAGS_OBJ = $(patsubst %.cc, %.o, $(wildcard kernel/src/*.cc))
 KERNEL_OBJS = $(KERNEL_FLAGS_OBJ) $(KERNEL_PROTO_OBJ)
-
 BIN = dos 
+TEST_ALL = test_isolator
+all: $(BIN) $(TEST_ALL) 
 
-all: $(BIN) 
-
+.PHONY: all clean test
 # Depends
 $(KERNEL_MASTER_OBJ) $(KERNEL_AGENT_OBJ): $(KERNEL_PROTO_HEADER)
 
@@ -73,6 +73,11 @@ $(KERNEL_CMD_OBJ) : $(KERNEL_AGENT_OBJ) $(KERNEL_ENGINE_OBJ) $(KERNEL_MASTER_OBJ
 dos: $(KERNEL_CMD_OBJ) $(KERNEL_OBJS)
 	$(CXX) $(KERNEL_AGENT_OBJ) $(KERNEL_CMD_OBJ) $(KERNEL_ENGINE_SDK_OBJ) $(KERNEL_ENGINE_OBJ) $(KERNEL_MASTER_OBJ)  $(KERNEL_DSH_OBJ) $(KERNEL_SCHEDULER_OBJ) $(KERNEL_OBJS) -o $@  $(LDFLAGS)
 
+# unit test
+
+test_isolator: kernel/src/engine/test/isolator_unittest.o $(KERNEL_ENGINE_OBJ) 
+	$(CXX) $(KERNEL_AGENT_OBJ)  kernel/src/engine/test/isolator_unittest.o $(KERNEL_ENGINE_SDK_OBJ) $(KERNEL_ENGINE_OBJ) $(KERNEL_MASTER_OBJ)  $(KERNEL_DSH_OBJ) $(KERNEL_SCHEDULER_OBJ) $(KERNEL_OBJS) -o $@  $(LDFLAGS)
+ 
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) $(INCLUDE) -c $< -o $@
 
@@ -80,7 +85,7 @@ dos: $(KERNEL_CMD_OBJ) $(KERNEL_OBJS)
 	$(PROTOC) --proto_path=./kernel/src/proto/  --cpp_out=./kernel/src/proto/ $<
 
 clean:
-	rm -rf $(BIN)
+	rm -rf $(BIN) $(TEST_ALL)
 	rm -rf $(KERNEL_MASTER_OBJ) $(KERNEL_AGENT_OBJ) $(KERNEL_OBJS) $(KERNEL_ENGINE_OBJ)
 	rm -rf $(KERNEL_PROTO_SRC) $(KERNEL_PROTO_HEADER)
 
@@ -92,8 +97,5 @@ install: $(BIN) $(LIBS)
 	cp $(LIBS) $(PREFIX)/lib
 	cp src/sdk/*.h $(PREFIX)/include/sdk
 
-.PHONY: test
-test:
-	echo done
 
 

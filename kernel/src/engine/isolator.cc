@@ -1,8 +1,13 @@
 #include "engine/isolator.h"
 
 #include <stdio.h>
+#include <vector>
 #include "engine/utils.h"
 #include "logging.h"
+
+#include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/split.hpp>
 
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
@@ -24,6 +29,11 @@ bool CpuIsolator::Init() {
   bool ok = Mkdir(cpu_path_);
   if (!ok) {
     LOG(WARNING,"fail to mkdir %s", cpu_path_.c_str());
+    return false;
+  }
+  ok = Mkdir(cpu_acct_path_);
+  if (!ok) {
+    LOG(WARNING, "fail to mkdir %s", cpu_acct_path_.c_str());
     return false;
   }
   return true;
@@ -85,6 +95,34 @@ bool CpuIsolator::GetCpuUsage(int32_t* used) {
 }
 
 bool CpuIsolator::GetPids(std::set<int32_t>* pids) {
+  std::string procs = cpu_path_ + "/cgroup.procs";
+  FILE* fd = fopen(procs.c_str(), "re");
+  if (!fd) {
+    LOG(WARNING, "fail to open %s", procs.c_str());
+    return false;
+  }
+  char buffer[1024];
+  std::string content;
+  while (feof(fd)) {
+    size_t read_len = fread((void*)buffer, 
+                            sizeof(char),
+                            1024,
+                            fd);
+    if (!read_len) {
+      break;
+    }
+    content.append(buffer, read_len);
+  }
+  LOG(DEBUG, "read pids from %s with content %s", procs.c_str(),
+      content.c_str());
+  std::vector<std::string> str_pids;
+  boost::split(str_pids, content, boost::is_any_of("\n"));
+  for (size_t index = 0; index < str_pids.size(); ++index) {
+    if (str_pids[index].empty()) {
+      continue;
+    }
+    pids->insert(boost::lexical_cast<int32_t>(str_pids[index]));
+  }
   return false;
 }
 
