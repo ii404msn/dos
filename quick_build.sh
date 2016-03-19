@@ -37,10 +37,12 @@ else
    echo "install gtest ...."
    wget -O gtest-1.7.0.zip http://idcos.io/gtest-1.7.0.zip >/dev/null
    unzip gtest-1.7.0.zip 
+   GTEST_DIR=$DEPS_SOURCE/gtest-1.7.0
    cd gtest-1.7.0
    ./configure --disable-shared --with-pic && make -j4
+   cd $GTEST_DIR
    cp -rf lib/.lib/* $DEPS_PREFIX/lib && cp -a include/gtest $DEPS_PREFIX/include
-   cd -
+   cd $DEPS_SOURCE 
    echo "install gtest done"
 fi
 
