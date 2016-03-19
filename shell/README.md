@@ -1,5 +1,7 @@
 ## dsh
-distribution shell for dos, 下面文档将按照运维流程讲解
+distributed shell for dos, 下面文档将按照运维流程讲解
+
+### 创建一个job
 
 ### 展示所有的容器
 
@@ -57,6 +59,8 @@ log -a 1_container.3_pod.redis
 ### 进入容器排查问题
 
 ```
-jail -n 1_container.3_pod.redis
+ssh 1_container.3_pod.redis
 ```
+
+
 

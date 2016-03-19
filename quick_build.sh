@@ -10,7 +10,7 @@ WORK_DIR=`pwd`
 DEPS_SOURCE=`pwd`/thirdsrc
 DEPS_PREFIX=`pwd`/thirdparty
 DEPS_CONFIG="--prefix=${DEPS_PREFIX} --disable-shared --with-pic"
-
+mkdir -p $DEPS_PREFIX/lib $DEPS_PREFIX/include
 
 export PATH=${DEPS_PREFIX}/bin:$PATH
 mkdir -p ${DEPS_SOURCE} ${DEPS_PREFIX}
@@ -28,6 +28,22 @@ else
     rm -rf ${DEPS_PREFIX}/boost_1_57_0
     mv boost_1_57_0 ${DEPS_PREFIX}
     echo "install boost done"
+fi
+
+if [ -f "gtest-1.7.0.zip" ]
+then 
+   echo "gtest exist"
+else
+   echo "install gtest ...."
+   wget -O gtest-1.7.0.zip http://idcos.io/gtest-1.7.0.zip >/dev/null
+   unzip gtest-1.7.0.zip 
+   GTEST_DIR=$DEPS_SOURCE/gtest-1.7.0
+   cd gtest-1.7.0
+   ./configure --disable-shared --with-pic && make -j4
+   cd $GTEST_DIR
+   cp -rf lib/.libs/* $DEPS_PREFIX/lib && cp -a include/gtest $DEPS_PREFIX/include
+   cd $DEPS_SOURCE 
+   echo "install gtest done"
 fi
 
 if [ -d "rapidjson" ]
@@ -173,5 +189,5 @@ fi
 # build dos
 ########################################
 cd $WORK_DIR && sh build_version.sh
-make -j4
+make 
 
