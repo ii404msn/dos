@@ -39,7 +39,7 @@ else
    unzip gtest-1.7.0.zip 
    cd gtest-1.7.0
    ./configure --disable-shared --with-pic && make -j4
-   cp -rf lib/.lib/* $DEPS_PREFIX/lib && cp -rf include/gtest $DEPS_PREFIX/include
+   cp -rf lib/.lib/* $DEPS_PREFIX/lib && cp -a include/gtest $DEPS_PREFIX/include
    cd -
    echo "install gtest done"
 fi
