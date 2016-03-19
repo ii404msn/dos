@@ -10,7 +10,7 @@ WORK_DIR=`pwd`
 DEPS_SOURCE=`pwd`/thirdsrc
 DEPS_PREFIX=`pwd`/thirdparty
 DEPS_CONFIG="--prefix=${DEPS_PREFIX} --disable-shared --with-pic"
-
+mkdir -p $DEPS_PREFIX/lib $DEPS_PREFIX/include
 
 export PATH=${DEPS_PREFIX}/bin:$PATH
 mkdir -p ${DEPS_SOURCE} ${DEPS_PREFIX}
