@@ -189,5 +189,5 @@ fi
 # build dos
 ########################################
 cd $WORK_DIR && sh build_version.sh
-make -j4
+make 
 
