@@ -8,7 +8,7 @@ rm -rf core dos
 cp ../dos dos
 ln -s -f ./dos master
 ln -s -f ./dos scheduler
-ln -s -f ./dos let
+ln -s -f ./dos doslet
 ln -s -f ./dos engine
 ln -s -f ./dos initd
 ln -s -f ./dos dsh
@@ -20,5 +20,5 @@ nohup ./engine --ce_process_default_user=root --ce_bin_path=`pwd`/initd --ce_wor
 sleep 3
 nohup ./master >master.log 2>&1 &
 sleep 3
-nohup ./let --agent_port_range_end=7000 --agent_port_range_start=4000>let.log 2>&1 &
+nohup ./doslet --agent_port_range_end=7000 --agent_port_range_start=4000>let.log 2>&1 &
 nohup ./scheduler >scheduler.log 2>&1 &

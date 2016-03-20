@@ -159,7 +159,7 @@ void StartScheduler() {
 }
 
 void Jail() {
-  /*if (FLAGS_n.empty()) {
+  if (FLAGS_n.empty()) {
     fprintf(stderr, "-n is required \n");
     exit(1);
   } 
@@ -175,8 +175,8 @@ void Jail() {
     exit(1);
   }
   std::string proc_path = "/proc/" + boost::lexical_cast<std::string>(initd.pid) + "/ns";
-  DIR* dir;
-  struct dirent* ep;
+  DIR* dir = NULL;
+  struct dirent* ep = NULL;
   dir = opendir(proc_path.c_str());
   if (!dir) {
     fprintf(stderr, "fail to open dir %s", proc_path.c_str());
@@ -205,7 +205,6 @@ void Jail() {
   };
   ::execv("/bin/bash", args);
   exit(1);
-  */
 }
 
 void StartMaster() {
@@ -545,7 +544,7 @@ int main(int argc, char * args[]) {
   daemon_map.insert(std::make_pair("engine", boost::bind(&StartEngine)));
   daemon_map.insert(std::make_pair("master", boost::bind(&StartMaster)));
   daemon_map.insert(std::make_pair("scheduler", boost::bind(&StartScheduler)));
-  daemon_map.insert(std::make_pair("let", boost::bind(&StartAgent)));
+  daemon_map.insert(std::make_pair("doslet", boost::bind(&StartAgent)));
   daemon_map.insert(std::make_pair("dsh", boost::bind(&StartDsh)));
   ::google::ParseCommandLineFlags(&argc, &args, true);
   std::map<std::string, Handle>::iterator h_it = daemon_map.begin();
