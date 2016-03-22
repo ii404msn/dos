@@ -7,6 +7,22 @@
 
 namespace dos {
 
+class CgroupBase {
+
+public:
+  CgroupBase(const std::string& path);
+  ~CgroupBase();
+  // attach pid this isolator
+  // like echo pid >> path/cgroup.proc
+  bool Attach(int32_t pid);
+  // if path does not exist then create it
+  bool Init();
+  bool GetPids(std::set<int32_t>* pids);
+  bool Destroy();
+private:
+  std::string path_;
+};
+
 // cpu isolator implemented by cgroup
 class CpuIsolator {
 
@@ -27,7 +43,7 @@ public:
   bool AssignLimit(int32_t limit);
   // if path does not exist then create it
   bool Init();
-  // Get the cpu used in a peroid
+  // Get the cpu time used  
   bool GetCpuUsage(int32_t* used);
   // Get all pids in this subsystem
   bool GetPids(std::set<int32_t>* pids);
@@ -36,6 +52,8 @@ public:
 private:
   std::string cpu_path_;
   std::string cpu_acct_path_;
+  CgroupBase* cpu_base_;
+  CgroupBase* cpu_acct_base_;
   int32_t quota_;
   int32_t limit_;
 };
@@ -43,6 +61,9 @@ private:
 // memory isolator implemented by cgroup
 class MemoryIsolator {
 
+public:
+  MemoryIsolator(const std::string& mem_path);
+  ~MemoryIsolator();
 };
 
 // device io isolator implemented by cgroup

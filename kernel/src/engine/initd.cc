@@ -43,7 +43,6 @@ void InitdImpl::Fork(RpcController*,
     done->Run();
     return;
   }
-
   bool ok = Launch(request->process());
   if (!ok) {
     response->set_status(kRpcError);
