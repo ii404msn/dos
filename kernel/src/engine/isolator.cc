@@ -34,7 +34,7 @@ bool CgroupBase::Init() {
 }
 
 bool CgroupBase::Attach(int32_t pid) {
-  std::string cgroup_proc = path_ + "/cgroup.procs";
+  std::string cgroup_proc = path_ + "/tasks";
   FILE* fd = fopen(cgroup_proc.c_str(), "ae");
   if (!fd) {
     LOG(WARNING, "fail to open %s", cgroup_proc.c_str());

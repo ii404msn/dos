@@ -40,6 +40,7 @@ struct ContainerInfo {
   int32_t pid;
   uint32_t retry_connect_to_initd;
   bool interrupted;
+  CpuIsolator* cpu_isolator;
   ContainerInfo():status(),
   work_dir(), gc_dir(), initd_endpoint(),
   initd_proc(),
@@ -50,7 +51,8 @@ struct ContainerInfo {
   start_pull_time(0),
   pid(-1),
   retry_connect_to_initd(5),
-  interrupted(false){}
+  interrupted(false),
+  cpu_isolator(NULL){}
   ~ContainerInfo() {
     delete initd_stub; 
   }
