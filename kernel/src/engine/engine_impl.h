@@ -12,6 +12,7 @@
 #include "engine/user_mgr.h"
 #include "rpc/rpc_client.h"
 #include "proto/initd.pb.h"
+#include "engine/isolator.h"
 
 using ::google::protobuf::RpcController;
 using ::google::protobuf::Closure;

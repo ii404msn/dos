@@ -15,7 +15,7 @@ DEFINE_int32(agent_heart_beat_interval, 2000, "the interval of agent heart beat"
 DEFINE_double(agent_cpu_rate, 0.7, "the cpu rate for sharing agent cpu");
 DEFINE_double(agent_memory_rate, 0.7, "the memory rate for sharing agent memory");
 DEFINE_int32(agent_port_range_start, 4000, "the port start range for agent");
-3EFINE_int32(agent_port_range_end, 6000, "the port end range for agent");
+DEFINE_int32(agent_port_range_end, 6000, "the port end range for agent");
 DEFINE_int32(agent_sync_container_stat_interval, 1000, "the interval for agent sync container stat");
 DEFINE_string(agent_cgroup_root, "/cgroups", "the root path of cgroup");
 // enable isolator
