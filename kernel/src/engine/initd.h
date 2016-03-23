@@ -20,32 +20,32 @@ namespace dos{
 class InitdImpl : public Initd {
 
 public:
-    InitdImpl();
-    ~InitdImpl();
-    void Fork(RpcController* controller,
-              const ForkRequest* request,
-              ForkResponse* response,
-              Closure* done);
-    void Wait(RpcController* controller,
-              const WaitRequest* request,
-              WaitResponse* response,
-              Closure* done);
-    void Kill(RpcController* controller,
-              const KillRequest* request,
-              KillResponse* response,
-              Closure* done);
-    void Status(RpcController* controller,
-               const StatusRequest* request,
-               StatusResponse* response,
-               Closure* done);
+  InitdImpl();
+  ~InitdImpl();
+  void Fork(RpcController* controller,
+            const ForkRequest* request,
+            ForkResponse* response,
+            Closure* done);
+  void Wait(RpcController* controller,
+            const WaitRequest* request,
+            WaitResponse* response,
+            Closure* done);
+  void Kill(RpcController* controller,
+            const KillRequest* request,
+            KillResponse* response,
+            Closure* done);
+  void Status(RpcController* controller,
+             const StatusRequest* request,
+             StatusResponse* response,
+             Closure* done);
 private:
-    bool Launch(const Process& Process);
-    void CheckStatus(const std::string& name);
+  bool Launch(const Process& Process);
+  void CheckStatus(const std::string& name);
 private:
-    std::map<std::string, Process>* tasks_;
-    ::baidu::common::Mutex mutex_;
-    ::baidu::common::ThreadPool* workers_; 
-    ProcessMgr* proc_mgr_;
+  std::map<std::string, Process>* tasks_;
+  ::baidu::common::Mutex mutex_;
+  ::baidu::common::ThreadPool* workers_; 
+  ProcessMgr* proc_mgr_;
 };
 
 } // namespace dos
