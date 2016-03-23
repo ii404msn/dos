@@ -153,6 +153,7 @@ else
     export PATH=${DEPS_PREFIX}/bin:$PATH
     export BOOST_PATH=${DEPS_PREFIX}/boost_1_57_0
     export PBRPC_PATH=${DEPS_PREFIX}/
+    make -j4 >/dev/null
     make -j4 install_sdk >/dev/null
     cd -
 fi
