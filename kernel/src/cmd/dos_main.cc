@@ -565,7 +565,6 @@ void DelJob() {
 
 int main(int argc, char * args[]) {
   ::baidu::common::SetLogLevel(DEBUG);
-  FLAGS_flagfile="./dos.flags";
   ::google::SetUsageMessage(kDosCeUsage);
   std::string bin(args[0]); 
   std::map<std::string, Handle> daemon_map;
@@ -585,6 +584,7 @@ int main(int argc, char * args[]) {
       find_daemon = true;
     } 
   }
+  FLAGS_flagfile="./dos.flags";
   if (find_daemon) {
     return 0;
   }
