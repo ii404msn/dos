@@ -8,7 +8,7 @@
 #include <sys/mount.h>
 #include <sys/types.h>
 #include <fcntl.h>
-#include <sys/stat.h> 
+#include <sys/stat.h>
 #include <unistd.h>
 #include <errno.h>
 #include "engine/utils.h"
@@ -16,6 +16,10 @@
 #include "rapidjson/document.h"
 #include "rapidjson/filereadstream.h"
 #include "logging.h"
+#include <gflags/gflags.h>
+
+DECLARE_string(ce_cgroup_root);
+DECLARE_string(ce_isolators);
 
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
@@ -106,7 +110,7 @@ bool Oc::LoadRuntime() {
 }
 
 
-bool Oc::Init() { 
+bool Oc::Init() {
   LOG(INFO, "change dir to %s", oc_path_.c_str());
   int ok = chdir(oc_path_.c_str());
   if (ok != 0) {
@@ -164,16 +168,16 @@ bool Oc::DoMount(const std::string& destination,
   if (!ret) {
     return false;
   }
-  int ok = ::mount(config->source().c_str(), 
-                   destination.c_str(), 
+  int ok = ::mount(config->source().c_str(),
+                   destination.c_str(),
                    config->type().c_str(),
-                   0, 
+                   0,
                    options.c_str());
   if (ok != 0) {
     LOG(WARNING, "fail to mount %s to %s with type %s flags %ld, options %s, err %s",
                 config->source().c_str(),
-                destination.c_str(), 
-                type.c_str(), 0, 
+                destination.c_str(),
+                type.c_str(), 0,
                 options.c_str(),
                 strerror(errno));
     return false;
@@ -192,7 +196,7 @@ bool Oc::DoMknod(const std::string& rootfs) {
     if (ok != 0) {
       LOG(WARNING, "fail make a device to %s with err %s", it->first.c_str(),
                 strerror(errno));
-      return false; 
+      return false;
     }
     LOG(DEBUG, "create device %s successully", it->first.c_str());
   }

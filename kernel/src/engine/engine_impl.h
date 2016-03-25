@@ -41,6 +41,7 @@ struct ContainerInfo {
   int32_t pid;
   uint32_t retry_connect_to_initd;
   bool interrupted;
+  // when cpu_isolator is NULL, it means that it's disable
   CpuIsolator* cpu_isolator;
   ContainerInfo():status(),
   work_dir(), gc_dir(), initd_endpoint(),
@@ -91,6 +92,9 @@ public:
                        Closure* done);
 private:
 
+  // fill the cpu isolator property, and init the 
+  // isolator
+  bool BuildCpuIsolator(ContainerInfo* info);
   void StartContainerFSM(const std::string& name);
 
   // pull a image and produce a state,

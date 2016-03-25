@@ -14,7 +14,7 @@ namespace dos {
 
 class Oc {
 public:
-  Oc(const std::string& oc_path, 
+  Oc(const std::string& oc_path,
      const std::string& runtime_config);
   ~Oc();
   bool Init();
@@ -27,7 +27,7 @@ private:
 private:
   std::string oc_path_;
   std::string runtime_config_;
-  // type mount pair 
+  // type mount pair
   std::map<std::string, Mount* > mounts_;
   // path device pair
   std::map<std::string, Device* > devices_;
@@ -36,4 +36,3 @@ private:
 
 }
 #endif
-

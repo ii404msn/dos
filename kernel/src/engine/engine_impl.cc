@@ -21,6 +21,8 @@ DECLARE_int32(ce_initd_boot_check_max_times);
 DECLARE_int32(ce_initd_boot_check_interval);
 DECLARE_int32(ce_process_status_check_interval);
 DECLARE_int32(ce_container_log_max_size);
+DECLARE_string(ce_cgroup_root);
+DECLARE_string(ce_isolators);
 
 namespace dos {
 
@@ -53,6 +55,21 @@ EngineImpl::EngineImpl(const std::string& work_dir,
 
 EngineImpl::~EngineImpl() {}
 
+bool EngineImpl::BuildCpuIsolator(ContainerInfo* info) {
+  mutex_.AssertHeld();
+  LOG(INFO, "build cpu isolator for container %s", info->status().name());
+  std::string cpu_path = FLAGS_ce_cgroup_root + "/cpu/" + info->status().name();
+  std::string cpu_acct_path = FLAGS_ce_cgroup_root + "/cpuacct/" + info->status().name();
+  info->cpu_isolator = new CpuIsolator(cpu_path, 
+                                       cpu_acct_path);
+  bool init_ok = info->cpu_isolator->Init();
+  if (!init_ok) {
+    LOG(WARNING, "fail to build cpu isolator for container %s", info->status().name().c_str());
+    return false;
+  }
+  return true;
+}
+
 bool EngineImpl::Init() {
   std::string name = FLAGS_ce_image_fetcher_name;
   {
@@ -64,6 +81,9 @@ bool EngineImpl::Init() {
     info->status.set_name(name);
     info->status.set_start_time(0);
     info->status.set_state(kContainerPending);
+    if (!BuildCpuIsolator(info)) {
+      return false;
+    }
     containers_->insert(std::make_pair(name, info));
     thread_pool_->AddTask(boost::bind(&EngineImpl::StartContainerFSM, this, name));
     int ok = user_mgr_->SetUp();
