@@ -30,6 +30,7 @@
 #include "dsh/dsh.h"
 #include <dirent.h>
 #include "version.h"
+#include "ins_sdk.h"
 
 DECLARE_string(ce_initd_port);
 DECLARE_string(ce_port);
@@ -38,7 +39,11 @@ DECLARE_bool(ce_enable_ns);
 DECLARE_string(ce_work_dir);
 DECLARE_string(ce_gc_dir);
 DECLARE_string(agent_endpoint);
+DECLARE_string(dos_root_path);
+DECLARE_string(master_endpoint);
 DECLARE_string(master_port);
+DECLARE_string(ins_servers);
+DECLARE_string(flagfile);
 
 DEFINE_string(n, "", "specify container name");
 DEFINE_bool(v, true, "show version");
@@ -57,6 +62,7 @@ DEFINE_string(term, "xterm-256color", "specify the terminal mode");
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
 using ::baidu::common::DEBUG;
+using ::galaxy::ins::sdk::InsSDK;
 
 typedef boost::function<void ()> Handle;
 
@@ -82,6 +88,13 @@ const std::string kDosCeUsage = "dos help message.\n"
 static volatile bool s_quit = false;
 static void SignalIntHandler(int /*sig*/){
     s_quit = true;
+}
+
+bool GetMasterAddr(std::string* master_addr) {
+  std::string master_key = FLAGS_dos_root_path + FLAGS_master_endpoint; 
+  InsSDK ins(FLAGS_ins_servers);
+  ::galaxy::ins::sdk::SDKError err;
+  return ins.Get(master_key, master_addr, &err);
 }
 
 int ReadableStringToInt(const std::string& input, int64_t* output) {
@@ -143,8 +156,7 @@ std::string PrettyTime(const int64_t time) {
 }
 
 void StartScheduler() {
-  std::string master_endpoint = "127.0.0.1:" + FLAGS_master_port;
-  ::dos::Scheduler* scheduler = new ::dos::Scheduler(master_endpoint);
+  ::dos::Scheduler* scheduler = new ::dos::Scheduler();
   bool ok = scheduler->Start();
   if (!ok) {
     LOG(WARNING, "fail to start scheduler");
@@ -457,7 +469,13 @@ void AddJob() {
     return;
   } 
   job.replica = node["job"]["replica"].as<uint32_t>();
-  std::string master_endpoint = "127.0.0.1:" + FLAGS_master_port;
+
+  std::string master_endpoint;
+  bool get_ok = GetMasterAddr(&master_endpoint);
+  if (!get_ok) {
+    fprintf(stderr, "fail to get master addr\n");
+    exit(1);
+  }
   ::dos::DosSdk* dos_sdk = ::dos::DosSdk::Connect(master_endpoint);
   if (dos_sdk == NULL) {
     fprintf(stderr, "fail to create dos sdk \n");
@@ -495,7 +513,12 @@ void GetJob() {
     fprintf(stderr, "-n is required");
     exit(1);
   }
-  std::string master_endpoint = "127.0.0.1:" + FLAGS_master_port;
+  std::string master_endpoint;
+  bool get_ok = GetMasterAddr(&master_endpoint);
+  if (!get_ok) {
+    fprintf(stderr, "fail to get master addr\n");
+    exit(1);
+  }
   ::dos::DosSdk* dos_sdk = ::dos::DosSdk::Connect(master_endpoint);
   if (!dos_sdk) {
     fprintf(stderr, "fail to connect to dos");
@@ -521,7 +544,12 @@ void DelJob() {
     fprintf(stderr, "-n is required\n");
     exit(1);
   }
-  std::string master_endpoint = "127.0.0.1:" + FLAGS_master_port;
+  std::string master_endpoint;
+  bool get_ok = GetMasterAddr(&master_endpoint);
+  if (!get_ok) {
+    fprintf(stderr, "fail to get master addr\n");
+    exit(1);
+  }
   ::dos::DosSdk* dos_sdk = ::dos::DosSdk::Connect(master_endpoint);
   if (!dos_sdk) {
     fprintf(stderr, "fail to connect to dos\n");
@@ -537,6 +565,7 @@ void DelJob() {
 
 int main(int argc, char * args[]) {
   ::baidu::common::SetLogLevel(DEBUG);
+  FLAGS_flagfile="./dos.flags";
   ::google::SetUsageMessage(kDosCeUsage);
   std::string bin(args[0]); 
   std::map<std::string, Handle> daemon_map;

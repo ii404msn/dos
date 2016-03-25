@@ -6,8 +6,8 @@
 #include "timer.h"
 #include "common/resource_util.h"
 
-DECLARE_string(nexus_servers);
-DECLARE_string(master_root_path);
+DECLARE_string(ins_servers);
+DECLARE_string(dos_root_path);
 DECLARE_string(master_node_path_prefix);
 DECLARE_int32(agent_heart_beat_timeout);
 
@@ -27,7 +27,7 @@ NodeManager::NodeManager(FixedBlockingQueue<NodeStatus*>* node_status_queue,
   pod_opqueue_(pod_opqueue),
   rpc_client_(NULL){
   nodes_ = new NodeSet();
-  nexus_ = new ::galaxy::ins::sdk::InsSDK(FLAGS_nexus_servers);
+  nexus_ = new ::galaxy::ins::sdk::InsSDK(FLAGS_ins_servers);
   node_metas_ = new boost::unordered_map<std::string, NodeMeta*>();
   agent_conns_ = new boost::unordered_map<std::string, Agent_Stub*>();
   thread_pool_ = new ::baidu::common::ThreadPool(4);
@@ -50,7 +50,7 @@ bool NodeManager::Start() {
 
 bool NodeManager::LoadNodeMeta() {
   mutex_.AssertHeld();
-  std::string start_key = FLAGS_master_root_path + FLAGS_master_node_path_prefix + "/";
+  std::string start_key = FLAGS_dos_root_path + FLAGS_master_node_path_prefix + "/";
   std::string end_key = start_key + "~";
   ::galaxy::ins::sdk::ScanResult* result = nexus_->Scan(start_key, end_key);
   while (!result->Done()) {

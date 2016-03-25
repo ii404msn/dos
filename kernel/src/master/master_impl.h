@@ -5,9 +5,12 @@
 #include "master/pod_manager.h"
 #include "proto/master.pb.h"
 #include "common/blocking_queue.h"
+#include "common/ins_mutex.h"
 #include "master/job_manager.h"
 #include "master/master_internal_types.h"
+#include "ins_sdk.h"
 
+using ::galaxy::ins::sdk::InsSDK;
 using ::google::protobuf::RpcController;
 using ::google::protobuf::Closure;
 namespace dos {
@@ -60,6 +63,8 @@ private:
   FixedBlockingQueue<NodeStatus*>* node_opqueue_;
   FixedBlockingQueue<PodOperation*>* pod_opqueue_;
   FixedBlockingQueue<JobOperation*>* job_opqueue_;
+  InsMutex* master_lock_;
+  InsSDK* ins_;
 };
 
 }

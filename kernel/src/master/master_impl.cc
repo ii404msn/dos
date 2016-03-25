@@ -1,5 +1,16 @@
 #include "master/master_impl.h"
 
+#include <gflags/gflags.h>
+#include "ins_sdk.h"
+#include "util.h"
+
+DECLARE_string(ins_servers);
+DECLARE_string(my_ip);
+DECLARE_string(dos_root_path);
+DECLARE_string(master_lock_path);
+DECLARE_string(master_port);
+DECLARE_string(master_endpoint);
+
 namespace dos {
 
 MasterImpl::MasterImpl():node_manager_(NULL),
@@ -7,7 +18,9 @@ MasterImpl::MasterImpl():node_manager_(NULL),
   pod_manager_(NULL),
   node_opqueue_(NULL),
   pod_opqueue_(NULL),
-  job_opqueue_(NULL){
+  job_opqueue_(NULL),
+  master_lock_(NULL),
+  ins_(NULL){
   node_opqueue_ = new FixedBlockingQueue<NodeStatus*>(2 * 10240, "node statue queue");
   pod_opqueue_ = new FixedBlockingQueue<PodOperation*>(2 * 10240, "pod operation queue");
   job_opqueue_ = new FixedBlockingQueue<JobOperation*>(2 * 10240, "job operation queue");
@@ -16,13 +29,34 @@ MasterImpl::MasterImpl():node_manager_(NULL),
                                 job_opqueue_,
                                 node_opqueue_);
   job_manager_ = new JobManager(job_opqueue_);
+  ins_ = new InsSDK(FLAGS_ins_servers);
+  master_lock_ = new InsMutex(FLAGS_dos_root_path + FLAGS_master_lock_path, ins_);
 }
 
 MasterImpl::~MasterImpl() {
   //TODO make a clean
+  delete master_lock_;
+  delete ins_;
 }
 
 void MasterImpl::Start() {
+  LOG(INFO, "start master ......, waiting to get master lock");
+  bool get_lock_ok = master_lock_->Lock();
+  if (!get_lock_ok) {
+    LOG(WARNING, "get master lock with some error");
+    exit(1);
+  }
+  LOG(INFO, "get master lock successfully, I am the master");
+  ::galaxy::ins::sdk::SDKError err;
+  std::string master_endpoint = FLAGS_my_ip + ":" +FLAGS_master_port;
+  std::string master_key = FLAGS_dos_root_path + FLAGS_master_endpoint;
+  LOG(INFO, "set master addr %s with value %s", master_key.c_str(), 
+      master_endpoint.c_str());
+  bool put_ok = ins_->Put(master_key, master_endpoint, &err);
+  if (!put_ok) {
+    LOG(WARNING, "fail to set master addr");
+    exit(1);
+  }
   pod_manager_->Start();
   node_manager_->Start();
 }
