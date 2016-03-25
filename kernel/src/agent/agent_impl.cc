@@ -8,7 +8,10 @@
 #include "string_util.h"
 #include "common/resource_util.h"
 
-DECLARE_string(master_port);
+DECLARE_string(ins_servers);
+DECLARE_string(my_ip);
+DECLARE_string(dos_root_path);
+DECLARE_string(master_endpoint);
 DECLARE_string(agent_endpoint);
 DECLARE_string(ce_port);
 DECLARE_int32(agent_heart_beat_interval);
@@ -31,10 +34,14 @@ AgentImpl::AgentImpl():thread_pool_(4),
   mutex_(),
   c_set_(NULL),
   engine_(NULL),
-  resource_mgr_(NULL){
+  resource_mgr_(NULL),
+  ins_(NULL),
+  ins_watcher_(NULL){
   rpc_client_ = new RpcClient();
   c_set_ = new ContainerSet();
   resource_mgr_ = new ResourceMgr();
+  ins_ = new InsSDK(FLAGS_ins_servers);
+ 
 }
 
 AgentImpl::~AgentImpl(){}
@@ -129,7 +136,13 @@ void AgentImpl::Run(RpcController* controller,
 }
 
 bool AgentImpl::Start() {
-  ::baidu::common::MutexLock lock(&mutex_);
+  std::string master_key = FLAGS_dos_root_path + FLAGS_master_endpoint; 
+  ins_watcher_ = new InsWatcher(master_key, ins_, boost::bind(&AgentImpl::HandleMasterChange, this, _1));
+  bool watch_ok = ins_watcher_->Watch();
+  if (!watch_ok) {
+    LOG(WARNING, "fail to watch master endpoint");
+    return false;
+  }
   bool load_ok = resource_mgr_->LoadFromLocal(FLAGS_agent_cpu_rate,
                                               FLAGS_agent_memory_rate);
   if (!load_ok) {
@@ -144,7 +157,9 @@ bool AgentImpl::Start() {
         FLAGS_agent_port_range_end);
     return false;
   }
-  std::string master_addr = "127.0.0.1:" + FLAGS_master_port;
+  std::string master_addr;
+  ins_watcher_->GetValue(&master_addr);
+  LOG(INFO, "connect to master %s", master_addr.c_str());
   bool ok = rpc_client_->GetStub(master_addr, &master_);
   if (!ok) {
     LOG(WARNING, "fail to build master stub");
@@ -156,6 +171,7 @@ bool AgentImpl::Start() {
     LOG(WARNING, "fail to build engine stub");
     return false;
   }
+  hostname_ = ::baidu::common::util::GetLocalHostName();  
   thread_pool_.AddTask(boost::bind(&AgentImpl::HeartBeat, this));
   return true;
 }
@@ -216,7 +232,7 @@ void AgentImpl::WaitContainer(const std::string& c_name) {
 void AgentImpl::HeartBeat() {
   ::baidu::common::MutexLock lock(&mutex_);
   HeartBeatRequest* request = new HeartBeatRequest();
-  request->set_hostname(::baidu::common::util::GetLocalHostName());
+  request->set_hostname(FLAGS_my_ip);
   request->set_endpoint(FLAGS_agent_endpoint);
   HeartBeatResponse* response = new HeartBeatResponse();
   boost::function<void (const HeartBeatRequest*, HeartBeatResponse*, bool, int)> callback;
@@ -356,6 +372,18 @@ void AgentImpl::HeartBeatCallback(const HeartBeatRequest* request,
       boost::bind(&AgentImpl::HeartBeat, this));
   delete request;
   delete response;
+}
+
+void AgentImpl::HandleMasterChange(const std::string& master_endpoint) {
+  ::baidu::common::MutexLock lock(&mutex_);
+  if (master_ != NULL) {
+    delete master_;
+  }
+  LOG(INFO, "master endpoint changed , connect to master %s", master_endpoint.c_str());
+  bool ok = rpc_client_->GetStub(master_endpoint, &master_);
+  if (!ok) {
+    LOG(WARNING, "fail to build master stub");
+  }
 }
 
 } //end of dos

@@ -12,45 +12,50 @@ using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
 using ::baidu::common::FATAL;
 
+class InsWatcher;
+
 typedef boost::function<void (const std::string& value)> WatchHandle;
 
-static void HandleChange(const ::galaxy::ins::sdk::WatchParam& param,
-                         ::galaxy::ins::sdk::SDKError /*error*/) {
-  InsWatcher* watcher = static_cast<InsWatcher*>(param.context);
-  bool ok = watcher->NewWatch();
-  if (!ok) {
-    LOG(WARNING, "fail to do next watch");
-    abort();
-  }
-  return ok;
-}
-
+// nexus path watcher
 class InsWatcher {
 
 public:
   InsWatcher(const std::string& path,
-             const std::string& ins_servers,
-             WatchHandle handle):handle_(handle),path_(path_), 
-             ins_servers_(ins_servers),
-             ins_(NULL),
+             InsSDK* ins,
+             WatchHandle handle):path_(path),
+             ins_(ins),
+             handle_(handle),
              value_(){}
   ~InsWatcher() {}
-  bool Init() { 
-    ins_ = new InsSDK(ins_servers_);
-    return true;
+
+  bool Watch() { 
+    if (ins_ == NULL) {
+      return false;
+    }
+    return NewWatch();
   }
+
+  static void HandleChange(const ::galaxy::ins::sdk::WatchParam& param,
+                         ::galaxy::ins::sdk::SDKError /*error*/) {
+    InsWatcher* watcher = static_cast<InsWatcher*>(param.context);
+    bool ok = watcher->NewWatch();
+    if (!ok) {
+      LOG(WARNING, "fail to do next watch");
+      abort();
+    }
+  } 
 
   bool NewWatch() {
     ::galaxy::ins::sdk::SDKError err;
-    bool ok = ins_->Watch(path_, &HandleChange, this, &err);
+    bool ok = ins_->Watch(path_, &InsWatcher::HandleChange, this, &err);
     if (!ok) {
-      LOG(WARNING, "fail to watch key %s", path_);
+      LOG(WARNING, "fail to watch key %s", path_.c_str());
       return false;
     }
     std::string new_value;
     bool get_ok = ins_->Get(path_, &new_value, &err);
     if (!get_ok) {
-      LOG(WARNING, "fail to get key %s", path_);
+      LOG(WARNING, "fail to get key %s", path_.c_str());
       return false;
     }
     if (new_value != value_) {
@@ -69,10 +74,9 @@ public:
   }
 
 private:
-  WatchHandle handle_;
   std::string path_;
-  std::string ins_servers_;
   InsSDK* ins_;
+  WatchHandle handle_;
   std::string value_;
 };
 

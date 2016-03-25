@@ -5,18 +5,19 @@
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/hashed_index.hpp>
-
 #include "proto/agent.pb.h"
-
 #include "agent/resource_mgr.h"
 #include "thread_pool.h"
 #include "proto/master.pb.h"
 #include "proto/engine.pb.h"
 #include "rpc/rpc_client.h"
 #include "mutex.h"
+#include "common/ins_watcher.h"
+#include "ins_sdk.h"
 
 using ::google::protobuf::RpcController;
 using ::google::protobuf::Closure;
+using ::galaxy::ins::sdk::InsSDK;
 
 namespace dos {
 
@@ -83,6 +84,7 @@ private:
   bool KillContainer(const ContainerStatus* status);
   bool RunContainer(const ContainerStatus* status);
   bool SyncContainerStat(ContainerStatus* status);
+  void HandleMasterChange(const std::string& endpoint);
 private:
   ::baidu::common::ThreadPool thread_pool_;
   Master_Stub* master_;
@@ -91,6 +93,9 @@ private:
   ContainerSet* c_set_;
   Engine_Stub* engine_;
   ResourceMgr* resource_mgr_;
+  InsSDK* ins_;
+  InsWatcher* ins_watcher_;
+  std::string hostname_;
 };
 
 }// end of dos

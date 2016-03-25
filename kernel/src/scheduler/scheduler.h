@@ -8,9 +8,12 @@
 #include "proto/master.pb.h"
 #include "thread_pool.h"
 #include "mutex.h"
+#include "ins_sdk.h"
+#include "common/ins_watcher.h"
 
 namespace dos {
 
+using ::galaxy::ins::sdk::InsSDK;
 typedef boost::function<double (const AgentOverview&)> ScoreFunc;
 
 enum SchedAction {
@@ -53,7 +56,7 @@ struct SchedCell {
 class Scheduler {
 
 public:
-  Scheduler(const std::string& master_addr);
+  Scheduler();
   ~Scheduler();
   bool Start();
 private:
@@ -76,6 +79,8 @@ private:
   }
   void ProcessScaleUpPropose(SchedCell cell);
 private:
+  void HandleMasterChange(const std::string& master_endpoint);
+private:
   RpcClient* rpc_client_;
   Master_Stub* master_;
   std::string master_addr_;
@@ -83,6 +88,8 @@ private:
   ::baidu::common::Mutex mutex_;
   // endpoint AgentOverview pair 
   boost::unordered_map<std::string, AgentOverview*>* agents_;
+  InsSDK* ins_;
+  InsWatcher* ins_watcher_;
 };
 
 } //namespace dos

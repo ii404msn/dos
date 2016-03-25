@@ -23,3 +23,4 @@ do
           rm -rf work_dir/$dir 
    fi
 done
+rm *.log

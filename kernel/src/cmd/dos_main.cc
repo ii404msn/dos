@@ -143,8 +143,7 @@ std::string PrettyTime(const int64_t time) {
 }
 
 void StartScheduler() {
-  std::string master_endpoint = "127.0.0.1:" + FLAGS_master_port;
-  ::dos::Scheduler* scheduler = new ::dos::Scheduler(master_endpoint);
+  ::dos::Scheduler* scheduler = new ::dos::Scheduler();
   bool ok = scheduler->Start();
   if (!ok) {
     LOG(WARNING, "fail to start scheduler");

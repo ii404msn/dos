@@ -6,6 +6,10 @@
 #include "timer.h"
 #include "common/resource_util.h"
 
+DECLARE_string(ins_servers);
+DECLARE_string(dos_root_path);
+DECLARE_string(master_endpoint);
+
 DECLARE_int32(scheduler_sync_agent_info_interval);
 DECLARE_int32(scheduler_feasibility_factor);
 DECLARE_int32(scheduler_max_pod_count);
@@ -28,16 +32,27 @@ static bool AgentScoreAsc(const ProposeCell& left, const ProposeCell& right) {
   return left.score > right.score;
 }
 
-Scheduler::Scheduler(const std::string& master_addr):rpc_client_(NULL),
-  master_(NULL), master_addr_(master_addr), pool_(5),
-  mutex_(), agents_(NULL) {
+Scheduler::Scheduler():rpc_client_(NULL),
+  master_(NULL), pool_(5),
+  mutex_(), agents_(NULL),
+  ins_(NULL), ins_watcher_(NULL){
   rpc_client_ = new RpcClient();
   agents_ = new boost::unordered_map<std::string, AgentOverview*>();
+  ins_ = new InsSDK(FLAGS_ins_servers);
 }
 
 Scheduler::~Scheduler() {}
 
 bool Scheduler::Start() {
+  std::string master_key = FLAGS_dos_root_path + FLAGS_master_endpoint; 
+  ins_watcher_ = new InsWatcher(master_key, ins_, boost::bind(&Scheduler::HandleMasterChange, this, _1));
+  bool watch_ok = ins_watcher_->Watch();
+  if (!watch_ok) {
+    LOG(WARNING, "fail to watch master endpoint");
+    return false;
+  }
+  ins_watcher_->GetValue(&master_addr_);
+  LOG(INFO, "connect to master %s", master_addr_.c_str());
   bool get_ok = rpc_client_->GetStub(master_addr_, &master_);
   if (!get_ok) {
     return false;
@@ -214,6 +229,19 @@ void Scheduler::ProcessScaleUpPropose(SchedCell cell) {
     }else { 
       LOG(WARNING, "fail to propose job %s ", cell.job_name.c_str());
     }
+  }
+}
+
+void Scheduler::HandleMasterChange(const std::string& master_endpoint) {
+  ::baidu::common::MutexLock lock(&mutex_);
+  if (master_ != NULL) {
+    delete master_;
+  }
+  master_addr_ = master_endpoint;
+  LOG(INFO, "master endpoint changed , connect to master %s", master_endpoint.c_str());
+  bool ok = rpc_client_->GetStub(master_endpoint, &master_);
+  if (!ok) {
+    LOG(WARNING, "fail to build master stub");
   }
 }
 

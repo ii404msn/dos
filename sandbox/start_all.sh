@@ -16,7 +16,9 @@ sleep 5
 
 nohup ./engine --flagfile=dos.flags > engine.log 2>&1 &
 sleep 1
-nohup ./master --flagfile=dos.flags > master.log 2>&1 &
+nohup ./master --flagfile=dos.flags --master_port=9527 > master9527.log 2>&1 &
+nohup ./master --flagfile=dos.flags --master_port=9528 > master9528.log 2>&1 &
+nohup ./master --flagfile=dos.flags --master_port=9529 > master9529.log 2>&1 &
 sleep 1
 nohup ./scheduler --flagfile=dos.flags > scheduler.log 2>&1 &
 sleep 1
