@@ -119,9 +119,13 @@ void Scheduler::GetScaleUpPods() {
   LOG(INFO, "get scale up pods from %s", master_addr_.c_str());
   GetScaleUpPodRequest request;
   GetScaleUpPodResponse response;
-  bool ok = rpc_client_->SendRequest(master_, &Master_Stub::GetScaleUpPod,
+  bool rpc_ok = false;
+  {
+    ::baidu::common::MutexLock lock(&mutex_);
+    rpc_ok = rpc_client_->SendRequest(master_, &Master_Stub::GetScaleUpPod,
                                      &request, &response, 5, 1);
-  if (!ok || response.status() != kRpcOk) {
+  }
+   if (!rpc_ok || response.status() != kRpcOk) {
     LOG(WARNING, "fail to get scale up pods");
     pool_.DelayTask(1000, boost::bind(&Scheduler::GetScaleUpPods, this));
   } else {
