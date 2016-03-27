@@ -14,7 +14,7 @@ namespace dos {
 
 class Oc {
 public:
-  Oc(const std::string& oc_path, 
+  Oc(const std::string& oc_path,
      const std::string& runtime_config);
   ~Oc();
   bool Init();
@@ -22,12 +22,12 @@ private:
   // init default mount like proc sys devices
   bool LoadRuntime();
   bool DoMount(const std::string& destination,
-             const std::string& type);
+               const std::string& type);
   bool DoMknod(const std::string& rootfs);
 private:
   std::string oc_path_;
   std::string runtime_config_;
-  // type mount pair 
+  // type mount pair
   std::map<std::string, Mount* > mounts_;
   // path device pair
   std::map<std::string, Device* > devices_;
@@ -36,4 +36,3 @@ private:
 
 }
 #endif
-

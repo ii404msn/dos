@@ -14,6 +14,7 @@
 #include <boost/bind.hpp>
 
 DECLARE_int32(ce_initd_process_wait_interval);
+
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
 using ::baidu::common::DEBUG;
@@ -46,7 +47,7 @@ void InitdImpl::Fork(RpcController*,
   bool ok = Launch(request->process());
   if (!ok) {
     response->set_status(kRpcError);
-  }else { 
+  }else {
     response->set_status(kRpcOk);
   }
   done->Run();
@@ -100,7 +101,7 @@ void InitdImpl::CheckStatus(const std::string& name) {
   if (p.running()) {
     workers_->DelayTask(FLAGS_ce_initd_process_wait_interval,
                   boost::bind(&InitdImpl::CheckStatus, this, name));
-  }else { 
+  }else {
     LOG(INFO, "task with name %s is dead", name.c_str());
   }
 }
@@ -143,7 +144,7 @@ void InitdImpl::Kill(RpcController* controller,
       LOG(INFO, "kill task with name %s successfully", name.c_str());
       will_be_removed.insert(name);
       continue;
-    } 
+    }
     LOG(WARNING, "kill task with name %s fails", name.c_str());
   }
   response->set_status(kRpcOk);

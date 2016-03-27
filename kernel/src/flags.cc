@@ -18,10 +18,6 @@ DEFINE_double(agent_memory_rate, 0.7, "the memory rate for sharing agent memory"
 DEFINE_int32(agent_port_range_start, 4000, "the port start range for agent");
 DEFINE_int32(agent_port_range_end, 6000, "the port end range for agent");
 DEFINE_int32(agent_sync_container_stat_interval, 1000, "the interval for agent sync container stat");
-DEFINE_string(agent_cgroup_root, "/cgroups", "the root path of cgroup");
-// enable isolator
-DEFINE_string(agent_isolators, "cpu,memory,io", "the isolators that are enabled");
-
 DEFINE_int32(scheduler_sync_agent_info_interval, 2000, "the interval of scheduler sync agent info from master");
 DEFINE_int32(scheduler_feasibility_factor, 3, "the factor of scheduler choosing feasibile agent count");
 DEFINE_int32(scheduler_max_pod_count, 20, "the max pod count on agent");
@@ -30,6 +26,10 @@ DEFINE_double(scheduler_score_pod_factor, 10.0, "the pod factor for scoring agen
 DEFINE_double(scheduler_score_cpu_factor, 10.0, "the cpu factor for scoring agent");
 DEFINE_double(scheduler_score_memory_factor, 10.0, "the memory factor for scoring agent");
 
+
+DEFINE_string(ce_cgroup_root, "/cgroups", "the root path of cgroup");
+// enable isolator
+DEFINE_string(ce_isolators, "cpu,memory,io", "the isolators that are enabled");
 DEFINE_string(ce_process_default_user, "dos", "launch process with default user");
 DEFINE_string(ce_port, "7676", "dos container engine listen port");
 DEFINE_string(ce_initd_port, "9527", "initd listen port");

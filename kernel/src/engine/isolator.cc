@@ -30,7 +30,7 @@ bool CgroupBase::Init() {
     return false;
   }
   LOG(DEBUG, "create cgroup path %s successfully", path_.c_str());
-  return false;
+  return true;
 }
 
 bool CgroupBase::Attach(int32_t pid) {
