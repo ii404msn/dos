@@ -29,4 +29,9 @@ cp -rf ../dos /bin/dsh
 
 sh start_all.sh
 
+sleep 5
+../dos ls container 
+../dos add job -f job.yml
+sleep 2
+../dos ls container
 
