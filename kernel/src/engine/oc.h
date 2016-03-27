@@ -22,7 +22,7 @@ private:
   // init default mount like proc sys devices
   bool LoadRuntime();
   bool DoMount(const std::string& destination,
-             const std::string& type);
+               const std::string& type);
   bool DoMknod(const std::string& rootfs);
 private:
   std::string oc_path_;

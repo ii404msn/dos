@@ -149,6 +149,10 @@ private:
   std::string CurrentDatetimeStr();
 
   bool DoStartProcess(const std::string& name, ContainerInfo* info);
+
+  // generate initd flags, the initd must chdir to work_dir
+  bool BuildInitdFlags(const std::string& work_dir,
+                       ContainerInfo* info);
 private:
   ::baidu::common::Mutex mutex_;
   typedef std::map<std::string, ContainerInfo*> Containers;

@@ -94,7 +94,14 @@ bool GetMasterAddr(std::string* master_addr) {
   std::string master_key = FLAGS_dos_root_path + FLAGS_master_endpoint; 
   InsSDK ins(FLAGS_ins_servers);
   ::galaxy::ins::sdk::SDKError err;
-  return ins.Get(master_key, master_addr, &err);
+  bool ok = ins.Get(master_key, master_addr, &err);
+  if (!ok) {
+    fprintf(stderr, "fail to get master addr for %s with key %s using nexus %s \n",
+        ::galaxy::ins::sdk::InsSDK::StatusToString(err).c_str(), master_key.c_str(),
+        FLAGS_ins_servers.c_str());
+    return false;
+  }
+  return true;
 }
 
 int ReadableStringToInt(const std::string& input, int64_t* output) {
@@ -574,11 +581,11 @@ int main(int argc, char * args[]) {
   daemon_map.insert(std::make_pair("scheduler", boost::bind(&StartScheduler)));
   daemon_map.insert(std::make_pair("doslet", boost::bind(&StartAgent)));
   daemon_map.insert(std::make_pair("dsh", boost::bind(&StartDsh)));
-  ::google::ParseCommandLineFlags(&argc, &args, true);
   std::map<std::string, Handle>::iterator h_it = daemon_map.begin();
   bool find_daemon = false;
   for (; h_it != daemon_map.end(); ++h_it) {
     if (EndWiths(bin, h_it->first)) {
+      ::google::ParseCommandLineFlags(&argc, &args, true);
       fprintf(stdout, "start daemon %s\n", h_it->first.c_str());
       h_it->second();
       find_daemon = true;
@@ -588,6 +595,7 @@ int main(int argc, char * args[]) {
   if (find_daemon) {
     return 0;
   }
+  ::google::ParseCommandLineFlags(&argc, &args, true);
   if (argc < 3) {
     fprintf(stderr,"%s", kDosCeUsage.c_str());
     return -1;

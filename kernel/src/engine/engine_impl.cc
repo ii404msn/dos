@@ -4,6 +4,8 @@
 #include <sched.h>
 #include <time.h>
 #include <sys/wait.h>
+#include <iostream>
+#include <fstream>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/lexical_cast.hpp>
 #include <gflags/gflags.h>
@@ -57,14 +59,14 @@ EngineImpl::~EngineImpl() {}
 
 bool EngineImpl::BuildCpuIsolator(ContainerInfo* info) {
   mutex_.AssertHeld();
-  LOG(INFO, "build cpu isolator for container %s", info->status().name());
-  std::string cpu_path = FLAGS_ce_cgroup_root + "/cpu/" + info->status().name();
-  std::string cpu_acct_path = FLAGS_ce_cgroup_root + "/cpuacct/" + info->status().name();
+  LOG(INFO, "build cpu isolator for container %s", info->status.name().c_str());
+  std::string cpu_path = FLAGS_ce_cgroup_root + "/cpu/" + info->status.name();
+  std::string cpu_acct_path = FLAGS_ce_cgroup_root + "/cpuacct/" + info->status.name();
   info->cpu_isolator = new CpuIsolator(cpu_path, 
                                        cpu_acct_path);
   bool init_ok = info->cpu_isolator->Init();
   if (!init_ok) {
-    LOG(WARNING, "fail to build cpu isolator for container %s", info->status().name().c_str());
+    LOG(WARNING, "fail to build cpu isolator for container %s", info->status.name().c_str());
     return false;
   }
   return true;
@@ -99,9 +101,9 @@ bool EngineImpl::Init() {
         LOG(INFO, "start system container %s successfully", name.c_str());
         return true;
       }
+      LOG(WARNING, "wait to system container %s to be running current state is %s ",
+          name.c_str(), ContainerState_Name(it->second->status.state()).c_str());
     }
-    LOG(WARNING, "wait to system container %s to be running ",
-          name.c_str());
     sleep(2);
   }
   return false;
@@ -127,6 +129,12 @@ void EngineImpl::RunContainer(RpcController* controller,
   info->status.set_health_state(kUnCalculated);
   info->status.set_state(kContainerPending);
   info->status.mutable_spec()->CopyFrom(request->container());
+  if (!BuildCpuIsolator(info)) {
+    LOG(WARNING, "fail to build cpu isolator for container %s", info->status.name().c_str());
+    response->set_status(kRpcError);
+    done->Run();
+    return;
+  }
   containers_->insert(std::make_pair(request->name(), info));
   response->set_status(kRpcOk);
   thread_pool_->AddTask(boost::bind(&EngineImpl::StartContainerFSM, this, request->name())); 
@@ -419,23 +427,23 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
   do {
     // boot initd
     if (pre_state == kContainerPulling) {
-      int32_t port = ports_->front();
-      ports_->pop();
-      LOG(INFO, "boot container %s with type %s initd in work dir %s with port %d", name.c_str(),
-          ContainerType_Name(info->status.spec().type()).c_str(),
-          info->work_dir.c_str(), port);
-      info->initd_endpoint = "127.0.0.1:" + boost::lexical_cast<std::string>(port);
       Process initd;
       initd.set_cwd(info->work_dir);
       initd.set_interceptor(FLAGS_ce_bin_path);
       initd.add_args("initd");
       if (info->status.spec().type() == kSystem) {
-        initd.add_args("--ce_enable_ns=false");
       } else {
-        initd.add_args("--ce_initd_conf_path=./runtime.json");
         initd.set_hostname(name);
       }
-      initd.add_args("--ce_initd_port=" + boost::lexical_cast<std::string>(port));
+      bool build_ok = BuildInitdFlags(info->work_dir, info);
+      if (!build_ok) {
+        target_state = kContainerError;
+        exec_task_interval = 0;
+        AppendLog(kContainerBooting, kContainerError, "fail to generate initd flags",
+            info);
+        break;
+      }
+      initd.add_args("--flagfile=initd.flags");
       initd.mutable_user()->set_name("root");
       initd.set_terminal(false);
       // container name used as hostname
@@ -875,6 +883,32 @@ std::string EngineImpl::CurrentDatetimeStr() {
   strftime(buffer, 100, "%F %X", tmp);
   std::string ret(buffer);
   return ret;
+}
+
+bool EngineImpl::BuildInitdFlags(const std::string& work_dir,
+                                 ContainerInfo* info) {
+  mutex_.AssertHeld();
+  std::string flag_path = work_dir + "/initd.flags";
+  std::ofstream flags(flag_path.c_str(), 
+                      std::ofstream::trunc);
+  if (!flags.is_open()) {
+    LOG(WARNING, "fail to open %s ", flag_path.c_str());
+    return false;
+  }
+  int32_t port = ports_->front();
+  ports_->pop();
+  LOG(INFO, "boot container %s with type %s initd in work dir %s with port %d", info->status.name().c_str(),
+          ContainerType_Name(info->status.spec().type()).c_str(),
+          info->work_dir.c_str(), port);
+  info->initd_endpoint = "127.0.0.1:" + boost::lexical_cast<std::string>(port);
+  if (info->status.spec().type() == kSystem) {
+    flags << "--ce_enable_ns=false\n";
+  } else {
+    flags << "--ce_enable_ns=true\n";
+    flags << "--ce_initd_conf_path=./runtime.json\n";
+  }
+  flags << "--ce_initd_port=" << port;
+  return true;
 }
 
 } // namespace dos
