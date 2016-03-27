@@ -9,11 +9,15 @@
 #include <dirent.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include "logging.h"
 #include <boost/lexical_cast.hpp>
 #include <boost/bind.hpp>
 
 DECLARE_int32(ce_initd_process_wait_interval);
+DECLARE_string(ce_isolators);
+DECLARE_string(ce_initd_cgroup_root);
+DECLARE_string(ce_container_name);
 
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
@@ -22,7 +26,8 @@ using ::baidu::common::DEBUG;
 namespace dos {
 
 InitdImpl::InitdImpl():tasks_(NULL), mutex_(), workers_(NULL),
-  proc_mgr_(NULL){
+  proc_mgr_(NULL),
+  cpu_isolator_(NULL){
   tasks_ = new std::map<std::string, Process>();
   workers_ = new ::baidu::common::ThreadPool(4);
   proc_mgr_ = new ProcessMgr();
@@ -31,6 +36,20 @@ InitdImpl::InitdImpl():tasks_(NULL), mutex_(), workers_(NULL),
 InitdImpl::~InitdImpl(){
   delete workers_;
   delete tasks_;
+}
+
+bool InitdImpl::Init() {
+  pid_t my_pid = getpid();
+  if (FLAGS_ce_isolators.find("cpu") != std::string::npos) {
+    std::string cpu_path = "/" + FLAGS_ce_initd_cgroup_root + "/cpu/" + FLAGS_ce_container_name; 
+    std::string cpu_acct = "/" + FLAGS_ce_initd_cgroup_root + "/cpuacct/" + FLAGS_ce_container_name;
+    cpu_isolator_ = new CpuIsolator(cpu_path, cpu_acct);
+    bool attach_ok = cpu_isolator_->Attach(my_pid);
+    if (!attach_ok) {
+      return false;
+    }
+  }
+  return true;
 }
 
 void InitdImpl::Fork(RpcController*,

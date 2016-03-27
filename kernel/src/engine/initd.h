@@ -11,6 +11,7 @@
 #include "mutex.h"
 #include "thread_pool.h"
 #include "engine/process_mgr.h"
+#include "engine/isolator.h"
 
 using ::google::protobuf::RpcController;
 using ::google::protobuf::Closure;
@@ -22,6 +23,7 @@ class InitdImpl : public Initd {
 public:
   InitdImpl();
   ~InitdImpl();
+  bool Init();
   void Fork(RpcController* controller,
             const ForkRequest* request,
             ForkResponse* response,
@@ -46,6 +48,7 @@ private:
   ::baidu::common::Mutex mutex_;
   ::baidu::common::ThreadPool* workers_; 
   ProcessMgr* proc_mgr_;
+  CpuIsolator* cpu_isolator_;
 };
 
 } // namespace dos

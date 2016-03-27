@@ -288,6 +288,11 @@ void StartInitd() {
   sofa::pbrpc::RpcServerOptions options;
   sofa::pbrpc::RpcServer rpc_server(options);
   dos::InitdImpl* initd = new dos::InitdImpl();
+  bool init_ok = initd->Init();
+  if (!init_ok) {
+    LOG(WARNING, "fail to init initd");
+    exit(1);
+  }
   if (!rpc_server.RegisterService(initd)) {
     LOG(WARNING, "failed to register initd service");
     exit(1);

@@ -2,6 +2,7 @@
 mkdir -p cores
 chmod a+rwx cores
 WORK_DIR=`pwd`
+sh mount_cgroup.sh
 echo "/tmp/core.%e.%p.%h.%t" > /proc/sys/kernel/core_pattern
 ulimit -c unlimited
 mkdir -p work_dir
