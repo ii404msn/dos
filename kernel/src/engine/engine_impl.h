@@ -91,7 +91,6 @@ public:
                        DeleteContainerResponse* response,
                        Closure* done);
 private:
-
   // fill the cpu isolator property, and init the 
   // isolator
   bool BuildCpuIsolator(ContainerInfo* info);
