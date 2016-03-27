@@ -906,8 +906,12 @@ bool EngineImpl::BuildInitdFlags(const std::string& work_dir,
   } else {
     flags << "--ce_enable_ns=true\n";
     flags << "--ce_initd_conf_path=./runtime.json\n";
+    flags << "--ce_cgroup_root=" << FLAGS_ce_cgroup_root << "\n";
+    flags << "--ce_isolators=" << FLAGS_ce_isolators << "\n";
+    flags << "--ce_container_name=" << info->status.name() << "\n";
   }
   flags << "--ce_initd_port=" << port;
+  flags.close();
   return true;
 }
 

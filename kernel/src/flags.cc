@@ -28,6 +28,9 @@ DEFINE_double(scheduler_score_memory_factor, 10.0, "the memory factor for scorin
 
 
 DEFINE_string(ce_cgroup_root, "/cgroups", "the root path of cgroup");
+// the name used by initd for calculate cgroup path 
+DEFINE_string(ce_container_name, "", "the name of container for booting initd");
+DEFINE_string(ce_initd_cgroup_root, "cgroups", "the root path of cgroup in initd");
 // enable isolator
 DEFINE_string(ce_isolators, "cpu,memory,io", "the isolators that are enabled");
 DEFINE_string(ce_process_default_user, "dos", "launch process with default user");

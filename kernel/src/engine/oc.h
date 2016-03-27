@@ -24,6 +24,12 @@ private:
   bool DoMount(const std::string& destination,
                const std::string& type);
   bool DoMknod(const std::string& rootfs);
+  bool DoBind(const std::string& from, 
+              const std::string& to);
+  // init custome image rootfs 
+  bool InitImageRootfs();
+  // init system cgroup path, this should be invoked before InitImageRootfs
+  bool InitCgroup();
 private:
   std::string oc_path_;
   std::string runtime_config_;

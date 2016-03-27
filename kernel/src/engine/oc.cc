@@ -20,6 +20,8 @@
 
 DECLARE_string(ce_cgroup_root);
 DECLARE_string(ce_isolators);
+DECLARE_string(ce_container_name);
+DECLARE_string(ce_initd_cgroup_root);
 
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
@@ -117,36 +119,15 @@ bool Oc::Init() {
     LOG(WARNING, "fail to chdir to %s", oc_path_.c_str());
     return false;
   }
-  bool load_ok = LoadRuntime();
-  if (!load_ok) {
-    LOG(WARNING, "fail to load runtime config");
+  bool init_cgroup_ok = InitCgroup();
+  if (!init_cgroup_ok) {
     return false;
   }
-  ::dos::Config config;
-  load_ok = ::dos::LoadConfig("config.json", &config);
-  if (!load_ok) {
-    LOG(WARNING, "fail to load config.json");
+  bool init_rootfs_ok = InitImageRootfs();
+  if (!init_rootfs_ok) {
     return false;
   }
-  std::string rootfs_path = config.root.path();
-  std::vector< ::dos::Mount>::iterator m_it = config.mounts.begin();
-  for (; m_it != config.mounts.end(); ++m_it) {
-    bool ok = DoMount(rootfs_path + m_it->path(), m_it->name());
-    if (!ok) {
-      return false;
-    }
-  }
-  LOG(INFO, "init custom mounts successully");
-  bool device_ok = DoMknod(rootfs_path);
-  if (device_ok) {
-    ok = chroot(rootfs_path.c_str());
-    if (ok !=0) {
-      LOG(WARNING, "fail to chroot to %s",rootfs_path.c_str());
-      return false;
-    }
-    LOG(INFO, "change root to %s successully", rootfs_path.c_str());
-  }
-  return device_ok;
+  return true;
 }
 
 bool Oc::DoMount(const std::string& destination,
@@ -201,6 +182,85 @@ bool Oc::DoMknod(const std::string& rootfs) {
     LOG(DEBUG, "create device %s successully", it->first.c_str());
   }
   LOG(INFO, "create devices successully");
+  return true;
+}
+
+bool Oc::InitImageRootfs() {
+  bool load_ok = LoadRuntime();
+  if (!load_ok) {
+    LOG(WARNING, "fail to load runtime config");
+    return false;
+  }
+  ::dos::Config config;
+  load_ok = ::dos::LoadConfig("config.json", &config);
+  if (!load_ok) {
+    LOG(WARNING, "fail to load config.json");
+    return false;
+  }
+  std::string rootfs_path = config.root.path();
+  std::vector< ::dos::Mount>::iterator m_it = config.mounts.begin();
+  for (; m_it != config.mounts.end(); ++m_it) {
+    bool ok = DoMount(rootfs_path + m_it->path(), m_it->name());
+    if (!ok) {
+      return false;
+    }
+  }
+  LOG(INFO, "init custom mounts successully");
+  bool device_ok = DoMknod(rootfs_path);
+  if (device_ok) {
+    int ok = chroot(rootfs_path.c_str());
+    if (ok !=0) {
+      LOG(WARNING, "fail to chroot to %s",rootfs_path.c_str());
+      return false;
+    }
+    LOG(INFO, "change root to %s successully", rootfs_path.c_str());
+  }
+  LOG(INFO, "init image rootfs successully");
+  return device_ok;
+}
+
+bool Oc::InitCgroup() {
+  if (FLAGS_ce_isolators.find("cpu") != std::string::npos) {
+    LOG(INFO, "enable cpu isolator");
+    // this is dos cgroup layout rules and asume 
+    // the current dir is initd work dir
+    std::string cpu_from = FLAGS_ce_cgroup_root + "/cpu/" + FLAGS_ce_container_name;
+    std::string cpu_to = "rootfs/" + FLAGS_ce_initd_cgroup_root + "/cpu/" + FLAGS_ce_container_name;
+    bool cpu_create_ok = MkdirRecur(cpu_to);
+    if (!cpu_create_ok) {
+      LOG(WARNING, "fail to create dir %s ", cpu_to.c_str());
+      return false;
+    }
+    bool bind_cpu_ok = DoBind(cpu_from, cpu_to);
+    if (!bind_cpu_ok) {
+      return false;
+    }
+    std::string cpu_acct_from = FLAGS_ce_cgroup_root + "/cpuacct/" + FLAGS_ce_container_name;
+    std::string cpu_acct_to = "rootfs/" + FLAGS_ce_initd_cgroup_root +  "/cpuacct/" + FLAGS_ce_container_name;
+    bool cpu_acct_create_ok = MkdirRecur(cpu_acct_to);
+    if (!cpu_acct_create_ok) {
+      LOG(WARNING, "fail to create dir %s", cpu_acct_to.c_str());
+      return false;
+    }
+    bool bind_cpu_acct_ok = DoBind(cpu_acct_from, cpu_acct_to);
+    if (!bind_cpu_acct_ok) {
+      return false;
+    }
+    return true;
+  }
+  return true;
+}
+
+bool Oc::DoBind(const std::string& from,
+                const std::string& to) {
+  int ok = ::mount(from.c_str(), to.c_str(), "", MS_BIND, "");
+  if (ok != 0) {
+    LOG(WARNING, "fail to bind folder from %s to %s", from.c_str(),
+        to.c_str());
+    return false;
+  }
+  LOG(INFO, "bind dir from %s to %s successully", from.c_str(),
+      to.c_str());
   return true;
 }
 
