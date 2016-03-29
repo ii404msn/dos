@@ -14,14 +14,19 @@ namespace dos {
 
 
 struct CpuUsage {
-  uint64_t last_user_time;
-  uint64_t last_sys_time;
+  int64_t last_user_time;
+  int64_t last_sys_time;
 
-  uint64_t current_user_time;
-  uint64_t current_sys_time;
-  CpuUsage():last_user_time(0),
-  last_sys_time(0),current_user_time(0),
-  current_sys_time(0) {}
+  int64_t current_user_time;
+  int64_t current_sys_time;
+
+  int64_t last_collect_time;
+  int64_t current_collect_time;
+  CpuUsage():last_user_time(-1),
+  last_sys_time(-1),current_user_time(-1),
+  current_sys_time(-1),
+  last_collect_time(-1),
+  current_collect_time(-1){}
 };
 
 struct ContainerUsage {
@@ -31,6 +36,7 @@ struct ContainerUsage {
   // the memory used in bytes
   uint64_t mem_rss_usage;
   uint64_t mem_cache_usage;
+
   ContainerUsage():cpu_sys_usage(0),
   cpu_user_usage(0),mem_rss_usage(0),
   mem_cache_usage(0) {}
@@ -59,15 +65,19 @@ public:
   bool GetContainerUsage(const std::string& cname, ContainerUsage* usage);
 
 private:
+  bool ReadAll(const std::string& path, 
+               std::string* content);
   void Collect();
 
   void CollectCpu(const std::string& cname,
-                  ResourceUsage* usage);
+                  ResourceUsage& usage);
 private:
   Mutex mutex_;
   ThreadPool* thread_pool_;
   std::map<std::string, ResourceUsage>* usages_;
   int32_t interval_;
+  bool enable_cpu_;
+  bool enable_mem_;
 };
 
 }
