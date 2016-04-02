@@ -5,6 +5,8 @@
 [![Circle CI](https://circleci.com/gh/imotai/dos.svg?style=svg)](https://circleci.com/gh/imotai/dos)
 [google forum](https://groups.google.com/forum/#!forum/dos_dev)
 
+## 状态
+目前dos尚处于开发阶段
 ## 构建on centos
 
 ```
