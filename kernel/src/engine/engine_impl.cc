@@ -23,6 +23,7 @@ DECLARE_int32(ce_initd_boot_check_max_times);
 DECLARE_int32(ce_initd_boot_check_interval);
 DECLARE_int32(ce_process_status_check_interval);
 DECLARE_int32(ce_container_log_max_size);
+DECLARE_int32(ce_resource_collect_interval);
 DECLARE_string(ce_cgroup_root);
 DECLARE_string(ce_isolators);
 
@@ -37,7 +38,8 @@ EngineImpl::EngineImpl(const std::string& work_dir,
   fsm_(NULL),
   rpc_client_(NULL),
   ports_(NULL),
-  user_mgr_(NULL){
+  user_mgr_(NULL),
+  collector_(NULL){
   containers_ = new Containers();
   thread_pool_ = new ::baidu::common::ThreadPool(20);
   fsm_ = new FSM();
@@ -53,6 +55,7 @@ EngineImpl::EngineImpl(const std::string& work_dir,
     ports_->push(i);
   }
   user_mgr_ = new UserMgr();
+  collector_ = new CgroupResourceCollector();
 }
 
 EngineImpl::~EngineImpl() {}
@@ -99,6 +102,8 @@ bool EngineImpl::Init() {
       Containers::iterator it = containers_->find(name);
       if (it->second->status.state() == kContainerRunning) {
         LOG(INFO, "start system container %s successfully", name.c_str());
+        collector_->SetInterval(FLAGS_ce_resource_collect_interval);
+        collector_->Start();
         return true;
       }
       LOG(WARNING, "wait to system container %s to be running current state is %s ",
@@ -155,7 +160,6 @@ void EngineImpl::ShowContainer(RpcController* controller,
   for (; it != containers_->end(); ++it) {
     if (names.size() != 0 
         && names.find(it->second->status.name()) == names.end()) {
-      LOG(DEBUG, "container %s is not in request ", it->second->status.name().c_str());
       continue;
     }
     ContainerOverview* container = response->add_containers();
@@ -501,6 +505,7 @@ void EngineImpl::HandleBootInitd(const ContainerState& pre_state,
           exec_task_interval = FLAGS_ce_initd_boot_check_interval;
         }
       } else {
+        collector_->AddTask(name);
         // initd boots successfully 
         info->status.set_boot_time(::baidu::common::timer::get_micros() - info->start_pull_time);
         AppendLog(kContainerBooting, kContainerRunning, "start initd ok", info);

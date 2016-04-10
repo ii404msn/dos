@@ -52,6 +52,7 @@ void CgroupResourceCollector::AddTask(const std::string& name) {
   if (it != usages_->end()) {
     return;
   }
+  LOG(INFO, "add collect task for container %s", name.c_str());
   ResourceUsage usage;
   usages_->insert(std::make_pair(name, usage));
 }
@@ -79,7 +80,7 @@ void CgroupResourceCollector::CollectCpu(const std::string& name,
   if (!enable_cpu_) {
     return;
   }
-  LOG(DEBUG, "start collect cpu stat for container %s", name.c_str());
+  LOG(DEBUG, "start to collect cpu stat for container %s", name.c_str());
   std::string path = FLAGS_ce_cgroup_root + "/cpuacct/" + name + "/cpuacct.stat";
   std::string content;
   bool ok = ReadAll(path, &content);

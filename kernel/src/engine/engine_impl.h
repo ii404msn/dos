@@ -13,6 +13,7 @@
 #include "rpc/rpc_client.h"
 #include "proto/initd.pb.h"
 #include "engine/isolator.h"
+#include "engine/collector.h"
 
 using ::google::protobuf::RpcController;
 using ::google::protobuf::Closure;
@@ -160,10 +161,10 @@ private:
   std::string work_dir_;
   std::string gc_dir_;
   FSM* fsm_;
-  bool fsm_interrupt_;
   RpcClient* rpc_client_;
   std::queue<int32_t>* ports_;
   UserMgr* user_mgr_;
+  CgroupResourceCollector* collector_;
 };
 
 } // namespace dos
