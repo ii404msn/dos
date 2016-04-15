@@ -11,6 +11,7 @@
 
 DECLARE_string(ce_cgroup_root);
 DECLARE_string(ce_isolators);
+DECLARE_string(ce_cgroup_root_collect_task_name);
 
 using ::baidu::common::INFO;
 using ::baidu::common::WARNING;
@@ -30,6 +31,9 @@ CgroupResourceCollector::CgroupResourceCollector():mutex_(),
   if (FLAGS_ce_isolators.find("memory") != std::string::npos) {
     enable_mem_ = true;
   }
+  // cgroup root resource collect task
+  ResourceUsage usage;
+  usages_->insert(std::make_pair(FLAGS_ce_cgroup_root_collect_task_name, usage));
 }
 
 CgroupResourceCollector::~CgroupResourceCollector() {
@@ -115,6 +119,7 @@ void CgroupResourceCollector::CollectCpu(const std::string& name,
   }
   usage.cpu_usage.last_collect_time = usage.cpu_usage.current_collect_time;
   usage.cpu_usage.current_collect_time = ::baidu::common::timer::get_micros();
+
 }
 
 bool CgroupResourceCollector::ReadAll(const std::string& path,

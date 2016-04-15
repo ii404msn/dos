@@ -339,6 +339,9 @@ message ContainerStatus {
   optional Resource lowest = 12;
   // the highest resource consume
   optional Resource highest = 13; 
+  optional double load_one_minutes = 14;
+  optional double load_five_minutes = 15;
+  optional double load_ten_minutes = 16;
 }
 
 

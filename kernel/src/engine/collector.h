@@ -20,11 +20,14 @@ struct CpuUsage {
   int64_t current_user_time;
   int64_t current_sys_time;
 
+  int64_t idle_time;
+
   int64_t last_collect_time;
   int64_t current_collect_time;
   CpuUsage():last_user_time(-1),
   last_sys_time(-1),current_user_time(-1),
   current_sys_time(-1),
+  idle_time(-1),
   last_collect_time(-1),
   current_collect_time(-1){}
 };
