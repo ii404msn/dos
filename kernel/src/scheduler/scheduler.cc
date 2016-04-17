@@ -253,7 +253,15 @@ void SchedCell::Score() {
   int64_t score_start = ::baidu::common::timer::get_micros();
   std::vector<ProposeCell>::iterator a_it = agents.begin();
   for (; a_it != agents.end(); ++a_it) {
-    a_it->score = score_func_map.find(type)->second(a_it->overview);
+    std::map<PodType, ScoreFunc>::iterator score_func_it = score_func_map.find(type);
+    if (score_func_it == score_func_map.end()) {
+      LOG(WARNING, "fail to find score func for type %s for job %s",
+          PodType_Name(type).c_str(),
+          job_name.c_str());
+      a_it->score = 0;
+      continue;
+    }
+    a_it->score = score_func_it->second(a_it->overview);
     LOG(INFO, "score agent %s with score %f", a_it->overview.endpoint().c_str(),
         a_it->score);
   }
