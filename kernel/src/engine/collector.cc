@@ -84,7 +84,11 @@ void CgroupResourceCollector::Collect() {
   std::map<std::string, ResourceUsage>::iterator it = usages_->begin();
   for (; it != usages_->end(); ++it) {
     CollectCpu(it->first, it->second);
-    LOG(DEBUG, "container %s current_sys_time %ld", it->first.c_str(), it->second.cpu_usage.current_sys_time);
+    LOG(DEBUG, "container %s current_sys_time %ld current_user_time %ld current_idle_time %ld last_idle_time %ld",
+        it->first.c_str(), it->second.cpu_usage.current_sys_time,
+        it->second.cpu_usage.current_user_time,
+        it->second.cpu_usage.current_idle_time,
+        it->second.cpu_usage.last_idle_time);
   }
   uint64_t consume = ::baidu::common::timer::get_micros() - now;
   LOG(INFO, "cgroup collector consume %ld", consume);
@@ -213,9 +217,7 @@ bool CgroupResourceCollector::GetContainerUsage(const std::string& cname,
   }
   // container stat
   int64_t used_time = rusage.cpu_usage.current_user_time - rusage.cpu_usage.last_user_time;
-  int64_t sys_time = rusage.cpu_usage.current_sys_time - rusage.cpu_usage.last_sys_time;
-  LOG(DEBUG, "container %s user time %ld sys time %ld", cname.c_str(),
-      used_time, sys_time);
+  int64_t sys_time = rusage.cpu_usage.current_sys_time - rusage.cpu_usage.last_sys_time; 
   std::map<std::string, ResourceUsage>::iterator root_it = usages_->find(FLAGS_ce_cgroup_root_collect_task_name);
   if (root_it == usages_->end()) {
     LOG(WARNING, "no root resource stat %s", FLAGS_ce_cgroup_root_collect_task_name.c_str());
@@ -226,14 +228,15 @@ bool CgroupResourceCollector::GetContainerUsage(const std::string& cname,
     LOG(WARNING, "collector is not read for root resource %s", FLAGS_ce_cgroup_root_collect_task_name.c_str());
     return true;
   }
-  int64_t total_used_time = root_usage.cpu_usage.current_user_time - rusage.cpu_usage.last_user_time;
-  int64_t total_sys_time = root_usage.cpu_usage.current_sys_time - rusage.cpu_usage.last_sys_time;
-  int64_t total_idle_time = root_usage.cpu_usage.current_idle_time - rusage.cpu_usage.last_idle_time;
+  int64_t total_used_time = root_usage.cpu_usage.current_user_time - root_usage.cpu_usage.last_user_time;
+  int64_t total_sys_time = root_usage.cpu_usage.current_sys_time - root_usage.cpu_usage.last_sys_time;
+  int64_t total_idle_time = root_usage.cpu_usage.current_idle_time - root_usage.cpu_usage.last_idle_time;
 
   int64_t total_time = total_idle_time + total_sys_time + total_used_time;
+  LOG(DEBUG, "millicores %d container %s user time %ld sys time %ld total_idle_time %ld total_sys_time %ld total_used_time %ld", cpu_millicores_, cname.c_str(),
+      used_time, sys_time, total_idle_time, total_sys_time,total_used_time);
   int64_t used_millicores = (cpu_millicores_ * used_time) / total_time;
   int64_t sys_millicores = (cpu_millicores_ * sys_time) / total_time;
-  LOG(DEBUG, "container %s user %ld sys %ld in millicores", cname.c_str(), used_millicores, sys_millicores);
   usage->cpu_sys_usage = sys_millicores;
   usage->cpu_user_usage = used_millicores;
   return true;
