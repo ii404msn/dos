@@ -32,8 +32,9 @@ message Cpu {
   // the max cpu cores
   optional uint64 limit = 1;
   optional uint64 share = 2;
-  optional uint64 used = 3;
-  optional uint64 assigned = 4;
+  optional uint64 user_used = 3;
+  optional uint64 sys_used = 4; 
+  optional uint64 assigned = 5;
 }
 
 message Memory {

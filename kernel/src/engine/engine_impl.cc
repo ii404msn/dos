@@ -168,6 +168,8 @@ void EngineImpl::ShowContainer(RpcController* controller,
     container->set_state(it->second->status.state());
     container->set_type(it->second->status.spec().type());
     container->set_boot_time(it->second->status.boot_time());
+    container->set_cpu_sys_used(it->second->status.resource().cpu().sys_used());
+    container->set_cpu_user_used(it->second->status.resource().cpu().user_used());
   }
   response->set_status(kRpcOk);
   done->Run();
@@ -698,6 +700,7 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
           LOG(DEBUG, "container %s is under running", name.c_str());
           exec_task_interval = FLAGS_ce_process_status_check_interval;
           info->status.set_state(kContainerRunning);
+          FillResourceStat(info);
         } else {
           target_state = kContainerError;
           exec_task_interval = 0;
@@ -745,6 +748,7 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
               LOG(DEBUG, "container %s is under running", name.c_str());
               exec_task_interval = FLAGS_ce_process_status_check_interval;
               info->status.set_state(kContainerRunning);
+              FillResourceStat(info);
             }else if (status.exit_code() == 0) {
               LOG(INFO, "container %s exit with 0", name.c_str());
               target_state = kContainerCompleted;
@@ -860,6 +864,7 @@ void EngineImpl::DeleteContainer(RpcController* controller,
             it->second);
   // mark fsm is interrupted
   it->second->interrupted = true;
+  collector_->RemoveTask(request->name());
   response->set_status(kRpcOk);
   done->Run();
 }
@@ -917,6 +922,18 @@ bool EngineImpl::BuildInitdFlags(const std::string& work_dir,
   }
   flags << "--ce_initd_port=" << port;
   flags.close();
+  return true;
+}
+
+bool EngineImpl::FillResourceStat(ContainerInfo* info) {
+  mutex_.AssertHeld();
+  ContainerUsage usage;
+  bool get_ok = collector_->GetContainerUsage(info->status.name(), &usage);
+  if (!get_ok) {
+    return false;
+  }
+  info->status.mutable_resource()->mutable_cpu()->set_user_used(usage.cpu_user_usage);
+  info->status.mutable_resource()->mutable_cpu()->set_sys_used(usage.cpu_sys_usage);
   return true;
 }
 

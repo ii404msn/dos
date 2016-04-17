@@ -1,6 +1,6 @@
 #include "agent/resource_mgr.h"
 
-#include "agent/proc_helper.h"
+#include "common/proc_helper.h"
 #include "logging.h"
 #include "string_util.h"
 #include "common/resource_util.h"
@@ -18,7 +18,8 @@ ResourceMgr::~ResourceMgr() {}
 bool ResourceMgr::InitCpu(uint64_t limit) {
   resource_.mutable_cpu()->set_limit(limit);
   resource_.mutable_cpu()->set_share(limit);
-  resource_.mutable_cpu()->set_used(0);
+  resource_.mutable_cpu()->set_sys_used(0);
+  resource_.mutable_cpu()->set_user_used(0);
   resource_.mutable_cpu()->set_assigned(0);
   LOG(INFO, "init cpu %ld millicores", limit);
   return true;
