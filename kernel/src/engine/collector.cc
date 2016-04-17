@@ -84,6 +84,7 @@ void CgroupResourceCollector::Collect() {
   std::map<std::string, ResourceUsage>::iterator it = usages_->begin();
   for (; it != usages_->end(); ++it) {
     CollectCpu(it->first, it->second);
+    LOG(DEBUG, "container %s current_sys_time %ld", it->first.c_str(), it->second.cpu_usage.current_sys_time);
   }
   uint64_t consume = ::baidu::common::timer::get_micros() - now;
   LOG(INFO, "cgroup collector consume %ld", consume);
@@ -199,7 +200,7 @@ bool CgroupResourceCollector::ReadAll(const std::string& path,
 bool CgroupResourceCollector::GetContainerUsage(const std::string& cname, 
                                                 ContainerUsage* usage) { 
   MutexLock lock(&mutex_);
-  std::map<std::string, ResourceUsage>::iterator it = usages_->begin();
+  std::map<std::string, ResourceUsage>::iterator it = usages_->find(cname);
   if (it == usages_->end()) {
     LOG(WARNING, "container %s does not exist in collector", cname.c_str());
     return false;
@@ -213,7 +214,8 @@ bool CgroupResourceCollector::GetContainerUsage(const std::string& cname,
   // container stat
   int64_t used_time = rusage.cpu_usage.current_user_time - rusage.cpu_usage.last_user_time;
   int64_t sys_time = rusage.cpu_usage.current_sys_time - rusage.cpu_usage.last_sys_time;
-
+  LOG(DEBUG, "container %s user time %ld sys time %ld", cname.c_str(),
+      used_time, sys_time);
   std::map<std::string, ResourceUsage>::iterator root_it = usages_->find(FLAGS_ce_cgroup_root_collect_task_name);
   if (root_it == usages_->end()) {
     LOG(WARNING, "no root resource stat %s", FLAGS_ce_cgroup_root_collect_task_name.c_str());

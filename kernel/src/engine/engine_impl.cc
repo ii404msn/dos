@@ -678,6 +678,7 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
         target_state = kContainerRunning;
       }
     } else if (pre_state == kContainerRunning) {
+      FillResourceStat(info);
       // forever reserve initd
       if (info->status.spec().reserve_time() <=0) {
         StatusRequest request;
@@ -700,7 +701,6 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
           LOG(DEBUG, "container %s is under running", name.c_str());
           exec_task_interval = FLAGS_ce_process_status_check_interval;
           info->status.set_state(kContainerRunning);
-          FillResourceStat(info);
         } else {
           target_state = kContainerError;
           exec_task_interval = 0;
@@ -748,7 +748,6 @@ void EngineImpl::HandleRunContainer(const ContainerState& pre_state,
               LOG(DEBUG, "container %s is under running", name.c_str());
               exec_task_interval = FLAGS_ce_process_status_check_interval;
               info->status.set_state(kContainerRunning);
-              FillResourceStat(info);
             }else if (status.exit_code() == 0) {
               LOG(INFO, "container %s exit with 0", name.c_str());
               target_state = kContainerCompleted;
@@ -916,10 +915,10 @@ bool EngineImpl::BuildInitdFlags(const std::string& work_dir,
   } else {
     flags << "--ce_enable_ns=true\n";
     flags << "--ce_initd_conf_path=./runtime.json\n";
-    flags << "--ce_cgroup_root=" << FLAGS_ce_cgroup_root << "\n";
-    flags << "--ce_isolators=" << FLAGS_ce_isolators << "\n";
-    flags << "--ce_container_name=" << info->status.name() << "\n";
   }
+  flags << "--ce_container_name=" << info->status.name() << "\n";
+  flags << "--ce_cgroup_root=" << FLAGS_ce_cgroup_root << "\n";
+  flags << "--ce_isolators=" << FLAGS_ce_isolators << "\n";
   flags << "--ce_initd_port=" << port;
   flags.close();
   return true;

@@ -203,6 +203,7 @@ SdkStatus DosSdkImpl::Submit(const JobDescriptor& job) {
   request.mutable_job()->set_replica(job.replica);
   request.mutable_job()->set_deploy_step_size(job.deploy_step_size);
   request.mutable_job()->set_raw(job.raw);
+  request.mutable_job()->mutable_pod()->set_type(kPodLongrun);
   for (size_t i = 0; i < job.pod.containers.size(); ++i) {
     Container* container = request.mutable_job()->mutable_pod()->add_containers();
     container->set_uri(job.pod.containers[i].uri);
