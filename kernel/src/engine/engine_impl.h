@@ -153,6 +153,7 @@ private:
   // generate initd flags, the initd must chdir to work_dir
   bool BuildInitdFlags(const std::string& work_dir,
                        ContainerInfo* info);
+  bool FillResourceStat(ContainerInfo* info);
 private:
   ::baidu::common::Mutex mutex_;
   typedef std::map<std::string, ContainerInfo*> Containers;

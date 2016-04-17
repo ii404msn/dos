@@ -1,4 +1,6 @@
 import "dos.proto";
+import "engine.proto";
+
 package dos;
 
 option cc_generic_services = true;
@@ -34,9 +36,12 @@ message GetScaleUpPodRequest {
 // Simple pod information for scaling up
 message PodOverview {
   optional string name = 1;
-  optional Resource requirement = 2;
-  optional PodType type = 3;
-  optional string job_name = 4;
+  optional PodStatus status = 2;
+  optional string job_name = 3;
+  optional string endpoint = 4;
+  repeated int32 ports = 5;
+  optional Resource requirement = 6;
+  optional PodType type = 7;
 }
 
 // get pods that need to be scheduled 
@@ -94,6 +99,8 @@ message JobOverview {
   optional string state = 7;
   optional int64 ctime = 8;
   optional int64 utime = 9;
+  repeated PodOverview pods = 10;
+  repeated ContainerOverview containers = 11;
 }
 
 message GetJobRequest {

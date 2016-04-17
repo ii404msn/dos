@@ -358,6 +358,8 @@ bool AgentImpl::SyncContainerStat(ContainerStatus* status) {
   status->set_state(overview.state());
   status->set_start_time(overview.start_time());
   status->set_boot_time(overview.boot_time());
+  status->mutable_resource()->mutable_cpu()->set_sys_used(overview.cpu_sys_used());
+  status->mutable_resource()->mutable_cpu()->set_user_used(overview.cpu_user_used());
   LOG(DEBUG, "sync container %s successfully", status->name().c_str());
   return true;
 }

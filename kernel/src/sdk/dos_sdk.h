@@ -31,6 +31,8 @@ struct CInfo {
   std::string state;
   std::string type;
   int64_t btime;
+  int64_t cpu_user_used;
+  int64_t cpu_sys_used;
 };
 
 struct CLog {

@@ -102,6 +102,8 @@ SdkStatus EngineSdkImpl::ShowAll(std::vector<CInfo>& containers) {
     info.rtime = response.containers(i).start_time();
     info.btime = response.containers(i).boot_time();
     info.type = ContainerType_Name(response.containers(i).type());
+    info.cpu_user_used = response.containers(i).cpu_user_used();
+    info.cpu_sys_used = response.containers(i).cpu_sys_used();
     containers.push_back(info);
   }
   return kSdkOk;
@@ -201,6 +203,7 @@ SdkStatus DosSdkImpl::Submit(const JobDescriptor& job) {
   request.mutable_job()->set_replica(job.replica);
   request.mutable_job()->set_deploy_step_size(job.deploy_step_size);
   request.mutable_job()->set_raw(job.raw);
+  request.mutable_job()->mutable_pod()->set_type(kPodLongrun);
   for (size_t i = 0; i < job.pod.containers.size(); ++i) {
     Container* container = request.mutable_job()->mutable_pod()->add_containers();
     container->set_uri(job.pod.containers[i].uri);

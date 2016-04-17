@@ -20,6 +20,9 @@ message ContainerOverview {
   optional ContainerState state =3;
   optional ContainerType type = 4;
   optional int64 boot_time = 5;
+  optional int64 cpu_sys_used = 6;
+  optional int64 cpu_user_used = 7;
+  optional int64 restart_count = 8;
 }
 
 message ShowContainerRequest {

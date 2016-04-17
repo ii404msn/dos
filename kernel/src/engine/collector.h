@@ -16,18 +16,18 @@ namespace dos {
 struct CpuUsage {
   int64_t last_user_time;
   int64_t last_sys_time;
-
+  int64_t last_idle_time;
   int64_t current_user_time;
   int64_t current_sys_time;
-
-  int64_t idle_time;
+  int64_t current_idle_time;
 
   int64_t last_collect_time;
   int64_t current_collect_time;
   CpuUsage():last_user_time(-1),
-  last_sys_time(-1),current_user_time(-1),
+  last_sys_time(-1),last_idle_time(-1),
+  current_user_time(-1),
   current_sys_time(-1),
-  idle_time(-1),
+  current_idle_time(-1),
   last_collect_time(-1),
   current_collect_time(-1){}
 };
@@ -55,7 +55,7 @@ class CgroupResourceCollector {
 public:
   CgroupResourceCollector();
   ~CgroupResourceCollector();
-  void Start();
+  bool Start();
   // set the interval of resource collector in microsecond
   void SetInterval(int32_t interval);
   // add task to collector , the cname is
@@ -68,12 +68,14 @@ public:
   bool GetContainerUsage(const std::string& cname, ContainerUsage* usage);
 
 private:
+  bool ParseProcStat(ResourceUsage& usage);
   bool ReadAll(const std::string& path, 
                std::string* content);
   void Collect();
 
   void CollectCpu(const std::string& cname,
                   ResourceUsage& usage);
+
 private:
   Mutex mutex_;
   ThreadPool* thread_pool_;
@@ -81,6 +83,7 @@ private:
   int32_t interval_;
   bool enable_cpu_;
   bool enable_mem_;
+  uint32_t cpu_millicores_;
 };
 
 }
