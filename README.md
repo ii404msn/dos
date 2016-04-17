@@ -33,10 +33,10 @@ start nexus
   1  image_fetcher  kSystem  kContainerRunning  3.000s  4.000s
 
 submit job successfully
-  -  name                     type     state              rtime   btime
---------------------------------------------------------------------------
-  1  0_container.0_pod.redis  kOci     kContainerPulling  -       -
-  2  image_fetcher            kSystem  kContainerRunning  7.000s  4.000s
+  -  name                     type     state              cpu(us/sys)  rtime    btime
+-----------------------------------------------------------------------------------------
+  1  0_container.0_pod.redis  kOci     kContainerRunning  0/0          9.000m   26.000s
+  2  image_fetcher            kSystem  kContainerRunning  0/0          10.750m  4.000s
 
 # 启动的进程类似一下列表
 16412 pts/0    Sl     0:01 ./ins --flagfile=ins.flag --server_id=1
