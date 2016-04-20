@@ -23,6 +23,22 @@ private:
   std::string path_;
 };
 
+// freeze all process in container
+class ContainerFreezer {
+
+public:
+  ContainerFreezer(const std::string& frozen_path);
+  ~ContainerFreezer();
+  
+  bool Init();
+  bool Attach(int32_t pid);
+  bool Freeze();
+  bool UnFreeze();
+private:
+  std::string frozen_path_;
+  CgroupBase* cg_base_;
+};
+
 // cpu isolator implemented by cgroup
 class CpuIsolator {
 
