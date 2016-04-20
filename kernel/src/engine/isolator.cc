@@ -87,6 +87,18 @@ bool CgroupBase::Destroy() {
   return false;
 }
 
+ContainerFreezer::ContainerFreezer(const std::string& frozen_path):frozen_path_(frozen_path) {
+  cg_base_ = new CgroupBase(frozen_path_);
+}
+
+ContainerFreezer::~ContainerFreezer() {
+  delete cg_base_;
+}
+
+bool ContainerFreezer::Init() {
+  return cg_base_->Init();
+}
+
 CpuIsolator::CpuIsolator(const std::string& cpu_path,
                          const std::string& cpu_acct_path):
   cpu_path_(cpu_path),
