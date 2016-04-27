@@ -63,7 +63,9 @@ EngineImpl::~EngineImpl() {}
 
 void EngineImpl::WaitInitd() {
   int status = 0;
-  ::wait(&status);
+  LOG(INFO, "start to wait children Process");
+  pid_t pid = ::wait(&status);
+  LOG(INFO, "pid %d status changes", pid);
   thread_pool_->AddTask(boost::bind(&EngineImpl::WaitInitd, this));
 }
 
@@ -118,6 +120,7 @@ bool EngineImpl::Init() {
         LOG(INFO, "start system container %s successfully", name.c_str());
         collector_->SetInterval(FLAGS_ce_resource_collect_interval);
         collector_->Start();
+        thread_pool_->AddTask(boost::bind(&EngineImpl::WaitInitd, this));
         return true;
       }
       LOG(WARNING, "wait to system container %s to be running current state is %s ",
@@ -125,7 +128,6 @@ bool EngineImpl::Init() {
     }
     sleep(2);
   }
-  thread_pool_->AddTask(boost::bind(&EngineImpl::WaitInitd, this));
   return false;
 }
 

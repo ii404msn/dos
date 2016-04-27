@@ -222,6 +222,7 @@ void AgentImpl::WaitContainer(const std::string& c_name) {
     thread_pool_.DelayTask(FLAGS_agent_sync_container_stat_interval,
                              boost::bind(&AgentImpl::WaitContainer, this, c_name));
   } else {
+    resource_mgr_->Release(c_name_it->status_->spec().requirement());
     // delete container successfully and clean container in dos agent
     delete c_name_it->status_;
     delete c_name_it->desc_;
