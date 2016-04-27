@@ -217,7 +217,7 @@ void AgentImpl::WaitContainer(const std::string& c_name) {
                                      &request, &response,
                                      5, 1);
   // delete container is pending
-  if (!ok || response.status() != kRpcNotFound) {
+  if (ok && response.containers_size() == 1) {
     LOG(INFO, "wait container %s to be deleted from engine", c_name.c_str());
     thread_pool_.DelayTask(FLAGS_agent_sync_container_stat_interval,
                              boost::bind(&AgentImpl::WaitContainer, this, c_name));

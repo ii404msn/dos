@@ -44,6 +44,8 @@ struct ContainerInfo {
   bool interrupted;
   // when cpu_isolator is NULL, it means that it's disable
   CpuIsolator* cpu_isolator;
+  // freezer
+  ContainerFreezer* freezer;
   ContainerInfo():status(),
   work_dir(), gc_dir(), initd_endpoint(),
   initd_proc(),
@@ -55,9 +57,12 @@ struct ContainerInfo {
   pid(-1),
   retry_connect_to_initd(5),
   interrupted(false),
-  cpu_isolator(NULL){}
+  cpu_isolator(NULL),
+  freezer(NULL){}
   ~ContainerInfo() {
     delete initd_stub; 
+    delete cpu_isolator;
+    delete freezer;
   }
 };
 
@@ -92,9 +97,9 @@ public:
                        DeleteContainerResponse* response,
                        Closure* done);
 private:
-  // fill the cpu isolator property, and init the 
+  // fill the  isolator property, and init the 
   // isolator
-  bool BuildCpuIsolator(ContainerInfo* info);
+  bool BuildIsolator(ContainerInfo* info);
   void StartContainerFSM(const std::string& name);
 
   // pull a image and produce a state,
@@ -154,6 +159,8 @@ private:
   bool BuildInitdFlags(const std::string& work_dir,
                        ContainerInfo* info);
   bool FillResourceStat(ContainerInfo* info);
+
+  void WaitInitd();
 private:
   ::baidu::common::Mutex mutex_;
   typedef std::map<std::string, ContainerInfo*> Containers;

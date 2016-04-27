@@ -18,8 +18,15 @@ JobManager::~JobManager() {
   delete jobs_;
 }
 
+void JobManager::CleanJob(const std::string& name) {
+  ::baidu::common::MutexLock lock(&mutex_); 
+  JobNameIndex& name_index = jobs_->get<name_tag>();
+  name_index.erase(name);
+}
+
 bool JobManager::GetJob(const std::string& name,
                         JobOverview* job) {
+  ::baidu::common::MutexLock lock(&mutex_); 
   const JobNameIndex& name_index = jobs_->get<name_tag>();
   JobNameIndex::const_iterator name_it = name_index.find(name);
   if (name_it == name_index.end()) {
