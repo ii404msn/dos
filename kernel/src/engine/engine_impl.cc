@@ -4,6 +4,7 @@
 #include <sched.h>
 #include <time.h>
 #include <sys/wait.h>
+#include <signal.h>
 #include <iostream>
 #include <fstream>
 #include <boost/algorithm/string/join.hpp>
@@ -60,16 +61,31 @@ EngineImpl::EngineImpl(const std::string& work_dir,
 
 EngineImpl::~EngineImpl() {}
 
-bool EngineImpl::BuildCpuIsolator(ContainerInfo* info) {
+void EngineImpl::WaitInitd() {
+  int status = 0;
+  LOG(INFO, "start to wait children Process");
+  pid_t pid = ::wait(&status);
+  LOG(INFO, "pid %d status changes", pid);
+  thread_pool_->AddTask(boost::bind(&EngineImpl::WaitInitd, this));
+}
+
+bool EngineImpl::BuildIsolator(ContainerInfo* info) {
   mutex_.AssertHeld();
   LOG(INFO, "build cpu isolator for container %s", info->status.name().c_str());
   std::string cpu_path = FLAGS_ce_cgroup_root + "/cpu/" + info->status.name();
   std::string cpu_acct_path = FLAGS_ce_cgroup_root + "/cpuacct/" + info->status.name();
   info->cpu_isolator = new CpuIsolator(cpu_path, 
-                                       cpu_acct_path);
+                                       cpu_acct_path); 
   bool init_ok = info->cpu_isolator->Init();
   if (!init_ok) {
     LOG(WARNING, "fail to build cpu isolator for container %s", info->status.name().c_str());
+    return false;
+  }
+  std::string freezer_path = FLAGS_ce_cgroup_root + "/freezer/" + info->status.name();
+  info->freezer = new ContainerFreezer(freezer_path);
+  bool freezer_ok = info->freezer->Init();
+  if (!freezer_ok) {
+    LOG(WARNING, "fail to init freezer for container %s", info->status.name().c_str());
     return false;
   }
   return true;
@@ -86,7 +102,7 @@ bool EngineImpl::Init() {
     info->status.set_name(name);
     info->status.set_start_time(0);
     info->status.set_state(kContainerPending);
-    if (!BuildCpuIsolator(info)) {
+    if (!BuildIsolator(info)) {
       return false;
     }
     containers_->insert(std::make_pair(name, info));
@@ -104,6 +120,7 @@ bool EngineImpl::Init() {
         LOG(INFO, "start system container %s successfully", name.c_str());
         collector_->SetInterval(FLAGS_ce_resource_collect_interval);
         collector_->Start();
+        thread_pool_->AddTask(boost::bind(&EngineImpl::WaitInitd, this));
         return true;
       }
       LOG(WARNING, "wait to system container %s to be running current state is %s ",
@@ -134,7 +151,7 @@ void EngineImpl::RunContainer(RpcController* controller,
   info->status.set_health_state(kUnCalculated);
   info->status.set_state(kContainerPending);
   info->status.mutable_spec()->CopyFrom(request->container());
-  if (!BuildCpuIsolator(info)) {
+  if (!BuildIsolator(info)) {
     LOG(WARNING, "fail to build cpu isolator for container %s", info->status.name().c_str());
     response->set_status(kRpcError);
     done->Run();
@@ -832,14 +849,44 @@ void EngineImpl::GetInitd(RpcController* controller,
 void EngineImpl::HandleDeleteContainer(const ContainerState& pre_state,
                                        const std::string& name) {
   ::baidu::common::MutexLock lock(&mutex_);
-  LOG(DEBUG, "delete container %s , the pre state is %d",
+  LOG(DEBUG, "delete container %s , the pre state is %s",
       name.c_str(), ContainerState_Name(pre_state).c_str());
   Containers::iterator it = containers_->find(name);
   if (it == containers_->end()) {
     LOG(INFO, "container with name %s has been deleted", name.c_str());
     return;
   }
-  it->second->status.set_start_time(0);
+  ContainerInfo* info = it->second;
+  info->status.set_start_time(0);
+  LOG(INFO, "start to delete container %s", info->status.name().c_str());
+  bool freeze_ok = info->freezer->Freeze();
+  if (!freeze_ok) {
+    LOG(INFO, "fail to freeze container %s", info->status.name().c_str());
+  }
+  std::set<int32_t> pids;
+  bool get_pids_ok = info->cpu_isolator->GetPids(&pids);
+  if (!get_pids_ok) {
+    LOG(WARNING, "fail to get pids from container %s", info->status.name().c_str());
+    delete info;
+    containers_->erase(name);
+  }else {
+    std::set<int32_t>::iterator pid_it = pids.begin();
+    for (; pid_it != pids.end(); ++pid_it) {
+      int32_t pid = *pid_it;
+      if (pid <= 0) {
+        continue;
+      }
+      int kill_ok = ::kill(pid, 9);
+      if (kill_ok == 0) {
+        LOG(DEBUG, "kill pid %d in container %s successfully", pid, info->status.name().c_str());
+      } else {
+        LOG(WARNING, "fail to kill pid %d in container %s", pid, info->status.name().c_str());
+      }
+    }
+    delete info;
+    containers_->erase(name);
+  }
+
 }
 
 void EngineImpl::DeleteContainer(RpcController* controller,

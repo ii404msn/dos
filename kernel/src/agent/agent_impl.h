@@ -33,7 +33,7 @@ struct ContainerIdx {
   Container* desc_;
   std::deque<PodLog>* logs_;
   ContainerIdx():name_(), pod_name_(),
-  status_(NULL), logs_(NULL){}
+  status_(NULL), desc_(NULL), logs_(NULL){}
   ~ContainerIdx(){}
 };
 

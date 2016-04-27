@@ -9,6 +9,8 @@
 #include "master/job_manager.h"
 #include "master/master_internal_types.h"
 #include "ins_sdk.h"
+#include "thread_pool.h"
+#include "mutex.h"
 
 using ::galaxy::ins::sdk::InsSDK;
 using ::google::protobuf::RpcController;
@@ -57,6 +59,8 @@ public:
                KillJobResponse* response,
                Closure* done);
 private:
+  void SchedNextGc();
+private:
   NodeManager* node_manager_;
   JobManager* job_manager_;
   PodManager* pod_manager_;
@@ -65,6 +69,9 @@ private:
   FixedBlockingQueue<JobOperation*>* job_opqueue_;
   InsMutex* master_lock_;
   InsSDK* ins_;
+  ::baidu::common::Mutex gc_mutex_;
+  std::set<std::string> job_to_gc_;
+  ::baidu::common::ThreadPool* gc_pool_;
 };
 
 }

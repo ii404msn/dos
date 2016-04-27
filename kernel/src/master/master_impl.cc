@@ -20,7 +20,10 @@ MasterImpl::MasterImpl():node_manager_(NULL),
   pod_opqueue_(NULL),
   job_opqueue_(NULL),
   master_lock_(NULL),
-  ins_(NULL){
+  ins_(NULL),
+  gc_mutex_(),
+  job_to_gc_(),
+  gc_pool_(NULL){
   node_opqueue_ = new FixedBlockingQueue<NodeStatus*>(2 * 10240, "node statue queue");
   pod_opqueue_ = new FixedBlockingQueue<PodOperation*>(2 * 10240, "pod operation queue");
   job_opqueue_ = new FixedBlockingQueue<JobOperation*>(2 * 10240, "job operation queue");
@@ -31,12 +34,36 @@ MasterImpl::MasterImpl():node_manager_(NULL),
   job_manager_ = new JobManager(job_opqueue_);
   ins_ = new InsSDK(FLAGS_ins_servers);
   master_lock_ = new InsMutex(FLAGS_dos_root_path + FLAGS_master_lock_path, ins_);
+  gc_pool_ = new ::baidu::common::ThreadPool(1);
 }
 
 MasterImpl::~MasterImpl() {
   //TODO make a clean
   delete master_lock_;
   delete ins_;
+}
+
+void MasterImpl::SchedNextGc() {
+  ::baidu::common::MutexLock lock(&gc_mutex_);
+  std::set<std::string>::iterator job_it = job_to_gc_.begin();
+  std::set<std::string> cleaned;
+  for (; job_it != job_to_gc_.end(); ++job_it) {
+    std::string name = *job_it;
+    JobStat stat;
+    bool ok = pod_manager_->GetJobStat(name, &stat);
+    if (ok && stat.running_ == 0
+        && stat.deploying_ == 0
+        && stat.pending_ == 0) {
+      LOG(INFO, "gc job %s", name.c_str());
+      job_manager_->CleanJob(name);
+      cleaned.insert(name);
+    }
+  }
+  std::set<std::string>::iterator cleaned_it = cleaned.begin();
+  for (; cleaned_it != cleaned.end(); ++cleaned_it) {
+    job_to_gc_.erase(*cleaned_it);
+  }
+  gc_pool_->DelayTask(1000, boost::bind(&MasterImpl::SchedNextGc, this));
 }
 
 void MasterImpl::Start() {
@@ -59,6 +86,7 @@ void MasterImpl::Start() {
   }
   pod_manager_->Start();
   node_manager_->Start();
+  SchedNextGc();
 }
 
 void MasterImpl::GetScaleUpPod(RpcController* controller,
@@ -151,6 +179,8 @@ void MasterImpl::KillJob(RpcController* controller,
                          Closure* done) {
   bool del_ok = job_manager_->KillJob(request->name());
   if (del_ok) {
+    ::baidu::common::MutexLock lock(&gc_mutex_);
+    job_to_gc_.insert(request->name());
     response->set_status(kRpcOk);
   } else {
     response->set_status(kRpcError);

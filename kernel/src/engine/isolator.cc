@@ -53,23 +53,24 @@ bool CgroupBase::Attach(int32_t pid) {
 
 bool CgroupBase::GetPids(std::set<int32_t>* pids) {
   std::string procs = path_ + "/cgroup.procs";
-  FILE* fd = fopen(procs.c_str(), "re");
+  FILE* fd = fopen(procs.c_str(), "r");
   if (!fd) {
     LOG(WARNING, "fail to open %s", procs.c_str());
     return false;
   }
   char buffer[1024];
   std::string content;
-  while (feof(fd)) {
+  while (1) {
     size_t read_len = fread((void*)buffer, 
                             sizeof(char),
                             1024,
                             fd);
-    if (!read_len) {
+    if (read_len <= 0) {
       break;
     }
     content.append(buffer, read_len);
   }
+  fclose(fd);
   LOG(DEBUG, "read pids from %s with content %s", procs.c_str(),
       content.c_str());
   std::vector<std::string> str_pids;
@@ -80,11 +81,47 @@ bool CgroupBase::GetPids(std::set<int32_t>* pids) {
     }
     pids->insert(boost::lexical_cast<int32_t>(str_pids[index]));
   }
-  return false;
+  return true;
 }
 
 bool CgroupBase::Destroy() {
   return false;
+}
+
+ContainerFreezer::ContainerFreezer(const std::string& frozen_path):frozen_path_(frozen_path) {
+  cg_base_ = new CgroupBase(frozen_path_);
+}
+
+ContainerFreezer::~ContainerFreezer() {
+  delete cg_base_;
+}
+
+bool ContainerFreezer::Init() {
+  return cg_base_->Init();
+}
+
+bool ContainerFreezer::Attach(int32_t pid) {
+  return cg_base_->Attach(pid);
+}
+
+bool ContainerFreezer::Freeze() {
+  std::string freezer_state = frozen_path_ + "/freezer.state";
+  FILE* fd = fopen(freezer_state.c_str(), "w");
+  int ok = fprintf(fd, "%s", "FROZEN");
+  if (ok <=0 ) {
+    return false;
+  }
+  return true;
+}
+
+bool ContainerFreezer::UnFreeze() {
+  std::string freezer_state = frozen_path_ + "/freezer.state";
+  FILE* fd = fopen(freezer_state.c_str(), "w");
+  int ok = fprintf(fd, "%s", "THAWED");
+  if (ok <=0 ) {
+    return false;
+  }
+  return true;
 }
 
 CpuIsolator::CpuIsolator(const std::string& cpu_path,

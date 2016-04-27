@@ -48,6 +48,10 @@ public:
   bool GetJob(const std::string& name,
               JobOverview* job);
   bool KillJob(const std::string& name);
+
+  // clean job from jobset, this operation just modifies
+  // master memory 
+  void CleanJob(const std::string& name);
 private:
   JobSet* jobs_;
   ::baidu::common::Mutex mutex_;
