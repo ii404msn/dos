@@ -149,13 +149,15 @@ void NodeManager::PollNodeCallback(const std::string& endpoint,
     // if version changes when bind function , ignore changes from agent
     if (e_it->status_->version() == version) {
       // TODO add more propertise
-      if (e_it->status_->resource().cpu().limit() != response->status().resource().cpu().limit() ) {
+      if (e_it->status_->resource().cpu().limit() != response->status().resource().cpu().limit()) {
+        e_it->status_->set_version(1 + e_it->status_->version());
+      }
+      if (e_it->status_->resource().cpu().assigned() != response->status().resource().cpu().assigned()) {
         e_it->status_->set_version(1 + e_it->status_->version());
       }
       e_it->status_->mutable_resource()->CopyFrom(response->status().resource());
       e_it->status_->mutable_pstatus()->CopyFrom(response->status().pstatus());
       node_status_queue_->Push(e_it->status_);
-
     }
   }
   delete request;
