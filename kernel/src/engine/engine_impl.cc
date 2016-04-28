@@ -187,6 +187,8 @@ void EngineImpl::ShowContainer(RpcController* controller,
     container->set_boot_time(it->second->status.boot_time());
     container->set_cpu_sys_used(it->second->status.resource().cpu().sys_used());
     container->set_cpu_user_used(it->second->status.resource().cpu().user_used());
+    container->set_mem_cache_used(it->second->status.resource().memory().cache_used());
+    container->set_mem_rss_used(it->second->status.resource().memory().rss_used());
   }
   response->set_status(kRpcOk);
   done->Run();

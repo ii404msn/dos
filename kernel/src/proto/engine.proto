@@ -23,6 +23,8 @@ message ContainerOverview {
   optional int64 cpu_sys_used = 6;
   optional int64 cpu_user_used = 7;
   optional int64 restart_count = 8;
+  optional int64 mem_cache_used = 9;
+  optional int64 mem_rss_used = 10;
 }
 
 message ShowContainerRequest {
