@@ -84,6 +84,7 @@ void CgroupResourceCollector::Collect() {
   std::map<std::string, ResourceUsage>::iterator it = usages_->begin();
   for (; it != usages_->end(); ++it) {
     CollectCpu(it->first, it->second);
+    CollectMemory(it->first, it->second);
     LOG(DEBUG, "container %s current_sys_time %ld current_user_time %ld current_idle_time %ld last_idle_time %ld",
         it->first.c_str(), it->second.cpu_usage.current_sys_time,
         it->second.cpu_usage.current_user_time,
@@ -140,6 +141,44 @@ void CgroupResourceCollector::CollectCpu(const std::string& name,
   }
   usage.cpu_usage.last_collect_time = usage.cpu_usage.current_collect_time;
   usage.cpu_usage.current_collect_time = ::baidu::common::timer::get_micros();
+}
+
+void CgroupResourceCollector::CollectMemory(const std::string& name,
+                                            ResourceUsage& usage) {
+  LOG(DEBUG, "start to collect memory stat for container %s", name.c_str());
+  std::string path = FLAGS_ce_cgroup_root + "/memory/" + name + "/memory.stat";
+  if (name == FLAGS_ce_cgroup_root_collect_task_name) {
+    path = FLAGS_ce_cgroup_root + "/memory/memory.stat";
+    return;
+  }
+  std::string content;
+  bool ok = ReadAll(path, &content);
+  if (!ok) {
+    return;
+  }
+  std::vector<std::string> lines;
+  boost::split(lines, content, boost::is_any_of("\n"));
+  for (size_t index = 0; index < lines.size(); ++index) {
+    if (lines[index].empty()) {
+      continue;
+    }
+    std::string& line = lines[index];
+    std::istringstream ss(line);
+    std::string name;
+    uint64_t used;
+    ss >> name >> used;
+    if (ss.fail()) {
+      LOG(WARNING, "line format err %s", line.c_str()); 
+      return;
+    }
+    if (name == "cache") {
+      usage.mem_usage.mem_cache_usage = used;
+    } else if (name == "rss") {
+      usage.mem_usage.mem_rss_usage = used;
+    } else {
+      continue;
+    }
+  }
 }
 
 // collect the node resource usage by /proc/stat
@@ -239,6 +278,8 @@ bool CgroupResourceCollector::GetContainerUsage(const std::string& cname,
   int64_t sys_millicores = (cpu_millicores_ * sys_time) / total_time;
   usage->cpu_sys_usage = sys_millicores;
   usage->cpu_user_usage = used_millicores;
+  usage->mem_rss_usage = rusage.mem_usage.mem_rss_usage;
+  usage->mem_cache_usage = rusage.mem_usage.mem_cache_usage;
   return true;
 }
 

@@ -980,6 +980,8 @@ bool EngineImpl::FillResourceStat(ContainerInfo* info) {
   }
   info->status.mutable_resource()->mutable_cpu()->set_user_used(usage.cpu_user_usage);
   info->status.mutable_resource()->mutable_cpu()->set_sys_used(usage.cpu_sys_usage);
+  info->status.mutable_resource()->mutable_memory()->set_cache_used(usage.mem_cache_usage);
+  info->status.mutable_resource()->mutable_memory()->set_rss_used(usage.mem_rss_usage);
   return true;
 }
 
