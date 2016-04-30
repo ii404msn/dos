@@ -30,6 +30,18 @@ DECLARE_string(ce_isolators);
 
 namespace dos {
 
+void ContainerInfo::AttachPid(int32_t pid) {
+  if (cpu_isolator) {
+    cpu_isolator->Attach(pid);
+  }
+  if (mem_isolator) {
+    mem_isolator->Attach(pid);
+  }
+  if (freezer) {
+    freezer->Attach(pid);
+  }
+}
+
 EngineImpl::EngineImpl(const std::string& work_dir,
                        const std::string& gc_dir):mutex_(),
   containers_(NULL),
@@ -81,6 +93,11 @@ bool EngineImpl::BuildIsolator(ContainerInfo* info) {
     LOG(WARNING, "fail to build cpu isolator for container %s", info->status.name().c_str());
     return false;
   }
+  bool assign_cpu_limit_ok = info->cpu_isolator->AssignLimit(info->status.spec().requirement().cpu().limit());
+  if (!assign_cpu_limit_ok) {
+    LOG(WARNING, "fail assign cpu limit for container %s", info->status.name().c_str());
+    return false;
+  }
   std::string freezer_path = FLAGS_ce_cgroup_root + "/freezer/" + info->status.name();
   info->freezer = new ContainerFreezer(freezer_path);
   bool freezer_ok = info->freezer->Init();
@@ -88,6 +105,19 @@ bool EngineImpl::BuildIsolator(ContainerInfo* info) {
     LOG(WARNING, "fail to init freezer for container %s", info->status.name().c_str());
     return false;
   }
+  std::string mem_path = FLAGS_ce_cgroup_root + "/memory/" + info->status.name();
+  info->mem_isolator = new MemoryIsolator(mem_path);
+  bool mem_init_ok = info->mem_isolator->Init();
+  if (!mem_init_ok) {
+    LOG(WARNING, "fail to init mem isolator for container %s", info->status.name().c_str());
+    return false;
+  }
+  bool assign_mem_ok = info->mem_isolator->AssignLimit(info->status.spec().requirement().memory().limit());
+  if (!assign_mem_ok) {
+    LOG(WARNING, "fail to assign mem for container %s", info->status.name().c_str());
+    return false;
+  }
+  info->initd_proc.AddHook(boost::bind(&ContainerInfo::AttachPid, info, _1));
   return true;
 }
 
@@ -99,6 +129,9 @@ bool EngineImpl::Init() {
     ContainerInfo* info = new ContainerInfo();
     info->status.mutable_spec()->set_type(kSystem);
     info->status.mutable_spec()->set_reserve_time(0);
+    //TODO use flag to config it
+    info->status.mutable_spec()->mutable_requirement()->mutable_cpu()->set_limit(1000);
+    info->status.mutable_spec()->mutable_requirement()->mutable_memory()->set_limit(1024 * 1024 * 1024);
     info->status.set_name(name);
     info->status.set_start_time(0);
     info->status.set_state(kContainerPending);

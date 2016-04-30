@@ -404,7 +404,7 @@ void ListContainer() {
     exit(1);
   }
   ::baidu::common::TPrinter tp(8);
-  tp.AddRow(8, "", "name", "type","state", "load(us,sys)","mem(r,c)","rtime", "btime");
+  tp.AddRow(8, "", "name", "type","state", "load(us,sys)","mem(rss,cache)","rtime", "btime");
   for (size_t i = 0; i < containers.size(); i++) {
     std::vector<std::string> vs;
     vs.push_back(baidu::common::NumToString((int32_t)i + 1));

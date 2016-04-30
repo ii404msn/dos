@@ -43,12 +43,12 @@ public:
 private:
   bool Launch(const Process& Process);
   void CheckStatus(const std::string& name);
+  void AttachPid(int32_t pid);
 private:
   std::map<std::string, Process>* tasks_;
   ::baidu::common::Mutex mutex_;
   ::baidu::common::ThreadPool* workers_; 
   ProcessMgr* proc_mgr_;
-  CpuIsolator* cpu_isolator_;
 };
 
 } // namespace dos

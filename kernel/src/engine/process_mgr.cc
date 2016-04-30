@@ -47,12 +47,16 @@ int ProcessMgr::LaunchProcess(void* args) {
   assert(0);
 }
 
-ProcessMgr::ProcessMgr():processes_(NULL){
+ProcessMgr::ProcessMgr():processes_(NULL), dsh_(NULL), hooks(){
   processes_ = new std::map<std::string, Process>();
   dsh_ = new Dsh();
 }
 
 ProcessMgr::~ProcessMgr(){}
+
+void ProcessMgr::AddHook(const BeforeExecHook& hook) {
+  hooks.push_back(hook);
+}
 
 int32_t ProcessMgr::Exec(const Process& process) {
   Process local;
@@ -100,6 +104,7 @@ int32_t ProcessMgr::Exec(const Process& process) {
     };
     ::execv("/bin/dsh", args);
   }else {
+    
     local.set_pid(pid);
     local.set_gpid(pid);
     local.set_running(true);
@@ -138,6 +143,10 @@ int32_t ProcessMgr::Clone(const Process& process, int flag) {
   if (clone_ok == -1) {
     LOG(WARNING, "fail to clone process for process %s", process.name().c_str());
     return -1;
+  }
+  std::vector<BeforeExecHook>::iterator h_it = hooks.begin();
+  for (; h_it != hooks.end(); ++h_it) {
+    (*h_it)(clone_ok);
   }
   return clone_ok;
 }

@@ -108,6 +108,7 @@ bool ContainerFreezer::Freeze() {
   std::string freezer_state = frozen_path_ + "/freezer.state";
   FILE* fd = fopen(freezer_state.c_str(), "w");
   int ok = fprintf(fd, "%s", "FROZEN");
+  fclose(fd);
   if (ok <=0 ) {
     return false;
   }
@@ -118,6 +119,35 @@ bool ContainerFreezer::UnFreeze() {
   std::string freezer_state = frozen_path_ + "/freezer.state";
   FILE* fd = fopen(freezer_state.c_str(), "w");
   int ok = fprintf(fd, "%s", "THAWED");
+  fclose(fd);
+  if (ok <=0 ) {
+    return false;
+  }
+  return true;
+}
+
+MemoryIsolator::MemoryIsolator(const std::string& mem_path):mem_path_(mem_path),
+ cg_base_(NULL){
+  cg_base_ = new CgroupBase(mem_path_); 
+}
+
+MemoryIsolator::~MemoryIsolator() {
+  delete cg_base_;
+}
+
+bool MemoryIsolator::Init() {
+  return cg_base_->Init();
+}
+
+bool MemoryIsolator::Attach(int32_t pid) {
+  return cg_base_->Attach(pid);
+}
+
+bool MemoryIsolator::AssignLimit(int64_t limit) {
+  std::string mem_limit = mem_path_ + "/memory.limit_in_bytes";
+  FILE* fd = fopen(mem_limit.c_str(), "w");
+  int ok = fprintf(fd, "%ld", limit);
+  fclose(fd);
   if (ok <=0 ) {
     return false;
   }
@@ -188,7 +218,7 @@ bool CpuIsolator::AssignLimit(int32_t limit) {
     return false;
   }
   LOG(DEBUG, "add limit %d to cgroup %s", limit, cpu_limit.c_str());
-  int ok = fprintf(fd, "%d", limit);
+  int ok = fprintf(fd, "%d", limit * 100);
   fclose(fd);
   if (ok <=0) {
     LOG(WARNING, "fail to write limit to %s", cpu_limit.c_str());

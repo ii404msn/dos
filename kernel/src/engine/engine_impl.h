@@ -46,6 +46,7 @@ struct ContainerInfo {
   CpuIsolator* cpu_isolator;
   // freezer
   ContainerFreezer* freezer;
+  MemoryIsolator* mem_isolator;
   ContainerInfo():status(),
   work_dir(), gc_dir(), initd_endpoint(),
   initd_proc(),
@@ -58,12 +59,14 @@ struct ContainerInfo {
   retry_connect_to_initd(5),
   interrupted(false),
   cpu_isolator(NULL),
-  freezer(NULL){}
+  freezer(NULL),
+  mem_isolator(NULL){}
   ~ContainerInfo() {
     delete initd_stub; 
     delete cpu_isolator;
     delete freezer;
   }
+  void AttachPid(int32_t pid); 
 };
 
 typedef boost::function<void (const ContainerState& pre_state, const std::string& name)> Handle;

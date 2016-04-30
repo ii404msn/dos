@@ -80,6 +80,12 @@ class MemoryIsolator {
 public:
   MemoryIsolator(const std::string& mem_path);
   ~MemoryIsolator();
+
+  bool Init();
+  // attach pid memory controller
+  bool Attach(int32_t pid);
+  // add limit in bytes
+  bool AssignLimit(int64_t limit);
 private:
   std::string mem_path_;
   CgroupBase* cg_base_;
