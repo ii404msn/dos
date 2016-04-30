@@ -32,6 +32,13 @@ struct CpuUsage {
   current_collect_time(-1){}
 };
 
+struct MemoryUsage {
+  int64_t mem_cache_usage;
+  int64_t mem_rss_usage;
+  MemoryUsage():mem_cache_usage(0),
+  mem_rss_usage(0){}
+};
+
 struct ContainerUsage {
   // the cpu used in millicores
   uint64_t cpu_sys_usage;
@@ -47,6 +54,7 @@ struct ContainerUsage {
 
 struct ResourceUsage {
   CpuUsage cpu_usage;
+  MemoryUsage mem_usage;
 };
 
 // cgroup resource collector 
@@ -75,7 +83,8 @@ private:
 
   void CollectCpu(const std::string& cname,
                   ResourceUsage& usage);
-
+  void CollectMemory(const std::string& cname,
+                     ResourceUsage& usage);
 private:
   Mutex mutex_;
   ThreadPool* thread_pool_;

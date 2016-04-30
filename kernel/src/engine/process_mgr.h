@@ -9,6 +9,7 @@
 #include <string>
 #include <stdint.h>
 #include <set>
+#include <boost/function.hpp>
 #include "proto/dos.pb.h"
 #include "engine/user_mgr.h"
 #include "dsh/dsh.h"
@@ -20,12 +21,16 @@ struct CloneContext {
   std::string job_desc;
 };
 
+// invoke this hook before exec
+typedef boost::function<void (int32_t pid)> BeforeExecHook;
+
 class ProcessMgr {
 
 public:
   ProcessMgr();
   ~ProcessMgr();
   // after exec a process , kill method must be invoked for free process data 
+  void AddHook(const BeforeExecHook& hook);
   int32_t Exec(const Process& process);
   int32_t Clone(const Process& process, int flag);
   bool Wait(const std::string& name, Process* process);
@@ -40,6 +45,7 @@ private:
 private:
   std::map<std::string, Process>* processes_;
   Dsh* dsh_;
+  std::vector<BeforeExecHook> hooks;
 };
 
 }

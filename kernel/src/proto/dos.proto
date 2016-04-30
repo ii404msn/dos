@@ -39,8 +39,9 @@ message Cpu {
 
 message Memory {
   optional uint64 limit = 1;
-  optional uint64 used = 2;
-  optional uint64 assigned = 3;
+  optional uint64 rss_used = 2;
+  optional uint64 cache_used = 3;
+  optional uint64 assigned = 4;
 }
 
 message Range {

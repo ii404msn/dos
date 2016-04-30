@@ -27,7 +27,8 @@ bool ResourceMgr::InitCpu(uint64_t limit) {
 
 bool ResourceMgr::InitMemory(uint64_t memory) {
   resource_.mutable_memory()->set_limit(memory);
-  resource_.mutable_memory()->set_used(0); 
+  resource_.mutable_memory()->set_cache_used(0); 
+  resource_.mutable_memory()->set_rss_used(0); 
   resource_.mutable_memory()->set_assigned(0);
   LOG(INFO, "init memory %s", ::baidu::common::HumanReadableString(memory).c_str());
   return true;

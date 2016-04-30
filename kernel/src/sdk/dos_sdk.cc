@@ -104,6 +104,8 @@ SdkStatus EngineSdkImpl::ShowAll(std::vector<CInfo>& containers) {
     info.type = ContainerType_Name(response.containers(i).type());
     info.cpu_user_used = response.containers(i).cpu_user_used();
     info.cpu_sys_used = response.containers(i).cpu_sys_used();
+    info.mem_cache_used = response.containers(i).mem_cache_used();
+    info.mem_rss_used = response.containers(i).mem_rss_used();
     containers.push_back(info);
   }
   return kSdkOk;
