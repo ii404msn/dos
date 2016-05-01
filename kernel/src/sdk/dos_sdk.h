@@ -35,6 +35,7 @@ struct CInfo {
   int64_t cpu_sys_used;
   int64_t mem_cache_used;
   int64_t mem_rss_used;
+  int64_t cpu_idle;
 };
 
 struct CLog {
