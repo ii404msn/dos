@@ -404,14 +404,15 @@ void ListContainer() {
     exit(1);
   }
   ::baidu::common::TPrinter tp(8);
-  tp.AddRow(8, "", "name", "type","state", "load(us,sys)","mem(rss,cache)","rtime", "btime");
+  tp.AddRow(8, "", "name", "type","state", "load(us,sys,idle)","mem(rss,cache)","rtime", "btime");
   for (size_t i = 0; i < containers.size(); i++) {
     std::vector<std::string> vs;
     vs.push_back(baidu::common::NumToString((int32_t)i + 1));
     vs.push_back(containers[i].name);
     vs.push_back(containers[i].type);
     vs.push_back(containers[i].state);
-    vs.push_back(::baidu::common::NumToString(containers[i].cpu_user_used) + "," + ::baidu::common::NumToString(containers[i].cpu_sys_used));
+    vs.push_back(::baidu::common::NumToString(containers[i].cpu_user_used) + "," + ::baidu::common::NumToString(containers[i].cpu_sys_used) 
+        + "," + ::baidu::common::NumToString(containers[i].cpu_idle));
     vs.push_back(::baidu::common::HumanReadableString(containers[i].mem_rss_used) + "," + ::baidu::common::HumanReadableString(containers[i].mem_cache_used));
     if (containers[i].rtime <= 1000) {
       vs.push_back("-");

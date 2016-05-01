@@ -222,6 +222,9 @@ void EngineImpl::ShowContainer(RpcController* controller,
     container->set_cpu_user_used(it->second->status.resource().cpu().user_used());
     container->set_mem_cache_used(it->second->status.resource().memory().cache_used());
     container->set_mem_rss_used(it->second->status.resource().memory().rss_used());
+    int64_t cpu_idle = it->second->status.spec().requirement().cpu().limit() - it->second->status.resource().cpu().sys_used() - \
+                       it->second->status.resource().cpu().user_used();
+    container->set_cpu_idle(cpu_idle);
   }
   response->set_status(kRpcOk);
   done->Run();
