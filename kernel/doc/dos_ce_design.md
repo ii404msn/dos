@@ -90,3 +90,6 @@ args:
 ```
 #### initd 健康状态check
 添加retry_connect_to_initd count 
+#### 进程守护
+* 定时check进程的退出码
+* 执行用户自定义命令或者check一个http url是否返回200
