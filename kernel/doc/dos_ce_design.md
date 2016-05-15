@@ -1,6 +1,10 @@
 ### dos 容器引擎设计
 
 #### feature列表
+* 支持功能降级
+  * 支持简单进程运行，不支持namespace, 不支持rootfs, 不支持隔离
+  * 支持隔离
+  * 支持namespace 和 rootfs
 * 支持opencontainer容器规范
 * 支持热升级，托管进程无感知升级
 * 支持记录特定条数托管进程状态变化日志
@@ -26,6 +30,7 @@ dos容器引擎遵守runtime.json ,config.json配置文件
                       |
                       \process 4
 ```
+
 dos_ce 后台进程与initd通过rpc通讯，不要维护进程父子关系,dos_ce后台进程能够随意重启，重启通过本地持久文件，然后找到所有的initd进程
 initd 与托管进程维持父子关系，维持父子关系的好处就是，dos容器引擎能够支持每个进程精确的运行状态，
 比如退出码，是否coredump等；initd升级流程

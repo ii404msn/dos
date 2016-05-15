@@ -174,13 +174,16 @@ message Container {
   // the image download url
   optional string uri = 4;
   optional ContainerType type = 5;
-  optional bool enable_ns = 6;
+  // when enable ns the image must include root filesystem 
+  optional bool enable_ns = 6 [ default = false];
   // when container main process exists for error
   // reserve container for debug
   // reserve_time = -1 
   optional int32 reserve_time = 7;
-  // 
   optional RestartStrategy restart_strategy = 8;
+  optional bool enable_isolator = 9 [ default = false];
+  optional string command = 10;
+  repeated string envs = 11;
 }
 
 enum PodType {
