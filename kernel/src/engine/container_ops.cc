@@ -1,4 +1,4 @@
-#include "engine/container.h"
+#include "engine/container_ops.h"
 
 #include "logging.h"
 
@@ -13,7 +13,6 @@ NoRootfsContainerOpsImpl::NoRoofsContainerOpsImpl(ThreadPool* pool,
   info_(info), trace_db_(trace_db), mutex_() {}
 
 NoRootfsContainerOpsImpl::~NoRootfsContainerOpsImpl() {
-  hook_();
 }
 
 bool NoRootfsContainerOpsImpl::Start() {
