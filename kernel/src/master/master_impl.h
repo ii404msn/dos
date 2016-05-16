@@ -15,6 +15,7 @@
 using ::galaxy::ins::sdk::InsSDK;
 using ::google::protobuf::RpcController;
 using ::google::protobuf::Closure;
+
 namespace dos {
 
 class MasterImpl : public Master {
