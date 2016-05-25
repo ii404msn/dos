@@ -23,6 +23,7 @@ PackageMgr::PackageMgr(leveldb::DB* db):db_(db),
 PackageMgr::~PackageMgr() {}
 
 bool PackageMgr::Init() {
+  MutexLock lock(&mutex_);
   if (db_ == NULL) {
     LOG(INFO, "db is null");
     return false;
