@@ -45,7 +45,7 @@ DEFINE_string(ce_image_fetcher_name, "image_fetcher", "the name of image fetcher
 DEFINE_int32(ce_image_fetch_status_check_interval, 2000, "the interval of checking download image");
 DEFINE_int32(ce_resource_collect_interval, 6000, "the interval of collecting resource");
 DEFINE_string(ce_cgroup_root_collect_task_name, "/dos", "the name of root resource collect task");
-DEFINE_string(ce_package_mgr_initd, "/packgemgr/initd", "the initd key of package manager");
+DEFINE_string(ce_package_mgr_initd, "/packagemgr/initd", "the initd key of package manager");
 DEFINE_string(ce_package_mgr_initd_port, "9999", "the initd port of package manager");
 // the max times that try to connect to initd, when reaching the times, container will change
 // it's state from kContainerBooting to kContainerError
