@@ -1,6 +1,6 @@
 #ifndef KERNEL_AGENT_CPU_BENCHMARK_H
 #define KERNEL_AGENT_CPU_BENCHMARK_H
-
+#include <stdint.h>
 namespace dos {
 
 class CpuBenchMark {

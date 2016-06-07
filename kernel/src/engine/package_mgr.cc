@@ -57,7 +57,8 @@ bool PackageMgr::CheckInitd() {
 }
 
 bool PackageMgr::LaunchInitd() {
-  MutexLock lock(&mutex_);
+  mutex_.AssertHeld();
+
 }
 
 }

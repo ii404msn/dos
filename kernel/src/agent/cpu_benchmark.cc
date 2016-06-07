@@ -11,11 +11,11 @@ CpuBenchMark::CpuBenchMark() {}
 CpuBenchMark::~CpuBenchMark() {}
 
 int64_t CpuBenchMark::Start(long count, long accuracy) {
-  int64_t now = ::baidu::common::timer::get_microes();
+  int64_t now = ::baidu::common::timer::get_micros();
   for (int32_t i = 0; i < count; i++) {
     CalcuPi(accuracy);
   }
-  int64_t consume = ::baidu::common::timer::get_microes();
+  int64_t consume = ::baidu::common::timer::get_micros() - now;
   return consume;
 }
 
@@ -30,7 +30,7 @@ void CpuBenchMark::CalcuPi(long accuracy) {
     if (i == 0) {
       last_calc = top / buttom;
     } else {
-      last_calc = last_calc * (top / buttom)
+      last_calc = last_calc * (top / buttom);
     }
     pi += last_calc;
   }

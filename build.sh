@@ -234,6 +234,8 @@ else
     export BOOST_PATH=${DEPS_PREFIX}/boost_1_57_0
     export PBRPC_PATH=${DEPS_PREFIX}/
     make -j4 ins && make -j4 install_sdk >/dev/null  && make python >/dev/null
+    cp thirdparty/leveldb/libleveldb.a ${DEPS_PREFIX}/lib/
+    cp -rf thirdparty/leveldb/include/* ${DEPS_PREFIX}/include/
     mkdir -p output/bin && cp ins output/bin
     cd -
 fi
