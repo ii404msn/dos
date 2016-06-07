@@ -310,12 +310,19 @@ enum ContainerState {
   kContainerError = 7;
 }
 
+enum ContainerLogType {
+  kLogInfo = 0;
+  kLogWarning = 1;
+  kLogError = 2;
+}
+
 message ContainerLog {
   optional string name = 1;
   optional ContainerState cfrom = 2;
   optional ContainerState cto = 3;
   optional int64 time = 4;
   optional string msg = 5;
+  optional ContainerLogType log_type = 6;
 }
 
 enum HealthState {
