@@ -13,11 +13,6 @@ using ::baidu::common::MutexLock;
 
 namespace dos {
 
-struct PackageDescriptor {
-  std::string uri;
-  ContainerType type;
-};
-
 class PackageMgr {
 
 public:
@@ -26,10 +21,10 @@ public:
 
   bool Init();
   bool CheckInitd();
-
+  bool AddTask(const PackageTask& task);
 private:
   bool LaunchInitd();
-
+  bool BuildInitdFlags(const std::string& work_dir);
 private:
   leveldb::DB* db_;
   Mutex mutex_;

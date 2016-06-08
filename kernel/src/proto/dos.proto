@@ -292,6 +292,23 @@ message NodeStatus {
   optional int32 version = 6;
 }
 
+enum PackageType {
+  kFTP = 0;
+  kHTTP = 1;
+}
+
+message PackageDescriptor {
+  optional string uri = 1;
+  optional PackageType type = 2;
+}
+
+message PackageTask {
+  optional string name = 1;
+  optional PackageDescriptor desc = 2;
+  optional bool finished = 3;
+  optional bool has_error = 4;
+}
+
 enum ContainerState {
   kContainerPending = 0;
   // pull image from image server

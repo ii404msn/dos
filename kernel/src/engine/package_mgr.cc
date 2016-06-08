@@ -7,6 +7,7 @@ using ::baidu::common::INFO;
 using ::baidu::common::WARNING:
 using ::baidu::common::DEBUG:
 
+DECLARE_string(ce_bin_path);
 DECLARE_string(ce_package_mgr_initd);
 DECLARE_string(ce_package_mgr_initd_port);
 
@@ -34,6 +35,13 @@ bool PackageMgr::Init() {
                                     &endpoint);
   if (!get_ok.ok()) {
     endpoint = "127.0.0.1:" + FLAGS_ce_package_mgr_initd_port;
+    leveldb::Status put_ok = db_->Put(leveldb::WriteOptions(), 
+                                      FLAGS_ce_package_mgr_initd,
+                                      endpoint);
+    if (!put_ok.ok()) {
+      LOG(INFO, "fail to write initd endpoint for package mgr");
+      return false;
+    }
   }
   endpoint_ = endpoint;
   LOG(INFO, "package mgr initd endpoint %s", endpoint.c_str());
@@ -59,6 +67,22 @@ bool PackageMgr::CheckInitd() {
 bool PackageMgr::LaunchInitd() {
   mutex_.AssertHeld();
 
+}
+
+bool PackageMgr::BuildInitdFlags(const std::string& work_dir) {
+  std::string flag_path = work_dir + "/initd.flags";
+  std::ofstream flags(flag_path.c_str(), 
+                      std::ofstream::trunc);
+  if (!flags.is_open()) {
+    LOG(WARNING, "fail to open %s ", flag_path.c_str());
+    return false;
+  }
+  flags << "--ce_enable_ns=false\n";
+  flags << "--ce_container_name=packagemgr\n";
+  flags << "--ce_cgroup_root=" << FLAGS_ce_cgroup_root << "\n";
+  flags << "--ce_isolators=" << FLAGS_ce_isolators << "\n";
+  flags << "--ce_initd_port=" << FLAGS_ce_package_mgr_initd_port << "\n";
+  flags.close();
 }
 
 }
